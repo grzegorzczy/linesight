@@ -1,0 +1,15 @@
+# Środowisko treningowe i eksport ONNX – laptop (Windows, Python 3.12.4)
+# GPU: RTX 3050 Ti Laptop 4 GB, sterownik 595.95 (obsługuje CUDA do 13.2)
+#
+# Instalacja (w aktywnym .venv, z folderu projektu):
+#   pip install -r training/requirements.txt
+#
+# Koła PyTorch z CUDA 12.8 leżą tylko na indeksie pytorch.org.
+# Wersja z dopiskiem +cu128 nie istnieje na PyPI, więc pip pobierze ją stąd,
+# a nie wersję CPU – kolejność instalacji przestaje mieć znaczenie.
+--extra-index-url https://download.pytorch.org/whl/cu128
+
+torch==2.11.0+cu128
+torchvision==0.26.0+cu128
+ultralytics==8.4.208
+onnx==1.23.2

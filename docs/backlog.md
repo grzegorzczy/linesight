@@ -13,17 +13,19 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E0-01 – scalenie PR etapu 0** · GitHub · 5 min · `main` zawiera README, docs, backlog
 
 ## Etap 1 – model (szac. 3-4 dni)
-- [ ] **E1-01 – scena** · stanowisko · 0,5 dnia · kamera zamocowana na sztywno, tło matowe,
-      światło od strony kamery; ręczna ekspozycja dobrana tak, że butelka nie jest prześwietlona
-      ani rozmyta w ruchu; 30 FPS
+- [x] **E1-01 – scena** · stanowisko · 0,5 dnia · kamera zamocowana na sztywno, jednolite tło
+      bez okna, światło od strony kamery; butelka ostra w ruchu i nieprześwietlona; 30 FPS
+      *(zmiana 10.11: kamera RealSense → ASUS; kryterium „ręczna ekspozycja” zastąpione „ostrość
+      w ruchu”, bo kamera ASUS ma tylko automatyczną ekspozycję – szczegóły w `etap-1-model.md`)*
 - [ ] **E1-02 ⚠ – test zgodności architektur z TensorRT 8.2** · laptop + Jetson · 0,5 dnia ·
       dla kandydatów (np. YOLOv8n, YOLO11n, YOLO26n) z wagami bazowymi: eksport ONNX na laptopie,
       `trtexec` na Jetsonie buduje silnik FP16; tabela: działa / nie działa / dlaczego; wybór architektury
 - [ ] **E1-03 – skrypt zbierania zdjęć** · Jetson · 0,5 dnia · zapis co N klatek z kamery
-      z ustawieniami ekspozycji; zdjęcia zróżnicowane (pozycje, liczba butelek, wszystkie 3 klasy)
+      z ustawieniami kamery (balans bieli 5500 K); zdjęcia zróżnicowane (pozycje, liczba butelek, wszystkie 3 klasy)
 - [ ] **E1-04 – etykietowanie** · Ultralytics Platform · 0,5-1 dnia · min. ok. 150 obiektów
       na klasę; podział train/val/test ustalony przed treningiem; eksport w formacie YOLO na laptopa
-- [ ] **E1-05 – środowisko treningowe** · laptop · 1-2 h · venv, PyTorch z CUDA widzi RTX 3050;
+- [x] **E1-05 – środowisko treningowe** · laptop · 1-2 h · venv, PyTorch z CUDA widzi RTX 3050 Ti;
+      *(zrobione wcześniej, bo E1-02 potrzebuje ultralytics do eksportu ONNX)*
       wersje zapisane w `training/requirements.txt`
 - [ ] **E1-06 – trening** · laptop · 0,5 dnia · mAP50 i mAP50-95 na zbiorze testowym,
       macierz pomyłek, przykłady błędów; batch dobrany do 4 GB VRAM

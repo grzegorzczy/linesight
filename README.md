@@ -6,14 +6,14 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **Stage 0 – setup** (in progress)
+> Status: **Stage 1 – model** (in progress)
 
 ## Architecture (target)
 
 | Device | Role |
 |---|---|
 | Jetson Nano 4 GB (JetPack 4.6.1) | camera, TensorRT engine, DeepStream pipeline, RTSP H.264, event clips, event publishing |
-| Laptop (RTX 3050 4 GB, Docker) | training (PyTorch), ONNX export, CODESYS soft-PLC, MQTT, TimescaleDB, Grafana, RAG assistant |
+| Laptop (RTX 3050 Ti Laptop 4 GB, Docker) | training (PyTorch), ONNX export, CODESYS soft-PLC, MQTT, TimescaleDB, Grafana, RAG assistant |
 | Ultralytics Platform | image labeling only |
 | GCP | model version registry, frames for retraining, optional assistant API |
 
@@ -23,8 +23,8 @@ Detection classes: `bottle`, `missing_cap`, `bottle_fallen` (jam).
 
 | # | Stage | Status |
 |---|---|---|
-| 0 | Jetson setup, camera, repository, backlog | in progress |
-| 1 | Dataset, training, ONNX → TensorRT, FP32/FP16/INT8 benchmark | – |
+| 0 | Jetson setup, camera, repository, backlog | done |
+| 1 | Dataset, training, ONNX → TensorRT, FP32/FP16/INT8 benchmark | in progress |
 | 2 | GStreamer/DeepStream pipeline, tracking, counting, RTSP, event clips | – |
 | 3 | CODESYS PackML state machine, OPC UA → MQTT → TimescaleDB, Grafana | – |
 | 4 | Stop diagnostics: rules + cycle-time anomaly detection (PyTorch) | – |
@@ -50,6 +50,7 @@ Folders are added when their first file appears.
 ## Documentation
 
 - [Stage 0 – Jetson setup, camera, memory](docs/etap-0-jetson.md)
+- [Stage 1 – scene, environment, TensorRT compatibility](docs/etap-1-model.md) (in progress)
 - [MVP backlog](docs/backlog.md)
 
 ## Not in the repository
