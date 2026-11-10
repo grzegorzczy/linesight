@@ -202,14 +202,112 @@ Odtworzenie środowiska: `pip install -r training/requirements.txt` w nowym
 `.venv`. Plik zawiera tylko pakiety instalowane ręcznie – pełny
 `pip freeze` (ok. 40 pozycji) byłby nieczytelny i zależny od Windows.
 
-## E1-02 – zgodność architektur z TensorRT 8.2 (w toku)
+## E1-02 – zgodność architektur z TensorRT 8.2
 
-Następny krok: eksport YOLOv8n, YOLO11n i YOLO26n do ONNX na laptopie,
-budowa silnika FP16 przez `trtexec` na Jetsonie, tabela wyników.
+Cel: przejść całą drogę `.pt` → ONNX → silnik TensorRT na gotowych wagach
+(COCO) trzech kandydatów, zanim zbierzemy zdjęcia i wytrenujemy model.
+
+### Eksport ONNX (laptop)
+
+Opset: dokumentacja parsera ONNX dla TensorRT 8.2 (onnx-tensorrt, gałąź
+`8.2-GA`, `docs/operators.md`): *„TensorRT 8.2 supports operators up to
+Opset 13”*. Domyślny opset nowego ultralytics jest wyższy.
+
+| Komenda (laptop, `training\e1-02`, aktywne `.venv`) | Do czego służy |
+|---|---|
+| `yolo export model=yolov8n.pt format=onnx opset=13 imgsz=640 simplify=True` | Eksport; wagi bazowe pobierają się same. To samo dla `yolo11n.pt`, `yolo26n.pt` |
+| `python -c "import onnx; ..."` (opset i kształt wyjścia) | Kontrola, czy w pliku jest opset 13 |
+| `scp yolov8n.onnx yolo11n.onnx yolo26n.onnx grzegorz@192.168.0.124:~/e1-02/` | Kopiowanie na Jetsona |
+
+Parametry: `imgsz=640` (stałe wejście 640x640 – prostokątne 640x384
+w E1-07), `simplify=True` (onnxslim upraszcza graf), bez `half` (precyzję
+ustawia TensorRT) i bez `dynamic` (stały rozmiar jest prostszy dla TRT 8.2).
+
+Wynik: trzy pliki z opsetem 13, wszystkie z wyjściem `[1, 84, 8400]`
+(4 współrzędne ramki + 80 klas COCO, 8400 kandydatów; NMS poza modelem).
+YOLO26n też wyeksportował się z głowicą wymagającą NMS, a nie w wariancie
+end-to-end (NMS-free) – ultralytics 8.4.208 podaje ten kształt już na
+starcie eksportu, bez ostrzeżeń.
+
+### Budowa silnika FP16 (Jetson)
+
+```
+/usr/src/tensorrt/bin/trtexec --onnx=yolov8n.onnx --saveEngine=yolov8n_fp16.engine \
+  --fp16 --workspace=1024 2>&1 | tee build_yolov8n.log
+grep -E "PASSED|FAILED|Throughput|GPU Compute Time: min" build_*.log
+```
+
+| Flaga | Znaczenie |
+|---|---|
+| `--fp16` | TensorRT może liczyć w 16 bitach tam, gdzie to szybsze |
+| `--workspace=1024` | 1024 MB pamięci roboczej na budowę (składnia TRT 8.2; nowsze wersje: `--memPoolSize`) |
+| `2>&1 \| tee plik.log` | Wynik na ekran i do pliku jednocześnie |
+
+Przebieg budowy w logu: lista `[GpuLayer]` (parsowanie udane, warstwy po
+łączeniu – `PWN(...)` to kilka operacji w jednym kernelu) → `Init cuBLAS`,
+`Init cuDNN` → autotuning (bez `--verbose` nic nie wypisuje przez kilka-
+kilkanaście minut) → zapis silnika → pomiar ok. 3 s → `&&&& PASSED`.
+
+Komunikat `Some tactics do not have sufficient workspace memory to run` to
+informacja (`[I]`), nie błąd: część implementacji nie zmieściła się
+w 1024 MB i została pominięta. Porównanie 1024 vs 2048 MB – w E1-08.
+
+Tryb mocy: `sudo nvpmodel -q` → **MAXN (tryb 0)**. Zegary dynamiczne
+(bez `jetson_clocks`) – wszystkie trzy modele w tych samych warunkach,
+więc porównanie między nimi jest uczciwe; do E1-08 ustalimy stałe zegary.
+
+### Wyniki (FP16, 640x640, batch 1, Jetson Nano MAXN)
+
+| Model | Silnik | Throughput | GPU Compute (średnio) | Latency (średnio) | Budowa | Plik silnika | Parametry | GFLOPs | mAP50-95 COCO* |
+|---|---|---|---|---|---|---|---|---|---|
+| YOLOv8n | PASSED | **20,7 qps** | **47,5 ms** | 48,2 ms | ok. 12 min | 13 MB | 3,2 M | 8,7 | 37,3 |
+| YOLO11n | PASSED | 19,6 qps | 50,1 ms | – | ok. 14 min | 9,4 MB | 2,6 M | 6,5 | 39,5 |
+| YOLO26n | PASSED | 20,0 qps | 49,2 ms | 49,9 ms | ok. 15 min | **9,0 MB** | **2,4 M** | **5,5** | **40,9** |
+
+\* z dokumentacji Ultralytics, nie nasz pomiar.
+
+YOLOv8n w szczegółach: kopiowanie CPU→GPU 0,49 ms, GPU→CPU 0,29 ms,
+obliczenia 47,5 ms – **98% czasu to obliczenia na GPU**. Rozrzut
+48,1–48,4 ms (stabilnie).
+
+Pojęcia:
+- **Throughput (qps)** – inferencje na sekundę; przy batch 1 ≈ maks. FPS
+  samego modelu (bez kamery, NMS, trackingu).
+- **Latency** – czas jednej inferencji z kopiowaniem danych.
+- **GPU Compute Time** – samo liczenie na GPU.
+
+### Wnioski
+
+1. **Wszystkie trzy architektury działają z TensorRT 8.2** przy opset 13.
+   Ryzyko ⚠ z backlogu zamknięte.
+2. **FLOPs ≠ czas działania.** YOLOv8n ma najwięcej obliczeń (8,7 GFLOPs),
+   a jest najszybszy; YOLO26n ma o 37% mniej i nie jest szybszy. Na GPU
+   Maxwell liczy się, jak dobrze TensorRT łączy i optymalizuje konkretne
+   warstwy – proste sploty YOLOv8 lepiej niż nowsze bloki. Różnice są małe
+   (3-5%).
+3. **ok. 20 FPS < 30 FPS kamery** przy 640x640, a to jeszcze bez NMS
+   i trackingu. Skoro 98% czasu to obliczenia, przyspiesza tylko mniej
+   obliczeń: wejście 640x384 (40% wejścia 640x640 to pasy letterboxa przy
+   kamerze 640x360), stałe zegary, INT8 (do sprawdzenia na Maxwellu),
+   w etapie 2 – inferencja co N-tą klatkę z trackingiem.
+
+### Decyzja: YOLO26n
+
+- szybkość praktycznie równa najszybszemu (20,0 vs 20,7 qps, ok. 3%);
+- najwyższa dokładność na COCO (40,9 vs 37,3 dla YOLOv8n) – ważne dla
+  małego szczegółu, jakim jest brak nakrętki;
+- najmniej parametrów i najmniejszy silnik (9,0 MB) przy 4 GB współdzielonej
+  pamięci;
+- bez DFL (warstwa z softmaxem, słabo obsługiwana przez akceleratory brzegowe);
+- wyjście `[1, 84, 8400]` jak w YOLOv8/11 – parser DeepStream (E2-03) ten sam
+  dla każdej z trzech, więc wybór nie dokłada ryzyka.
+
+Zastrzeżenie: na TensorRT 8.2 używamy wariantu z NMS, nie NMS-free.
+Alternatywa przy twardym wymogu FPS: YOLOv8n (+3% szybkości, -3,6 pkt mAP).
 
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
-- [ ] E1-02 – zgodność z TensorRT 8.2
+- [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
 - [ ] E1-03 – skrypt zbierania zdjęć
 - [ ] E1-04 – etykietowanie
 - [x] E1-05 – środowisko treningowe
