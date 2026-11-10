@@ -10,7 +10,7 @@ Szacunek MVP: 7-10 dni przy pełnym dniu pracy. Gdy poślizg – tniemy
 pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 
 ## Etap 0 – zamknięcie
-- [ ] **E0-01 – scalenie PR etapu 0** · GitHub · 5 min · `main` zawiera README, docs, backlog
+- [x] **E0-01 – scalenie PR etapu 0** · GitHub · 5 min · `main` zawiera README, docs, backlog
 
 ## Etap 1 – model (szac. 3-4 dni)
 - [ ] **E1-01 – scena** · stanowisko · 0,5 dnia · kamera zamocowana na sztywno, tło matowe,
@@ -68,9 +68,12 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
       README, krótkie nagranie działającego MVP
 
-## Decyzje do potwierdzenia
-- **Pętla treningowa PyTorch od środka:** model detekcji trenujemy lokalnie przez API Ultralytics
-  (szybciej, mniej ryzyka w MVP). Własną pętlę treningową piszesz w etapie 4 dla modelu anomalii
-  czasu cyklu – tam jest mała i w pełni zrozumiała.
+## Decyzje
+- **Trening detektora: lokalnie, biblioteka `ultralytics`** *(przyjęte 10.11.2026)*. Model detekcji
+  trenujemy na laptopie (RTX 3050) przez API Ultralytics – szybciej i mniej ryzyka w MVP.
+  Ultralytics Platform służy tylko do etykietowania. Własną pętlę treningową PyTorch piszę
+  w etapie 4 dla modelu anomalii czasu cyklu – tam jest mała i w pełni zrozumiała.
 - **Backlog w pliku, nie w GitHub Issues:** jedna osoba, jedno źródło prawdy, zero podwójnego
   utrzymania. W firmie byłby Jira lub Issues.
+- **Ściąga Word poza repozytorium:** `*.docx` w `.gitignore`. Ściąga jest kopią komend z `docs/*.md`
+  do pracy offline; źródłem prawdy są pliki Markdown (diff, przegląd w PR).
