@@ -305,10 +305,76 @@ Pojęcia:
 Zastrzeżenie: na TensorRT 8.2 używamy wariantu z NMS, nie NMS-free.
 Alternatywa przy twardym wymogu FPS: YOLOv8n (+3% szybkości, -3,6 pkt mAP).
 
+## E1-03 – zbieranie zdjęć
+
+### Skrypt `jetson/capture.py`
+
+Działa na Jetsonie (tam jest kamera), zwykłym Pythonem 3.6 z OpenCV 4.1.1
+z JetPacka – bez TensorRT. Sprawdzenie, czy OpenCV ma GStreamer:
+
+```
+python3 -c "import cv2; print(cv2.__version__); print([l.strip() for l in cv2.getBuildInformation().splitlines() if 'GStreamer' in l])"
+# 4.1.1
+# ['GStreamer:                   YES (1.14.5)']
+```
+
+| Element | Rola |
+|---|---|
+| GStreamer `tee` | Jedna kamera, dwóch odbiorców naraz: OpenCV (zapis) i koder H.264 (podgląd w VLC) |
+| `appsink drop=true max-buffers=1` | OpenCV dostaje zawsze najnowszą klatkę |
+| `set_white_balance()` | 5500 K przy każdym starcie (v4l2 nie pamięta po restarcie) |
+| rozgrzewka 2 s | automatyczna ekspozycja się stabilizuje |
+| `--interval` (domyślnie 8 s) | czas na przestawienie butelek; 1,5 s okazało się za mało |
+| `session.txt` | data, tag, ustawienia i potok – po miesiącu wiadomo, skąd jest zdjęcie |
+| `finally: cap.release()` | Ctrl+C zawsze zwalnia kamerę |
+
+Zdjęcia: `~/dataset/raw/<data>_<godzina>_<tag>/` na Jetsonie, kopia na
+laptopie w `data/raw/` (poza repozytorium – `.gitignore`).
+
+Kod trafia na Jetsona przez `git clone` / `git pull`, nie przez wklejanie
+w `nano` (wcięcia Pythona). Git na Ubuntu 18.04 to 2.17 – nie zna
+`git switch`, zamiast tego `git checkout`.
+
+Podgląd: najpierw uruchamiamy skrypt, potem ▶ w VLC. VLC czeka na dane
+RTP tylko kilka sekund i sam się zatrzymuje.
+
+### Sesje
+
+| Sesja | Zdjęć | Ustawienie |
+|---|---|---|
+| `bottle` | 40 | 1–3 butelki z nakrętkami, różne miejsca i obroty |
+| `missing_cap` | 50 | 1–2 butelki bez nakrętki (nakrętki poza kadrem) |
+| `fallen` | 50 | 1–2 leżące (oba kierunki, skos), reszta stoi |
+| `mixed` | 60 | wszystkie stany, butelki na krawędziach kadru, stykające się, zasłonięte |
+| `empty` | 15 | samo tło – negatywy bez etykiet |
+| **razem** | **215** | 9,6 MB, wieczór 10.11.2026, światło sztuczne |
+
+Do uzupełnienia w razie potrzeby po etykietowaniu: sesja przy świetle
+dziennym (automatyczna ekspozycja) i dodatkowe zdjęcia klasy z najmniejszą
+liczbą obiektów.
+
+Trzy jednakowe butelki, bez puszek i innych opakowań: linia rozlewa jeden
+produkt, a obiekt spoza klas rozmywałby zbiór.
+
+Komendy:
+
+```
+# Jetson
+cd ~/linesight && git pull
+python3 jetson/capture.py --tag bottle --count 40
+for d in ~/dataset/raw/*/; do echo "$(ls "$d"*.jpg | wc -l)  $(basename "$d")"; done
+du -sh ~/dataset/raw
+
+# laptop (bez \ na końcu ścieżki docelowej – w Windows \" psuje cudzysłów)
+scp -r grzegorz@192.168.0.124:~/dataset/raw/* "C:\Users\Grzesiek\Desktop\linesight\data\raw"
+```
+
+Zasady etykietowania: [`etykietowanie.md`](etykietowanie.md).
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
-- [ ] E1-03 – skrypt zbierania zdjęć
+- [x] E1-03 – skrypt zbierania zdjęć (215 zdjęć)
 - [ ] E1-04 – etykietowanie
 - [x] E1-05 – środowisko treningowe
 - [ ] E1-06 – trening
