@@ -50,6 +50,7 @@ Folders are added when their first file appears.
 ## Documentation
 
 - [Stage 0 – Jetson setup, camera, memory](docs/etap-0-jetson.md)
+- [MVP backlog](docs/backlog.md)
 
 ## Not in the repository
 

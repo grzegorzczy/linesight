@@ -216,6 +216,16 @@ GitHub: `github.com/grzegorzczy/linesight`
 
 Wzorzec z `!` na początku przywraca plik wykluczony wcześniejszą regułą.
 
+Problem po drodze: `git push` zwrócił 403 – Windows miał zapamiętane
+poświadczenia innego konta GitHub. Rozwiązanie:
+
+| Komenda | Do czego służy |
+|---|---|
+| `cmdkey /list \| findstr github` | Lista poświadczeń zapisanych w Windows dla GitHuba |
+| `cmdkey /delete:git:https://github.com` | Usuwa poświadczenie używane przez Gita (wpisy `gh:` należą do GitHub CLI i zostają) |
+
+Przy kolejnym `git push` Git Credential Manager prosi o logowanie przez przeglądarkę.
+
 ### Konwencje
 
 - Gałąź `main` – zawsze działający stan; zmiany tylko przez PR.
@@ -242,5 +252,5 @@ Wzorzec z `!` na początku przywraca plik wykluczony wcześniejszą regułą.
 - [x] Identyfikacja kamery i formatów RGB
 - [x] Test obrazu z kamery (30 FPS)
 - [x] Porządek na Jetsonie (swap, pamięć)
-- [ ] Struktura repozytorium i Git (pliki gotowe, czeka na push i PR)
-- [ ] Backlog MVP (etapy 1-3)
+- [x] Struktura repozytorium i Git
+- [x] Backlog MVP (etapy 1-3) – `docs/backlog.md`
