@@ -54,6 +54,10 @@ mlruns/
 *.opt
 *.~u
 
+# --- Dokumenty binarne (ściąga Word trzymana lokalnie; źródło: docs/*.md) ---
+*.docx
+~$*.docx
+
 # --- Edytory i system ---
 .vscode/
 .idea/
