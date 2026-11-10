@@ -371,11 +371,66 @@ scp -r grzegorz@192.168.0.124:~/dataset/raw/* "C:\Users\Grzesiek\Desktop\linesig
 
 Zasady etykietowania: [`etykietowanie.md`](etykietowanie.md).
 
+## E1-04 – etykietowanie (Ultralytics Platform)
+
+### Podział przed etykietowaniem
+
+`training/make_upload_zip.py` dzieli zdjęcia **warstwowo po sesjach**
+(ok. 70/20/10, ziarno 42) i pakuje je do ZIP z folderami `train/ val/
+test/` – Platform zachowuje podział z folderów. Lista plików z przypisaniem:
+`training/splits/split_v1.csv` (w repozytorium). Dzielimy przed
+etykietowaniem i zamrażamy zbiór testowy: wyniki kolejnych treningów są
+porównywalne, a model nigdy nie widzi zdjęć testowych.
+
+Wszystkie trzy części są etykietowane – test to „klucz odpowiedzi”, bez
+niego nie ma mAP. Różnica: na teście nie trenujemy i nie dobieramy
+ustawień, patrzymy na niego raz, na końcu.
+
+### Etykietowanie
+
+Platform: `Annotate → New Dataset` (Detect, Private) → ZIP → klasy w
+kolejności `bottle`, `missing_cap`, `fallen` (indeksy 0, 1, 2). Ramki: SAM
+(`S`) lub ręcznie (`V`); przy przezroczystych butelkach SAM łapie tło, więc
+ramki poprawiane ręcznie do krawędzi butelki. Zasady:
+[`etykietowanie.md`](etykietowanie.md).
+
+Usunięte 1 zdjęcie z ręką w kadrze: `20261110_214546_mixed_0028.jpg`
+(test) – `split_v1.csv` zaktualizowany do 214 pozycji.
+
+### Wynik (z eksportu NDJSON)
+
+| Część | Zdjęcia | Z ramkami | bottle | missing_cap | fallen |
+|---|---|---|---|---|---|
+| train | 150 | 140 | 213 | 72 | 89 |
+| val | 43 | 40 | 58 | 25 | 27 |
+| test | 21 | 19 | 29 | 10 | 13 |
+| **razem** | **214** | **199** | **300** | **107** | **129** |
+
+15 zdjęć bez ramek = sesja `empty` (negatywy, w tym kilka z leżącą
+nakrętką – trudne negatywy). Nierównowaga klas ok. 2,8 : 1 (bottle stoi
+prawie na każdym zdjęciu). Decyzja: **nie dorabiamy zdjęć na zapas** –
+trenujemy, patrzymy na AP każdej klasy osobno i uzupełniamy dane tam, gdzie
+model się myli (podejście data-centric).
+
+### Pobranie na laptopa
+
+Platform eksportuje tylko NDJSON (opis zbioru + rekord na zdjęcie: nazwa,
+podział, ramki, link do pobrania ważny 7 dni). `training/prepare_dataset.py`
+sprawdza rekordy (liczby, zgodność z `split_v1.csv`, zapomniane etykiety)
+i funkcją `convert_ndjson_to_yolo` z ultralytics tworzy foldery YOLO
+w `data/datasets/linesight-<hash>/` z `data.yaml`. Uwaga: w folderach
+pliki mają nazwy ze skrótu treści (hash) – oryginalne nazwy są w NDJSON.
+
+```
+python training\make_upload_zip.py
+python training\prepare_dataset.py data\export\linesight.ndjson
+```
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
 - [x] E1-03 – skrypt zbierania zdjęć (215 zdjęć)
-- [ ] E1-04 – etykietowanie
+- [x] E1-04 – etykietowanie (214 zdjęć, 536 ramek)
 - [x] E1-05 – środowisko treningowe
 - [ ] E1-06 – trening
 - [ ] E1-07 – eksport i silniki

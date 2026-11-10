@@ -24,8 +24,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-03 – skrypt zbierania zdjęć** · Jetson · 0,5 dnia · zapis co N klatek z kamery
       z ustawieniami kamery (balans bieli 5500 K); zdjęcia zróżnicowane (pozycje, liczba butelek, wszystkie 3 klasy)
       *(10.11: `jetson/capture.py`, 5 sesji, 215 zdjęć)*
-- [ ] **E1-04 – etykietowanie** · Ultralytics Platform · 0,5-1 dnia · min. ok. 150 obiektów
+- [x] **E1-04 – etykietowanie** · Ultralytics Platform · 0,5-1 dnia · min. ok. 150 obiektów
       na klasę według `docs/etykietowanie.md`; podział train/val/test ustalony przed treningiem; eksport na laptopa
+      *(11.11: 214 zdjęć, 536 ramek – bottle 300, missing_cap 107, fallen 129; podział 150/43/21)*
 - [x] **E1-05 – środowisko treningowe** · laptop · 1-2 h · venv, PyTorch z CUDA widzi RTX 3050 Ti;
       *(zrobione wcześniej, bo E1-02 potrzebuje ultralytics do eksportu ONNX)*
       wersje zapisane w `training/requirements.txt`

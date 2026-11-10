@@ -17,6 +17,17 @@ Jedna butelka = jedna ramka = jedna klasa. Pierwszeństwo: `fallen` >
 linii przewrócona butelka to zator i postój – brak nakrętki jest wtedy
 drugorzędny.
 
+## Jak rozpoznać nakrętkę
+
+| Co widać na górze butelki | Klasa |
+|---|---|
+| różowa nakrętka | `bottle` |
+| niebieskawy walec szyjki (gwint) z pierścieniem, bez różu | `missing_cap` |
+| butelka leży – z otworem lub z nakrętką | `fallen` |
+
+Z boku goła szyjka wygląda prawie jak nakrętka – rozstrzyga kolor
+(różowy = nakrętka).
+
 ## Ramka
 
 - Obejmuje **widoczną część** butelki, od dna do nakrętki (albo szyjki),
