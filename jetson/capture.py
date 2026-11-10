@@ -8,7 +8,7 @@ Jedna kamera, dwa wyjścia przez GStreamer `tee`:
   2. (opcjonalnie) H.264 RTP/UDP -> VLC na laptopie = podgląd na żywo.
 
 Przykład:
-  python3 jetson/capture.py --tag mixed --count 100 --interval 1.5
+  python3 jetson/capture.py --tag mixed --count 100
 
 Ctrl+C kończy w dowolnym momencie i zwalnia kamerę.
 """
@@ -36,7 +36,7 @@ def parse_args():
     p.add_argument("--tag", required=True,
                    help="co jest w sesji: bottle, missing_cap, fallen, mixed, empty")
     p.add_argument("--count", type=int, default=100, help="ile zdjęć zapisać")
-    p.add_argument("--interval", type=float, default=1.5, help="sekundy między zdjęciami")
+    p.add_argument("--interval", type=float, default=8.0, help="sekundy między zdjęciami (czas na przestawienie butelek)")
     p.add_argument("--start-delay", type=float, default=5.0,
                    help="sekundy na przygotowanie sceny przed pierwszym zdjęciem")
     p.add_argument("--no-preview", action="store_true", help="bez strumienia do VLC")
