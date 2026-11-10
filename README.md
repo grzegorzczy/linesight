@@ -40,7 +40,7 @@ MVP = stages 1–3.
 linesight/
 ├── docs/       stage-by-stage notes: commands, results, decisions (Polish)
 ├── training/   laptop: dataset, training, ONNX export          (stage 1)
-├── jetson/     Jetson: TensorRT engine, DeepStream pipeline    (stages 1–2)
+├── jetson/     Jetson: image capture, TensorRT engine, DeepStream (stages 1–2)
 ├── plc/        CODESYS project export                          (stage 3)
 └── infra/      docker-compose: MQTT, TimescaleDB, Grafana      (stage 3)
 ```
