@@ -21,10 +21,11 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       dla kandydatów (np. YOLOv8n, YOLO11n, YOLO26n) z wagami bazowymi: eksport ONNX na laptopie,
       `trtexec` na Jetsonie buduje silnik FP16; tabela: działa / nie działa / dlaczego; wybór architektury
       *(10.11: wszystkie trzy PASSED, ok. 20 qps; wybrany **YOLO26n** – `etap-1-model.md`)*
-- [ ] **E1-03 – skrypt zbierania zdjęć** · Jetson · 0,5 dnia · zapis co N klatek z kamery
+- [x] **E1-03 – skrypt zbierania zdjęć** · Jetson · 0,5 dnia · zapis co N klatek z kamery
       z ustawieniami kamery (balans bieli 5500 K); zdjęcia zróżnicowane (pozycje, liczba butelek, wszystkie 3 klasy)
+      *(10.11: `jetson/capture.py`, 5 sesji, 215 zdjęć)*
 - [ ] **E1-04 – etykietowanie** · Ultralytics Platform · 0,5-1 dnia · min. ok. 150 obiektów
-      na klasę; podział train/val/test ustalony przed treningiem; eksport w formacie YOLO na laptopa
+      na klasę według `docs/etykietowanie.md`; podział train/val/test ustalony przed treningiem; eksport na laptopa
 - [x] **E1-05 – środowisko treningowe** · laptop · 1-2 h · venv, PyTorch z CUDA widzi RTX 3050 Ti;
       *(zrobione wcześniej, bo E1-02 potrzebuje ultralytics do eksportu ONNX)*
       wersje zapisane w `training/requirements.txt`
