@@ -17,9 +17,10 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       bez okna, światło od strony kamery; butelka ostra w ruchu i nieprześwietlona; 30 FPS
       *(zmiana 10.11: kamera RealSense → ASUS; kryterium „ręczna ekspozycja” zastąpione „ostrość
       w ruchu”, bo kamera ASUS ma tylko automatyczną ekspozycję – szczegóły w `etap-1-model.md`)*
-- [ ] **E1-02 ⚠ – test zgodności architektur z TensorRT 8.2** · laptop + Jetson · 0,5 dnia ·
+- [x] **E1-02 ⚠ – test zgodności architektur z TensorRT 8.2** · laptop + Jetson · 0,5 dnia ·
       dla kandydatów (np. YOLOv8n, YOLO11n, YOLO26n) z wagami bazowymi: eksport ONNX na laptopie,
       `trtexec` na Jetsonie buduje silnik FP16; tabela: działa / nie działa / dlaczego; wybór architektury
+      *(10.11: wszystkie trzy PASSED, ok. 20 qps; wybrany **YOLO26n** – `etap-1-model.md`)*
 - [ ] **E1-03 – skrypt zbierania zdjęć** · Jetson · 0,5 dnia · zapis co N klatek z kamery
       z ustawieniami kamery (balans bieli 5500 K); zdjęcia zróżnicowane (pozycje, liczba butelek, wszystkie 3 klasy)
 - [ ] **E1-04 – etykietowanie** · Ultralytics Platform · 0,5-1 dnia · min. ok. 150 obiektów
@@ -71,6 +72,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       README, krótkie nagranie działającego MVP
 
 ## Decyzje
+- **Architektura: YOLO26n** *(przyjęte 10.11.2026)*. Wszystkie trzy kandydatki działają z TensorRT 8.2
+  przy podobnej szybkości (20 qps FP16); YOLO26n ma najwyższą dokładność na COCO i najmniejszy silnik.
+  Eksport ONNX zawsze z `opset=13` (limit parsera TensorRT 8.2).
 - **Trening detektora: lokalnie, biblioteka `ultralytics`** *(przyjęte 10.11.2026)*. Model detekcji
   trenujemy na laptopie (RTX 3050) przez API Ultralytics – szybciej i mniej ryzyka w MVP.
   Ultralytics Platform służy tylko do etykietowania. Własną pętlę treningową PyTorch piszę
