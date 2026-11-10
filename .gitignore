@@ -1,0 +1,61 @@
+# --- Prywatne, nie do repozytorium publicznego ---
+ogloszenie.txt
+
+# --- Sekrety i konfiguracja lokalna ---
+.env
+.env.*
+!.env.example
+*.key
+*-credentials.json
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# --- Modele: wagi i silniki (rejestr w GCP, etap 6) ---
+*.pt
+*.pth
+*.onnx
+*.engine
+*.trt
+*.plan
+*.cache
+
+# --- Dane i wyniki treningu (zbiór: Ultralytics Platform + lokalnie) ---
+data/
+datasets/
+runs/
+mlruns/
+
+# --- Wideo i klatki ---
+*.mp4
+*.mkv
+*.avi
+*.h264
+*.h265
+*.jpg
+*.jpeg
+*.png
+# wyjątek: obrazy do dokumentacji trafiają do repo
+!docs/img/**
+
+# --- Bazy i logi lokalne ---
+*.db
+*.sqlite
+*.log
+
+# --- CODESYS: pliki tymczasowe i kompilacji (projekt .project zostaje) ---
+*.compileinfo
+*.precompilecache
+*.opt
+*.~u
+
+# --- Edytory i system ---
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
