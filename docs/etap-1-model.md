@@ -426,6 +426,137 @@ python training\make_upload_zip.py
 python training\prepare_dataset.py data\export\linesight.ndjson
 ```
 
+## E1-06 – trening i ocena modelu
+
+### Komendy (laptop, aktywne `.venv`)
+
+```
+python training\train.py        # trening + ocena best.pt na val i jeden raz na test
+python training\evaluate.py     # analiza na val: próg conf, błędy TP/FP/FN, mapy aktywacji
+```
+
+Wyniki: `runs\detect\yolo26n_v1\` (`runs/` poza repozytorium):
+`weights/best.pt`, `summary.json`, `results.png`, `results.csv`, `labels.jpg`,
+`analysis/report.md`.
+
+### Transfer learning: co właściwie trenujemy
+
+Startujemy z YOLO26n wytrenowanego na COCO (80 klas: ludzie, auta, butelki…).
+Sieć ma dwie części:
+
+| Część | Co umie po COCO | Co się dzieje u nas |
+|---|---|---|
+| backbone + neck (większość wag) | wyciąga cechy: krawędzie, kształty, materiały, przezroczystość | przenosimy i delikatnie dostrajamy |
+| głowica detekcji | 80 wyjść klas | wymieniona na 3 wyjścia (`bottle`, `missing_cap`, `fallen`) i uczona od nowa |
+
+Po treningu model zna **tylko nasze 3 klasy** – z COCO zostaje „umiejętność
+patrzenia”, nie lista klas. Dlatego 214 zdjęć wystarcza; od zera trzeba by
+dziesiątek tysięcy.
+
+### Ustawienia `train.py`
+
+| Ustawienie | Wartość | Dlaczego |
+|---|---|---|
+| `epochs` | 100 | maksymalna liczba przejść przez zbiór treningowy |
+| `patience` | 30 | **early stopping**: stop, gdy mAP na val nie rośnie przez 30 epok – chroni przed uczeniem się na pamięć i oszczędza czas |
+| `imgsz` | 640 | jak w teście TensorRT (E1-02); wejście prostokątne w E1-07 |
+| `batch` | 16 | mieści się w 4 GB VRAM dla wariantu nano |
+| `seed`, `deterministic` | 42, tak | powtórzony trening daje (prawie) te same liczby |
+| `workers` | 4 | Windows: każdy proces ładujący dane zajmuje sporo RAM |
+| augmentacje | domyślne ultralytics | mozaika (4 zdjęcia w jednym; wyłączana na ostatnie 10 epok – `close_mosaic=10`), odbicie poziome, zmiany jasności i koloru; przy 150 zdjęciach treningowych to główna ochrona przed przeuczeniem |
+
+`best.pt` = wagi z epoki z najwyższym **mAP50-95 na val** (w ultralytics
+8.4.208 wagi miary wyboru to `[P, R, mAP50, mAP50-95] = [0, 0, 0, 1]`).
+`last.pt` = ostatnia epoka.
+
+Co widać w konsoli w każdej epoce:
+- **straty treningowe** (`box_loss` – położenie i rozmiar ramki, `cls_loss` – klasa)
+  – mają spadać,
+- **walidacja** na 43 zdjęciach: `P R mAP50 mAP50-95` – mają rosnąć,
+- `GPU_mem` – zajętość VRAM.
+
+### Metryki: co znaczą
+
+**IoU** (Intersection over Union) = pole części wspólnej ramki modelu
+i ramki z etykiety / pole ich sumy. 1 = idealnie, 0 = rozłączne. Predykcja
+jest **trafieniem (TP)**, jeśli ma dobrą klasę i IoU ≥ progu (zwykle 0,5).
+
+| Wynik | Znaczenie | Na linii |
+|---|---|---|
+| **TP** | dobra klasa, dobre miejsce | poprawna diagnoza |
+| **FP** (fałszywy alarm) | ramka tam, gdzie nic nie ma, albo zła klasa | niepotrzebny alarm / postój – operatorzy przestają ufać systemowi |
+| **FN** (przeoczenie) | obiekt bez ramki | przewrócona butelka nie wykryta = zator bez diagnozy; brak nakrętki przechodzi dalej |
+
+| Metryka | Wzór / definicja | Pytanie, na które odpowiada |
+|---|---|---|
+| **Precision (P)** | TP / (TP + FP) | ile alarmów modelu jest prawdziwych? |
+| **Recall (R)** | TP / (TP + FN) | ile prawdziwych obiektów model znalazł? |
+| **F1** | 2·P·R / (P + R) | jedna liczba łącząca P i R; jej maksimum wyznacza próg pewności |
+| **AP** | pole pod krzywą precision–recall dla jednej klasy | jak dobrze klasa wypada przy wszystkich progach pewności naraz |
+| **mAP50** | średnie AP po klasach przy IoU ≥ 0,5 | czy model znajduje obiekty mniej więcej w dobrym miejscu |
+| **mAP50-95** | średnie mAP przy IoU 0,50; 0,55; …; 0,95 | czy ramki są **dokładne** – kluczowe dla śledzenia i liczenia sztuk w etapie 2 |
+
+Wysokie mAP50 przy niskim mAP50-95 = model znajduje butelki, ale ramki są
+luźne (np. przez niespójne etykiety – dlatego zasady w `etykietowanie.md`).
+
+Dla linii pakującej **recall klas `fallen` i `missing_cap` jest ważniejszy niż
+precision**: przeoczony zator kosztuje więcej niż jeden fałszywy alarm.
+Precision nie może jednak spaść za nisko – zbyt częste fałszywe alarmy
+operatorzy zaczną ignorować.
+
+### Wykresy i pliki: co z nich czytamy
+
+| Plik | Co pokazuje | Decyzja, którą wspiera |
+|---|---|---|
+| `results.png` | straty i metryki w każdej epoce | **przeuczenie**: strata na val rośnie, a na train spada → mniej epok / więcej danych / augmentacja |
+| `labels.jpg` | liczba ramek na klasę, mapy położenia i rozmiaru ramek | czy dane są zrównoważone; czy butelki stoją głównie po jednej stronie kadru |
+| `confusion_matrix_normalized.png` | które klasy model myli; wiersz/kolumna „background” = fałszywe alarmy / przeoczenia | np. `missing_cap` mylone z `bottle` → więcej zdjęć szyjki |
+| `BoxPR_curve.png` | precision vs recall dla każdej klasy | która klasa jest najsłabsza |
+| `BoxF1_curve.png` | F1 vs próg pewności | **próg conf do wdrożenia** |
+| `val_batchX_labels.jpg` / `_pred.jpg` | etykiety i predykcje obok siebie | szybki przegląd wzrokowy |
+| `analysis/val_errors/` | każde zdjęcie z zaznaczonymi TP / FP / FN | analiza błędów na konkretnych przypadkach |
+| `analysis/cam/*_cam.jpg` | **mapy aktywacji LayerCAM**: gdzie sieć „patrzy” | czy model patrzy na szyjkę i nakrętkę, a nie na kaloryfer (*shortcut learning*) |
+| `analysis/report.md` | tabele, próg conf, najgorsze zdjęcia, czasy | treść do dokumentacji |
+
+**Dwa progi, często mylone:**
+- **conf** – minimalna pewność predykcji. Walidacja liczy mAP przy conf = 0,001
+  (cała krzywa PR); do wdrożenia wybieramy próg z maksimum F1 na val.
+- **IoU w NMS** – kiedy dwie ramki uznać za tę samą butelkę i zostawić jedną
+  (domyślnie 0,7 w walidacji). To inny próg niż IoU ≥ 0,5 przy liczeniu TP.
+
+### Dlaczego liczymy to właśnie teraz
+
+1. **Wybór wag** – `best.pt` wybieramy na val, nie na ostatniej epoce.
+2. **Decyzje o danych** (data-centric) – AP na klasę, macierz pomyłek
+   i najgorsze zdjęcia mówią, czy dorabiać zdjęcia i jakie. Lepsze niż
+   dorabianie „na zapas” przed treningiem.
+3. **Zaufanie do modelu** – mapy aktywacji pokazują, czy model nauczył się
+   właściwych cech, zanim zainwestujemy w TensorRT i DeepStream.
+4. **Próg conf do wdrożenia** – trafi do konfiguracji DeepStream (etap 2).
+5. **Punkt odniesienia dla E1-08** – po konwersji do TensorRT FP16/INT8
+   porównamy mAP z wynikiem PyTorch. Bez tej liczby nie wiadomo, ile
+   dokładności kosztuje przyspieszenie.
+
+### Val a test
+
+| Część | Zdjęcia | Rola |
+|---|---|---|
+| train | 150 | model się na nich uczy |
+| val | 43 | ocena co epokę, wybór `best.pt`, próg conf, analiza błędów – **tu wolno podejmować decyzje** |
+| test | 21 | **jedna** ocena na końcu, na zdjęciach nigdy nieużytych do decyzji – nieobciążona miara |
+
+Uczciwe zastrzeżenie: test ma 21 zdjęć (ok. 52 obiekty), więc jedna pomyłka
+przesuwa wynik o kilka punktów. W produkcji: większy zbiór testowy albo
+walidacja krzyżowa (k-fold). Tu jako świadome ograniczenie MVP.
+
+Czego nie liczymy: mAP dla małych / średnich / dużych obiektów (COCO: mały
+< 32×32 px, duży > 96×96 px). Butelki mają ok. 80×280 px – prawie wszystkie
+są „duże”, więc ta miara nic nie mówi.
+
+### Wyniki
+
+*(uzupełnione po treningu)*
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
