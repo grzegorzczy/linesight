@@ -82,7 +82,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 11.11.2026, etap 1 (E1-01…E1-05 zakończone; model: YOLO26n; zbiór 214 zdjęć, 536 ramek).', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 11.11.2026, etap 1 (E1-01…E1-06 zakończone; model: YOLO26n; zbiór 214 zdjęć, 536 ramek; test mAP50 0,987, mAP50-95 0,778; próg conf 0,48).', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -241,7 +241,7 @@ bullet('Tło: kaloryfer (jednolity, stały), bez okna, drzwi i przedmiotów z po
 bullet('Butelki całe w kadrze (dno i nakrętka z marginesem), nie stawiać wyżej ani bliżej niż na zdjęciu referencyjnym.');
 bullet('Światło od przodu lub z boku, nigdy zza butelek (pod światło = ciemna sylwetka).');
 bullet('Balans bieli 5500 K, ekspozycja automatyczna (ograniczenie kamery).');
-bullet('Znane ograniczenie: paski kaloryfera prześwitują przez butelki – sprawdzić w błędach modelu po treningu.');
+bullet('Paski kaloryfera prześwitują przez butelki – sprawdzone w E1-06: model patrzy na butelki; jedyny ślad to słaba aktywacja na żebrach przy prawej krawędzi pustego kadru (pod progiem).');
 p('Zdjęcie referencyjne: docs\\img\\etap1-scena.jpg');
 
 h1('9. Zdjęcie sceny i kopiowanie na laptopa');
@@ -380,6 +380,29 @@ table([1300, 1300, 1500, 1600, 1900, 2038], [
   ['test', '21', '19', '29', '10', '13'],
   ['razem', '214', '199', '300', '107', '129'],
 ]);
+
+h1('10e. Trening i ocena modelu (E1-06)');
+step('LAPTOP', 'Trening + ocena best.pt na val i raz na test', 'python training\\train.py', 'Ok. 4 min. Early stopping: 30 epok bez poprawy (patience=30) – stanęło po 81/100, best.pt = epoka 51. Wynik: runs\\detect\\yolo26n_v1\\ (folder runs\\ poza Gitem).');
+step('LAPTOP', 'Analiza: próg conf, błędy TP/FP/FN, mapy aktywacji', 'python training\\evaluate.py', 'Cały raport w konsoli i w runs\\detect\\yolo26n_v1\\analysis\\report.md.');
+step('LAPTOP', 'Podgląd wykresów', ['cd runs\\detect\\yolo26n_v1', 'start results.png', 'start analysis\\val_errors\\confusion_matrix.png', 'explorer analysis\\cam'], 'Wracasz: cd ..\\..\\..');
+table([2400, 1500, 1500, 1500, 2638], [
+  ['Zbiór', 'P', 'R', 'mAP50', 'mAP50-95'],
+  ['val (43 zdjęcia)', '0,983', '1,000', '0,995', '0,788'],
+  ['test (21 zdjęć)', '0,965', '0,989', '0,987', '0,778'],
+]);
+table([3000, 6538], [
+  ['Plik', 'Co z niego czytam'],
+  ['results.png', 'straty val spadają razem z train → brak przeuczenia; mAP50 ~0,99 od 20. epoki'],
+  ['labels.jpg', 'liczby ramek na klasę; butelki w jednym pasie, x 0,3–1,0'],
+  ['val_errors\\confusion_matrix.png', 'macierz przy conf 0,48: 0 pomyłek klas, 0 przeoczeń, 1 FP'],
+  ['val_metrics\\confusion_matrix_normalized.png', 'kolumna background = udział klas wśród FP (suma 1), nie odsetek FP'],
+  ['analysis\\val_errors\\visualizations\\', 'GT / TP / FP / FN dla każdego zdjęcia'],
+  ['analysis\\cam\\*_cam.jpg', 'mapy aktywacji: patrzy na butelki, nie na kaloryfer'],
+]);
+bullet('Próg do wdrożenia: conf = 0,48 (maks. F1 na val). Do eksportu: best.pt.');
+bullet('Ograniczenie: dokładność ramek (mAP50-95), nie wykrywanie.');
+bullet('Jedyny błąd: szyjka ucięta górną krawędzią kadru → dwie ramki (missing_cap + bottle). W etapie 2 kadr z zapasem nad szyjkami.');
+bullet('Puste stanowisko: słaba aktywacja na żebrach kaloryfera przy prawej krawędzi (pod progiem). Sprawdzić przy INT8 (E1-08) i na wideo.');
 
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');

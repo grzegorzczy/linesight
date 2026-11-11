@@ -17,7 +17,7 @@ and how to fix it*.
 | Ultralytics Platform | image labeling only |
 | GCP | model version registry, frames for retraining, optional assistant API |
 
-Detection classes: `bottle`, `missing_cap`, `bottle_fallen` (jam).
+Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 
 ## Stages
 
@@ -33,6 +33,21 @@ Detection classes: `bottle`, `missing_cap`, `bottle_fallen` (jam).
 | 7 | Demo video, results, final documentation | – |
 
 MVP = stages 1–3.
+
+## Results so far
+
+Detector: YOLO26n, own dataset (214 images, 536 boxes, split 150/43/21),
+trained locally (PyTorch, ultralytics), 640 px.
+
+| Split | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| val (43 img) | 0.983 | 1.000 | 0.995 | 0.788 |
+| test (21 img) | 0.965 | 0.989 | 0.987 | 0.778 |
+
+Deployment threshold conf = 0.48 (max F1 on val): 1 false positive, 0 misses
+on val. Limiting factor is box tightness (mAP50-95), not detection. Activation
+maps confirm the model looks at bottles, not at the background. Details:
+[docs/etap-1-model.md](docs/etap-1-model.md).
 
 ## Repository layout
 
@@ -50,7 +65,7 @@ Folders are added when their first file appears.
 ## Documentation
 
 - [Stage 0 – Jetson setup, camera, memory](docs/etap-0-jetson.md)
-- [Stage 1 – scene, environment, TensorRT compatibility](docs/etap-1-model.md) (in progress)
+- [Stage 1 – scene, TensorRT compatibility, dataset, training results](docs/etap-1-model.md) (in progress)
 - [MVP backlog](docs/backlog.md)
 
 ## Not in the repository

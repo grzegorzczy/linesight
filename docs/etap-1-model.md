@@ -553,9 +553,119 @@ Czego nie liczymy: mAP dla małych / średnich / dużych obiektów (COCO: mały
 < 32×32 px, duży > 96×96 px). Butelki mają ok. 80×280 px – prawie wszystkie
 są „duże”, więc ta miara nic nie mówi.
 
-### Wyniki
+### Wyniki (`runs/detect/yolo26n_v1`)
 
-*(uzupełnione po treningu)*
+Trening: 81 ze 100 epok, ok. 4 min na RTX 3050 Ti. Najlepszy mAP50-95 na val
+w 51. epoce; przez kolejne 30 epok (`patience=30`) bez poprawy, więc early
+stopping. `best.pt` = epoka 51.
+
+| zbiór | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| val (43 zdjęcia, 110 obiektów) | 0,983 | 1,000 | 0,995 | 0,788 |
+| test (21 zdjęć, 52 obiekty) | 0,965 | 0,989 | 0,987 | 0,778 |
+
+| klasa | mAP50-95 val | mAP50-95 test | F1 val przy conf 0,48 |
+|---|---|---|---|
+| bottle | 0,852 | 0,794 | 0,986 |
+| missing_cap | 0,768 | 0,793 | 1,000 |
+| fallen | 0,743 | 0,746 | 0,993 |
+
+- **Próg do wdrożenia: conf = 0,48** (maksimum średniego F1 na val = 0,993).
+  Przy nim na val: TP 110, FP 1, FN 0.
+- Na teście R bottle = 0,966: jedna z 29 butelek przeoczona.
+- Czas na laptopie: 1,8 ms preprocessing + 11,8 ms inferencja + 1,2 ms
+  postprocessing na zdjęcie (PyTorch, FP32, 640).
+
+#### Krzywe treningu (`results.png`)
+
+![Krzywe treningu](img/etap1-e106-results.png)
+
+- Straty na val (box, cls, l1) spadają razem ze stratami na train do końca
+  treningu. Klasycznego przeuczenia nie ma.
+- mAP50 dochodzi do ok. 0,99 już około 20. epoki. mAP50-95 rośnie do ok. 0,76
+  w tym samym czasie, potem stoi w przedziale 0,75–0,78.
+- Wniosek: wykrywanie i klasy model opanował w ~20 epokach. Kolejne 60 epok
+  poprawiało już tylko dopasowanie ramek i to minimalnie. Najbardziej
+  prawdopodobna granica to dokładność samych etykiet: ręczne ramki na
+  przezroczystych butelkach różnią się o kilka pikseli, a mAP50-95 liczy
+  także IoU 0,90 i 0,95, gdzie kilka pikseli to już błąd.
+
+#### Dane (`labels.jpg`, część train)
+
+![Rozkład etykiet](img/etap1-e106-labels.jpg)
+
+- 213 bottle / 72 missing_cap / 89 fallen.
+- Wszystkie butelki stoją w jednym pasie (środek ramki y ≈ 0,45) i w x od 0,3
+  do 1,0. Lewa część kadru jest prawie pusta.
+- Ramki stojących butelek są wąskie i wysokie (w ≈ 0,14, h ≈ 0,8), ramki
+  przewróconych szerokie i niskie (w 0,3–0,6, h 0,3–0,45). Kształt ramki sam
+  w sobie mocno sugeruje klasę `fallen`.
+- Odbicie poziome w augmentacji (`fliplr=0.5`, domyślne) częściowo uzupełnia
+  lewą stronę kadru. Sprawdzenie w etapie 2: zliczanie butelek przy lewej
+  krawędzi na wideo.
+
+#### Macierz pomyłek
+
+![Macierz pomyłek przy conf 0,48](img/etap1-e106-confusion-conf048.png)
+
+- Przy conf = 0,48 (`analysis/val_errors/confusion_matrix.png`): 58 / 25 / 27
+  poprawnych, **zero pomyłek między klasami**, zero przeoczeń, jeden fałszywy
+  alarm (`bottle` bez obiektu w etykietach).
+- Uwaga na `confusion_matrix_normalized.png` z `val_metrics/`: kolumna
+  „background” (0,27 / 0,45 / 0,28) sumuje się do 1. To **udział** klas wśród
+  fałszywych alarmów, a nie odsetek fałszywych alarmów. Nie znaczy, że 45%
+  predykcji `missing_cap` jest fałszywych.
+
+#### Jedyny błąd na val: `mixed_0056`
+
+![TP, FP i FN dla mixed_0056](img/etap1-e106-fp-mixed0056.jpg)
+
+![Szyjki w oryginale: dwie bez nakrętki, prawa z nakrętką](img/etap1-e106-szyjki.jpg)
+
+- Klasy rozróżnia szczegół u góry butelki: nakrętka jest różowa; bez niej
+  widać niebieski gwint szyjki i różowy pierścień gwarancyjny pod nim.
+- Środkowa butelka (bez nakrętki) dostała dwie ramki: `missing_cap` 0,8 (TP)
+  i `bottle` 0,5 (FP). Jej szyjka dotyka górnej krawędzi kadru, więc cecha
+  rozstrzygająca klasę jest częściowo ucięta i model „waha się” między klasami.
+- Etykiety są poprawne (sprawdzone na oryginalnym zdjęciu).
+- Wnioski: (1) w etapie 2 ustawić kadr tak, żeby szyjki nie dotykały górnej
+  krawędzi; (2) tracking i tak łączy ramki jednego obiektu w jeden tor –
+  w diagnostyce reguła „dwie klasy na jednym torze → wyższa pewność”.
+
+#### Mapy aktywacji (LayerCAM, `analysis/cam/`)
+
+| zdjęcie z butelkami | przewrócona butelka | puste stanowisko |
+|---|---|---|
+| ![](img/etap1-e106-cam-mixed0056.jpg) | ![](img/etap1-e106-cam-fallen0022.jpg) | ![](img/etap1-e106-cam-empty0013.jpg) |
+
+- Na zdjęciach z butelkami aktywacja leży na butelkach (korpus, etykieta,
+  przetłoczenia, odblaski). Kaloryfer między butelkami jest ciemny: model nie
+  nauczył się tła zamiast obiektu.
+- Aktywacja **nie** skupia się na szyjce. Mapa pokazuje, gdzie sieć ma silne
+  cechy dla detekcji, a nie wprost, czym rozstrzyga klasę. Że klasa
+  `missing_cap` opiera się na szyjce, wskazują wyniki: zero pomyłek
+  `bottle` ↔ `missing_cap` i jedyny błąd klasy dokładnie tam, gdzie szyjka
+  była ucięta.
+- **Puste stanowisko (`empty_0013`)**: jedyna aktywność to pas przy prawej
+  krawędzi kadru, na samych żebrach kaloryfera (w oryginale nic tam nie ma).
+  Pionowe żebra mają kształt stojącej butelki, a prawa strona to miejsce,
+  gdzie butelki w treningu stały najczęściej. Pod progiem 0,48 nie daje ramki,
+  ale to pierwszy kandydat na fałszywy alarm przy zmianie światła lub tła
+  i przy INT8 (kwantyzacja przesuwa pewności). Kontrola: E1-08 (mAP i FP silnika
+  INT8) oraz etap 2 (wideo pustej sceny).
+
+#### Wnioski
+
+1. Ograniczeniem jest dokładność ramek (mAP50-95 ≈ 0,78), nie wykrywanie
+   (R = 1,000 na val, 0,989 na test). Dla linii liczy się, czy butelka
+   i defekt zostały wykryte; ramka przesunięta o kilka pikseli nie zmienia
+   decyzji.
+2. Nie dorabiamy zdjęć `missing_cap`: F1 klasy na val = 1,000.
+3. Test ma 21 zdjęć: jedna pomyłka to kilka punktów. Różnice val/test
+   (np. bottle 0,852 vs 0,794) mieszczą się w tym rozrzucie.
+4. Scena jest kontrolowana (jedno tło, jedno światło, jeden typ butelki).
+   Wynik mierzy dopasowanie do tego stanowiska, nie ogólność modelu.
+5. Do eksportu (E1-07): `best.pt` z epoki 51, próg conf 0,48.
 
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
@@ -563,7 +673,7 @@ są „duże”, więc ta miara nic nie mówi.
 - [x] E1-03 – skrypt zbierania zdjęć (215 zdjęć)
 - [x] E1-04 – etykietowanie (214 zdjęć, 536 ramek)
 - [x] E1-05 – środowisko treningowe
-- [ ] E1-06 – trening
+- [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
 - [ ] E1-07 – eksport i silniki
 - [ ] E1-08 – benchmark
 - [ ] E1-09 – dokumentacja i pytania
