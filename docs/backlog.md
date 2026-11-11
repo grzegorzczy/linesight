@@ -30,8 +30,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-05 – środowisko treningowe** · laptop · 1-2 h · venv, PyTorch z CUDA widzi RTX 3050 Ti;
       *(zrobione wcześniej, bo E1-02 potrzebuje ultralytics do eksportu ONNX)*
       wersje zapisane w `training/requirements.txt`
-- [ ] **E1-06 – trening** · laptop · 0,5 dnia · mAP50 i mAP50-95 na zbiorze testowym,
+- [x] **E1-06 – trening** · laptop · 0,5 dnia · mAP50 i mAP50-95 na zbiorze testowym,
       macierz pomyłek, przykłady błędów; batch dobrany do 4 GB VRAM
+      → zrobione: test mAP50 0,987, mAP50-95 0,778; conf 0,48; 1 FP / 0 FN na val; mapy CAM
 - [ ] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
       (INT8 z kalibracją na zdjęciach ze zbioru)
 - [ ] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,

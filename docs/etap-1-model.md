@@ -426,13 +426,254 @@ python training\make_upload_zip.py
 python training\prepare_dataset.py data\export\linesight.ndjson
 ```
 
+## E1-06 – trening i ocena modelu
+
+### Komendy (laptop, aktywne `.venv`)
+
+```
+python training\train.py        # trening + ocena best.pt na val i jeden raz na test
+python training\evaluate.py     # analiza na val: próg conf, błędy TP/FP/FN, mapy aktywacji
+```
+
+Wyniki: `runs\detect\yolo26n_v1\` (`runs/` poza repozytorium):
+`weights/best.pt`, `summary.json`, `results.png`, `results.csv`, `labels.jpg`,
+`analysis/report.md`.
+
+### Transfer learning: co właściwie trenujemy
+
+Startujemy z YOLO26n wytrenowanego na COCO (80 klas: ludzie, auta, butelki…).
+Sieć ma dwie części:
+
+| Część | Co umie po COCO | Co się dzieje u nas |
+|---|---|---|
+| backbone + neck (większość wag) | wyciąga cechy: krawędzie, kształty, materiały, przezroczystość | przenosimy i delikatnie dostrajamy |
+| głowica detekcji | 80 wyjść klas | wymieniona na 3 wyjścia (`bottle`, `missing_cap`, `fallen`) i uczona od nowa |
+
+Po treningu model zna **tylko nasze 3 klasy** – z COCO zostaje „umiejętność
+patrzenia”, nie lista klas. Dlatego 214 zdjęć wystarcza; od zera trzeba by
+dziesiątek tysięcy.
+
+### Ustawienia `train.py`
+
+| Ustawienie | Wartość | Dlaczego |
+|---|---|---|
+| `epochs` | 100 | maksymalna liczba przejść przez zbiór treningowy |
+| `patience` | 30 | **early stopping**: stop, gdy mAP na val nie rośnie przez 30 epok – chroni przed uczeniem się na pamięć i oszczędza czas |
+| `imgsz` | 640 | jak w teście TensorRT (E1-02); wejście prostokątne w E1-07 |
+| `batch` | 16 | mieści się w 4 GB VRAM dla wariantu nano |
+| `seed`, `deterministic` | 42, tak | powtórzony trening daje (prawie) te same liczby |
+| `workers` | 4 | Windows: każdy proces ładujący dane zajmuje sporo RAM |
+| augmentacje | domyślne ultralytics | mozaika (4 zdjęcia w jednym; wyłączana na ostatnie 10 epok – `close_mosaic=10`), odbicie poziome, zmiany jasności i koloru; przy 150 zdjęciach treningowych to główna ochrona przed przeuczeniem |
+
+`best.pt` = wagi z epoki z najwyższym **mAP50-95 na val** (w ultralytics
+8.4.208 wagi miary wyboru to `[P, R, mAP50, mAP50-95] = [0, 0, 0, 1]`).
+`last.pt` = ostatnia epoka.
+
+Co widać w konsoli w każdej epoce:
+- **straty treningowe** (`box_loss` – położenie i rozmiar ramki, `cls_loss` – klasa)
+  – mają spadać,
+- **walidacja** na 43 zdjęciach: `P R mAP50 mAP50-95` – mają rosnąć,
+- `GPU_mem` – zajętość VRAM.
+
+### Metryki: co znaczą
+
+**IoU** (Intersection over Union) = pole części wspólnej ramki modelu
+i ramki z etykiety / pole ich sumy. 1 = idealnie, 0 = rozłączne. Predykcja
+jest **trafieniem (TP)**, jeśli ma dobrą klasę i IoU ≥ progu (zwykle 0,5).
+
+| Wynik | Znaczenie | Na linii |
+|---|---|---|
+| **TP** | dobra klasa, dobre miejsce | poprawna diagnoza |
+| **FP** (fałszywy alarm) | ramka tam, gdzie nic nie ma, albo zła klasa | niepotrzebny alarm / postój – operatorzy przestają ufać systemowi |
+| **FN** (przeoczenie) | obiekt bez ramki | przewrócona butelka nie wykryta = zator bez diagnozy; brak nakrętki przechodzi dalej |
+
+| Metryka | Wzór / definicja | Pytanie, na które odpowiada |
+|---|---|---|
+| **Precision (P)** | TP / (TP + FP) | ile alarmów modelu jest prawdziwych? |
+| **Recall (R)** | TP / (TP + FN) | ile prawdziwych obiektów model znalazł? |
+| **F1** | 2·P·R / (P + R) | jedna liczba łącząca P i R; jej maksimum wyznacza próg pewności |
+| **AP** | pole pod krzywą precision–recall dla jednej klasy | jak dobrze klasa wypada przy wszystkich progach pewności naraz |
+| **mAP50** | średnie AP po klasach przy IoU ≥ 0,5 | czy model znajduje obiekty mniej więcej w dobrym miejscu |
+| **mAP50-95** | średnie mAP przy IoU 0,50; 0,55; …; 0,95 | czy ramki są **dokładne** – kluczowe dla śledzenia i liczenia sztuk w etapie 2 |
+
+Wysokie mAP50 przy niskim mAP50-95 = model znajduje butelki, ale ramki są
+luźne (np. przez niespójne etykiety – dlatego zasady w `etykietowanie.md`).
+
+Dla linii pakującej **recall klas `fallen` i `missing_cap` jest ważniejszy niż
+precision**: przeoczony zator kosztuje więcej niż jeden fałszywy alarm.
+Precision nie może jednak spaść za nisko – zbyt częste fałszywe alarmy
+operatorzy zaczną ignorować.
+
+### Wykresy i pliki: co z nich czytamy
+
+| Plik | Co pokazuje | Decyzja, którą wspiera |
+|---|---|---|
+| `results.png` | straty i metryki w każdej epoce | **przeuczenie**: strata na val rośnie, a na train spada → mniej epok / więcej danych / augmentacja |
+| `labels.jpg` | liczba ramek na klasę, mapy położenia i rozmiaru ramek | czy dane są zrównoważone; czy butelki stoją głównie po jednej stronie kadru |
+| `confusion_matrix_normalized.png` | które klasy model myli; wiersz/kolumna „background” = fałszywe alarmy / przeoczenia | np. `missing_cap` mylone z `bottle` → więcej zdjęć szyjki |
+| `BoxPR_curve.png` | precision vs recall dla każdej klasy | która klasa jest najsłabsza |
+| `BoxF1_curve.png` | F1 vs próg pewności | **próg conf do wdrożenia** |
+| `val_batchX_labels.jpg` / `_pred.jpg` | etykiety i predykcje obok siebie | szybki przegląd wzrokowy |
+| `analysis/val_errors/` | każde zdjęcie z zaznaczonymi TP / FP / FN | analiza błędów na konkretnych przypadkach |
+| `analysis/cam/*_cam.jpg` | **mapy aktywacji LayerCAM**: gdzie sieć „patrzy” | czy model patrzy na szyjkę i nakrętkę, a nie na kaloryfer (*shortcut learning*) |
+| `analysis/report.md` | tabele, próg conf, najgorsze zdjęcia, czasy | treść do dokumentacji |
+
+**Dwa progi, często mylone:**
+- **conf** – minimalna pewność predykcji. Walidacja liczy mAP przy conf = 0,001
+  (cała krzywa PR); do wdrożenia wybieramy próg z maksimum F1 na val.
+- **IoU w NMS** – kiedy dwie ramki uznać za tę samą butelkę i zostawić jedną
+  (domyślnie 0,7 w walidacji). To inny próg niż IoU ≥ 0,5 przy liczeniu TP.
+
+### Dlaczego liczymy to właśnie teraz
+
+1. **Wybór wag** – `best.pt` wybieramy na val, nie na ostatniej epoce.
+2. **Decyzje o danych** (data-centric) – AP na klasę, macierz pomyłek
+   i najgorsze zdjęcia mówią, czy dorabiać zdjęcia i jakie. Lepsze niż
+   dorabianie „na zapas” przed treningiem.
+3. **Zaufanie do modelu** – mapy aktywacji pokazują, czy model nauczył się
+   właściwych cech, zanim zainwestujemy w TensorRT i DeepStream.
+4. **Próg conf do wdrożenia** – trafi do konfiguracji DeepStream (etap 2).
+5. **Punkt odniesienia dla E1-08** – po konwersji do TensorRT FP16/INT8
+   porównamy mAP z wynikiem PyTorch. Bez tej liczby nie wiadomo, ile
+   dokładności kosztuje przyspieszenie.
+
+### Val a test
+
+| Część | Zdjęcia | Rola |
+|---|---|---|
+| train | 150 | model się na nich uczy |
+| val | 43 | ocena co epokę, wybór `best.pt`, próg conf, analiza błędów – **tu wolno podejmować decyzje** |
+| test | 21 | **jedna** ocena na końcu, na zdjęciach nigdy nieużytych do decyzji – nieobciążona miara |
+
+Uczciwe zastrzeżenie: test ma 21 zdjęć (ok. 52 obiekty), więc jedna pomyłka
+przesuwa wynik o kilka punktów. W produkcji: większy zbiór testowy albo
+walidacja krzyżowa (k-fold). Tu jako świadome ograniczenie MVP.
+
+Czego nie liczymy: mAP dla małych / średnich / dużych obiektów (COCO: mały
+< 32×32 px, duży > 96×96 px). Butelki mają ok. 80×280 px – prawie wszystkie
+są „duże”, więc ta miara nic nie mówi.
+
+### Wyniki (`runs/detect/yolo26n_v1`)
+
+Trening: 81 ze 100 epok, ok. 4 min na RTX 3050 Ti. Najlepszy mAP50-95 na val
+w 51. epoce; przez kolejne 30 epok (`patience=30`) bez poprawy, więc early
+stopping. `best.pt` = epoka 51.
+
+| zbiór | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| val (43 zdjęcia, 110 obiektów) | 0,983 | 1,000 | 0,995 | 0,788 |
+| test (21 zdjęć, 52 obiekty) | 0,965 | 0,989 | 0,987 | 0,778 |
+
+| klasa | mAP50-95 val | mAP50-95 test | F1 val przy conf 0,48 |
+|---|---|---|---|
+| bottle | 0,852 | 0,794 | 0,986 |
+| missing_cap | 0,768 | 0,793 | 1,000 |
+| fallen | 0,743 | 0,746 | 0,993 |
+
+- **Próg do wdrożenia: conf = 0,48** (maksimum średniego F1 na val = 0,993).
+  Przy nim na val: TP 110, FP 1, FN 0.
+- Na teście R bottle = 0,966: jedna z 29 butelek przeoczona.
+- Czas na laptopie: 1,8 ms preprocessing + 11,8 ms inferencja + 1,2 ms
+  postprocessing na zdjęcie (PyTorch, FP32, 640).
+
+#### Krzywe treningu (`results.png`)
+
+![Krzywe treningu](img/etap1-e106-results.png)
+
+- Straty na val (box, cls, l1) spadają razem ze stratami na train do końca
+  treningu. Klasycznego przeuczenia nie ma.
+- mAP50 dochodzi do ok. 0,99 już około 20. epoki. mAP50-95 rośnie do ok. 0,76
+  w tym samym czasie, potem stoi w przedziale 0,75–0,78.
+- Wniosek: wykrywanie i klasy model opanował w ~20 epokach. Kolejne 60 epok
+  poprawiało już tylko dopasowanie ramek i to minimalnie. Najbardziej
+  prawdopodobna granica to dokładność samych etykiet: ręczne ramki na
+  przezroczystych butelkach różnią się o kilka pikseli, a mAP50-95 liczy
+  także IoU 0,90 i 0,95, gdzie kilka pikseli to już błąd.
+
+#### Dane (`labels.jpg`, część train)
+
+![Rozkład etykiet](img/etap1-e106-labels.jpg)
+
+- 213 bottle / 72 missing_cap / 89 fallen.
+- Wszystkie butelki stoją w jednym pasie (środek ramki y ≈ 0,45) i w x od 0,3
+  do 1,0. Lewa część kadru jest prawie pusta.
+- Ramki stojących butelek są wąskie i wysokie (w ≈ 0,14, h ≈ 0,8), ramki
+  przewróconych szerokie i niskie (w 0,3–0,6, h 0,3–0,45). Kształt ramki sam
+  w sobie mocno sugeruje klasę `fallen`.
+- Odbicie poziome w augmentacji (`fliplr=0.5`, domyślne) częściowo uzupełnia
+  lewą stronę kadru. Sprawdzenie w etapie 2: zliczanie butelek przy lewej
+  krawędzi na wideo.
+
+#### Macierz pomyłek
+
+![Macierz pomyłek przy conf 0,48](img/etap1-e106-confusion-conf048.png)
+
+- Przy conf = 0,48 (`analysis/val_errors/confusion_matrix.png`): 58 / 25 / 27
+  poprawnych, **zero pomyłek między klasami**, zero przeoczeń, jeden fałszywy
+  alarm (`bottle` bez obiektu w etykietach).
+- Uwaga na `confusion_matrix_normalized.png` z `val_metrics/`: kolumna
+  „background” (0,27 / 0,45 / 0,28) sumuje się do 1. To **udział** klas wśród
+  fałszywych alarmów, a nie odsetek fałszywych alarmów. Nie znaczy, że 45%
+  predykcji `missing_cap` jest fałszywych.
+
+#### Jedyny błąd na val: `mixed_0056`
+
+![TP, FP i FN dla mixed_0056](img/etap1-e106-fp-mixed0056.jpg)
+
+![Szyjki w oryginale: dwie bez nakrętki, prawa z nakrętką](img/etap1-e106-szyjki.jpg)
+
+- Klasy rozróżnia szczegół u góry butelki: nakrętka jest różowa; bez niej
+  widać niebieski gwint szyjki i różowy pierścień gwarancyjny pod nim.
+- Środkowa butelka (bez nakrętki) dostała dwie ramki: `missing_cap` 0,8 (TP)
+  i `bottle` 0,5 (FP). Jej szyjka dotyka górnej krawędzi kadru, więc cecha
+  rozstrzygająca klasę jest częściowo ucięta i model „waha się” między klasami.
+- Etykiety są poprawne (sprawdzone na oryginalnym zdjęciu).
+- Wnioski: (1) w etapie 2 ustawić kadr tak, żeby szyjki nie dotykały górnej
+  krawędzi; (2) tracking i tak łączy ramki jednego obiektu w jeden tor –
+  w diagnostyce reguła „dwie klasy na jednym torze → wyższa pewność”.
+
+#### Mapy aktywacji (LayerCAM, `analysis/cam/`)
+
+| zdjęcie z butelkami | przewrócona butelka | puste stanowisko |
+|---|---|---|
+| ![](img/etap1-e106-cam-mixed0056.jpg) | ![](img/etap1-e106-cam-fallen0022.jpg) | ![](img/etap1-e106-cam-empty0013.jpg) |
+
+- Na zdjęciach z butelkami aktywacja leży na butelkach (korpus, etykieta,
+  przetłoczenia, odblaski). Kaloryfer między butelkami jest ciemny: model nie
+  nauczył się tła zamiast obiektu.
+- Aktywacja **nie** skupia się na szyjce. Mapa pokazuje, gdzie sieć ma silne
+  cechy dla detekcji, a nie wprost, czym rozstrzyga klasę. Że klasa
+  `missing_cap` opiera się na szyjce, wskazują wyniki: zero pomyłek
+  `bottle` ↔ `missing_cap` i jedyny błąd klasy dokładnie tam, gdzie szyjka
+  była ucięta.
+- **Puste stanowisko (`empty_0013`)**: jedyna aktywność to pas przy prawej
+  krawędzi kadru, na samych żebrach kaloryfera (w oryginale nic tam nie ma).
+  Pionowe żebra mają kształt stojącej butelki, a prawa strona to miejsce,
+  gdzie butelki w treningu stały najczęściej. Pod progiem 0,48 nie daje ramki,
+  ale to pierwszy kandydat na fałszywy alarm przy zmianie światła lub tła
+  i przy INT8 (kwantyzacja przesuwa pewności). Kontrola: E1-08 (mAP i FP silnika
+  INT8) oraz etap 2 (wideo pustej sceny).
+
+#### Wnioski
+
+1. Ograniczeniem jest dokładność ramek (mAP50-95 ≈ 0,78), nie wykrywanie
+   (R = 1,000 na val, 0,989 na test). Dla linii liczy się, czy butelka
+   i defekt zostały wykryte; ramka przesunięta o kilka pikseli nie zmienia
+   decyzji.
+2. Nie dorabiamy zdjęć `missing_cap`: F1 klasy na val = 1,000.
+3. Test ma 21 zdjęć: jedna pomyłka to kilka punktów. Różnice val/test
+   (np. bottle 0,852 vs 0,794) mieszczą się w tym rozrzucie.
+4. Scena jest kontrolowana (jedno tło, jedno światło, jeden typ butelki).
+   Wynik mierzy dopasowanie do tego stanowiska, nie ogólność modelu.
+5. Do eksportu (E1-07): `best.pt` z epoki 51, próg conf 0,48.
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
 - [x] E1-03 – skrypt zbierania zdjęć (215 zdjęć)
 - [x] E1-04 – etykietowanie (214 zdjęć, 536 ramek)
 - [x] E1-05 – środowisko treningowe
-- [ ] E1-06 – trening
+- [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
 - [ ] E1-07 – eksport i silniki
 - [ ] E1-08 – benchmark
 - [ ] E1-09 – dokumentacja i pytania

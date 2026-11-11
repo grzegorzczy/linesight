@@ -149,7 +149,7 @@ def main():
     ]
     report = out / "report.md"
     report.write_text("\n".join(lines) + "\n", encoding="utf-8")
-    print("\n".join(lines[:40]))
+    print("\n".join(lines))
     print("\nRaport: {}".format(report))
 
 

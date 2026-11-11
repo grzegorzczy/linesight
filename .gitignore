@@ -63,3 +63,6 @@ mlruns/
 .idea/
 Thumbs.db
 .DS_Store
+
+# Node (generator ściągi)
+node_modules/
