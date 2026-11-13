@@ -1,12 +1,14 @@
 """E1-07: eksport best.pt do ONNX (opset 13) w dwóch rozmiarach wejścia.
 
 Uruchom z głównego folderu projektu, z aktywnym .venv:
-    python training\\export_onnx.py
+    python training\\export_onnx.py          # głowica z NMS (one-to-many), 640x640 i 384x640
+    python training\\export_onnx.py --e2e    # test: głowica end-to-end bez NMS (one-to-one), 384x640
 
 Wynik: models\\yolo26n_v1_640x640.onnx i models\\yolo26n_v1_384x640.onnx
 (*.onnx jest w .gitignore). Pliki idą na Jetsona, tam trtexec buduje silniki.
 """
 import shutil
+import sys
 from pathlib import Path
 
 import onnx
@@ -27,11 +29,15 @@ def dims(value_info):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    for name, imgsz in SIZES.items():
+    e2e = "--e2e" in sys.argv
+    # nms=False włącza w ultralytics gałąź end2end (one-to-one, bez NMS); domyślnie (None) eksport
+    # bierze głowicę one-to-many, której wynik wymaga NMS.
+    sizes = {"384x640_e2e": (384, 640)} if e2e else SIZES
+    for name, imgsz in sizes.items():
         # Nowy obiekt przy każdym eksporcie: export() zmienia model w pamięci (fuse, tryb eval).
         model = YOLO(str(WEIGHTS))
         src = model.export(format="onnx", opset=OPSET, imgsz=imgsz,
-                           simplify=True, dynamic=False)
+                           simplify=True, dynamic=False, **({"nms": False} if e2e else {}))
         dst = OUT / f"yolo26n_v1_{name}.onnx"
         shutil.move(src, dst)  # export zapisuje zawsze jako best.onnx obok best.pt
 
@@ -41,6 +47,8 @@ def main():
         print(f"\n{dst.name}: opset {opset}, wejście {dims(m.graph.input[0])}, "
               f"wyjście {dims(m.graph.output[0])}, {dst.stat().st_size / 1e6:.1f} MB")
         print("  klasy:", model.names)
+        ops = sorted({n.op_type for n in m.graph.node})
+        print("  operatory:", ", ".join(ops))
 
 
 if __name__ == "__main__":
