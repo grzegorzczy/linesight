@@ -840,6 +840,34 @@ profil w osobnym przebiegu, bez wpływu na główny pomiar.
    i wolniejsze aktywacje SiLU, niepołączone ze splotem – razem ok. 3 ms,
    ok. 30% zysku ze splotów.
 
+### Workspace 1024 vs 2048 MB
+
+```
+nohup /usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640.onnx --saveEngine=yolo26n_v1_384x640_fp16_ws2048.engine --fp16 --workspace=2048 > yolo26n_v1_384x640_fp16_ws2048.log 2>&1 &
+wait %1; grep -E "PASSED|FAILED|sufficient" yolo26n_v1_384x640_fp16_ws2048.log
+sudo jetson_clocks
+/usr/src/tensorrt/bin/trtexec --loadEngine=yolo26n_v1_384x640_fp16_ws2048.engine --warmUp=2000 --duration=20 --useSpinWait 2>&1 | grep -E "Throughput|GPU Compute Time: min"
+sudo jetson_clocks --restore
+```
+
+`wait %1` – czeka na koniec zadania nr 1 z `jobs` (budowa w tle).
+
+| Silnik 384x640 FP16 | Throughput | Czas GPU min – max | Mediana |
+|---|---|---|---|
+| workspace 1024 MB | 33,85 qps | 29,15 – 29,29 ms | 29,21 ms |
+| **workspace 2048 MB** | **34,38 qps** | **28,66 – 28,83 ms** | **28,77 ms** |
+
+- +1,6% (−0,44 ms). Przedziały min–max się nie pokrywają, więc to realna
+  różnica, nie szum pomiaru: przy większym limicie TensorRT wybrał szybszą
+  implementację części warstw.
+- Ostrzeżenie `Some tactics do not have sufficient workspace` zostaje także
+  przy 2048 MB – pominięte taktyki chcą więcej niż połowę RAM Jetsona.
+- Workspace to limit pamięci na czas **budowy** (autotuning). Zastrzeżenie:
+  autotuning nie jest w pełni deterministyczny – ponowna budowa przy 1024 MB
+  mogłaby wybrać inne taktyki; różnica 1,6% jest na granicy tego efektu.
+- Decyzja: wdrażamy `yolo26n_v1_384x640_fp16_ws2048.engine` (szybszy, ta sama
+  dokładność – graf i precyzja bez zmian).
+
 ### Dokładność silników (val i test)
 
 ```
@@ -915,5 +943,5 @@ zrobi DeepStream (`nvinfer`). Obejście – zamiana `Mod(a, b)` na
 - [x] E1-05 – środowisko treningowe
 - [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
 - [x] E1-07 – eksport i silniki (384x640 FP16: 32,7 qps; INT8 bez zysku na Nano)
-- [ ] E1-08 – benchmark
+- [x] E1-08 – benchmark (384x640 FP16, workspace 2048: 34,4 qps, 20 MiB, mAP jak ONNX)
 - [ ] E1-09 – dokumentacja i pytania

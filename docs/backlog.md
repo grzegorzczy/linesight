@@ -36,10 +36,10 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
       (INT8 z kalibracją na zdjęciach ze zbioru)
       → zrobione: ONNX 640x640 i 384x640, silniki FP32/FP16; INT8 = FP32 na Nano (brak sprzętowego INT8), bez kalibracji
-- [ ] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,
+- [x] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,
       mAP na Jetsonie, zużycie pamięci (`tegrastats`); wyjaśnienie wyników, także gdy INT8 nic nie daje
       → stałe zegary, pamięć, profil warstw, mAP silników (TRT = ONNX, FP16 bez straty), test głowicy
-      end-to-end (Mod nieobsługiwany w TRT 8.2); otwarte: workspace 2048 vs 1024
+      end-to-end (Mod nieobsługiwany w TRT 8.2); workspace 2048: +1,6%
 - [ ] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
 
 ## Etap 2 – wideo (szac. 3 dni)
@@ -82,8 +82,8 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
-- **Wdrażany silnik: 384x640 FP16, głowica z NMS, conf 0,45** *(przyjęte 13.11.2026, E1-08)*.
-  33,9 qps, 20 MiB; mAP jak ONNX FP32. INT8 na Nano = FP32 (brak sprzętowego INT8), głowica
+- **Wdrażany silnik: 384x640 FP16, workspace 2048, głowica z NMS, conf 0,45** *(przyjęte 13.11.2026, E1-08)*.
+  34,4 qps, 20 MiB; mAP jak ONNX FP32. INT8 na Nano = FP32 (brak sprzętowego INT8), głowica
   end-to-end nie przechodzi przez parser TRT 8.2 (operator `Mod`).
 - **Architektura: YOLO26n** *(przyjęte 10.11.2026)*. Wszystkie trzy kandydatki działają z TensorRT 8.2
   przy podobnej szybkości (20 qps FP16); YOLO26n ma najwyższą dokładność na COCO i najmniejszy silnik.

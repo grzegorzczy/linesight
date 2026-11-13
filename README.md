@@ -6,7 +6,7 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **Stage 1 – model** (in progress)
+> Status: **Stage 1 – model** done · next: Stage 2 – video
 
 ## Architecture (target)
 
@@ -24,7 +24,7 @@ Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 | # | Stage | Status |
 |---|---|---|
 | 0 | Jetson setup, camera, repository, backlog | done |
-| 1 | Dataset, training, ONNX → TensorRT, FP32/FP16/INT8 benchmark | in progress |
+| 1 | Dataset, training, ONNX → TensorRT, FP32/FP16/INT8 benchmark | done |
 | 2 | GStreamer/DeepStream pipeline, tracking, counting, RTSP, event clips | – |
 | 3 | CODESYS PackML state machine, OPC UA → MQTT → TimescaleDB, Grafana | – |
 | 4 | Stop diagnostics: rules + cycle-time anomaly detection (PyTorch) | – |
@@ -37,17 +37,23 @@ MVP = stages 1–3.
 ## Results so far
 
 Detector: YOLO26n, own dataset (214 images, 536 boxes, split 150/43/21),
-trained locally (PyTorch, ultralytics), 640 px.
+trained locally (PyTorch, ultralytics), deployed as a TensorRT FP16 engine
+with a 384x640 input (camera is 640x360) on the Jetson Nano.
 
-| Split | Precision | Recall | mAP50 | mAP50-95 |
-|---|---|---|---|---|
-| val (43 img) | 0.983 | 1.000 | 0.995 | 0.788 |
-| test (21 img) | 0.965 | 0.989 | 0.987 | 0.778 |
+| Model | Device | val mAP50-95 | test mAP50-95 | Speed | Memory |
+|---|---|---|---|---|---|
+| PyTorch, 640, end-to-end head | laptop | 0.788 | 0.778 | 11.8 ms | – |
+| **TensorRT FP16, 384x640, NMS head** | **Jetson Nano** | **0.771** | **0.764** | **34.4 FPS (28.8 ms GPU)** | **20 MiB** |
 
-Deployment threshold conf = 0.48 (max F1 on val): 1 false positive, 0 misses
-on val. Limiting factor is box tightness (mAP50-95), not detection. Activation
-maps confirm the model looks at bottles, not at the background. Details:
-[docs/etap-1-model.md](docs/etap-1-model.md).
+- TensorRT is lossless vs ONNX (FP32: 0.002 px; FP16: same decisions).
+- 384x640 instead of 640x640: −41% compute, same accuracy.
+- FP16 gives 1.23x, not 2x: convolutions are 71% of FP32 time (Amdahl),
+  FP16 adds 25 reformat layers and slower activations (per-layer profile).
+- INT8 brings nothing on the Nano (Maxwell GPU has no INT8 hardware).
+- The ~0.012 mAP gap comes from the exported head: the NMS-free head needs
+  the ONNX `Mod` op, which TensorRT 8.2 cannot parse.
+
+Details: [docs/etap-1-model.md](docs/etap-1-model.md).
 
 ## Repository layout
 
@@ -65,7 +71,7 @@ Folders are added when their first file appears.
 ## Documentation
 
 - [Stage 0 – Jetson setup, camera, memory](docs/etap-0-jetson.md)
-- [Stage 1 – scene, TensorRT compatibility, dataset, training results](docs/etap-1-model.md) (in progress)
+- [Stage 1 – dataset, training, TensorRT engines, benchmark](docs/etap-1-model.md)
 - [MVP backlog](docs/backlog.md)
 
 ## Not in the repository
