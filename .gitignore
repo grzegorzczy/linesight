@@ -69,3 +69,6 @@ node_modules/
 
 # Modele, logi trtexec, wyjścia silników (E1-07/E1-08)
 models/
+
+# --- DeepStream: zbudowane biblioteki (budujemy na Jetsonie) ---
+deepstream/**/*.so

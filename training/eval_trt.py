@@ -91,18 +91,26 @@ def counts(correct, conf, n_targets, c):
     return tp, int(keep.sum()) - tp, n_targets - tp
 
 
-def evaluate(split, raw):
+def raw_to_dets(out, r, pad):
+    """Surowe wyjście [7, N] -> detekcje po NMS w pikselach oryginalnego zdjęcia: [x1, y1, x2, y2, conf, cls]."""
+    det = non_max_suppression(torch.from_numpy(out[None]).float(), conf_thres=0.001, iou_thres=0.7,
+                              max_det=300, nc=len(NAMES))[0].numpy()
+    det[:, [0, 2]] -= pad[0]  # cofnięcie letterboxa: pasy, potem skala
+    det[:, [1, 3]] -= pad[1]
+    det[:, :4] /= r
+    return det
+
+
+def score(split, dets):
+    """mAP i liczniki dla detekcji {nazwa zdjęcia: [[x1, y1, x2, y2, conf, cls], ...]} w pikselach zdjęcia.
+    Wspólne dla surowych wyjść (po raw_to_dets) i gotowych detekcji z DeepStreama (E2-03)."""
     stats = []
-    for name, (out, r, pad) in raw.items():
+    for name, det in dets.items():
         h, w = cv2.imread(str(DS / "images" / split / name)).shape[:2]
         tcls, tbox = load_labels(split, name, w, h)
-        det = non_max_suppression(torch.from_numpy(out[None]).float(), conf_thres=0.001, iou_thres=0.7,
-                                  max_det=300, nc=len(NAMES))[0].numpy()
-        boxes = det[:, :4].copy()
-        boxes[:, [0, 2]] -= pad[0]  # cofnięcie letterboxa: pasy, potem skala
-        boxes[:, [1, 3]] -= pad[1]
-        boxes /= r
-        conf, pcls = det[:, 4], det[:, 5].astype(int)
+        det = np.asarray(det, np.float32).reshape(-1, 6)
+        det = det[np.argsort(-det[:, 4], kind="stable")]  # match() wymaga kolejności malejącej pewności
+        boxes, conf, pcls = det[:, :4], det[:, 4], det[:, 5].astype(int)
         iou = (box_iou(torch.from_numpy(tbox).float(), torch.from_numpy(boxes).float()).numpy()
                if len(tbox) and len(boxes) else np.zeros((len(tbox), len(boxes))))
         stats.append((match(pcls, tcls, iou), conf, pcls, tcls))
@@ -113,6 +121,10 @@ def evaluate(split, raw):
                 deploy=counts(correct, conf, len(tcls), CONF_DEPLOY), best=best,
                 at_best=counts(correct, conf, len(tcls), best),
                 per_class={NAMES[c]: float(ap[i].mean()) for i, c in enumerate(uc)})
+
+
+def evaluate(split, raw):
+    return score(split, {name: raw_to_dets(out, r, pad) for name, (out, r, pad) in raw.items()})
 
 
 def raw_diff(a, b):
