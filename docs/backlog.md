@@ -52,8 +52,13 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → parser `deepstream/parser` (.so, C++), NMS w nvinfer (IoU 0,7, próg 0,48), 30 FPS przy GPU 80-98%;
       decyzje @0,48 identyczne z TensorRT+Python (val 108/1/2, test 51/1/1, 0 ramek bez pary),
       mAP50-95 val 0,771→0,754, test 0,764→0,760 (preprocessing: dekodowanie, NV12, kolor pasów)
-- [ ] **E2-04 – tracking i zliczanie** · Jetson · 0,5 dnia · tracker nadaje stałe ID; licznik
+- [x] **E2-04 – tracking i zliczanie** · Jetson · 0,5 dnia · tracker nadaje stałe ID; licznik
       sztuk po przekroczeniu linii; błąd zliczania zmierzony na nagranym teście
+      → `deepstream/linesight_app.py`: nvtracker IOU (`checkClassMatch: 1`), przejścia w kierunku taśmy,
+      histereza ±20 px, klasa z głosowania 5 s po linii; 7 testów logiki (`test_counter.py`); 33 FPS z pliku.
+      Test ręczny L->R (prawda 3/2/2 bottle/missing_cap/fallen): **3/2/1** (wariant `checkClassMatch: 0`: 3/1/4).
+      Ograniczenia testu: butelki przesuwane ręką, okno w kadrze (scena niezgodna z kryterium E1-01),
+      prawda z pamięci + przegląd nagrania
 - [ ] **E2-05 – RTSP H.264** · Jetson → laptop · 2-3 h · strumień z ramkami detekcji
       ze sprzętowego kodera, odbiór w VLC na laptopie; zmierzone opóźnienie
 - [ ] **E2-06 ⚠ – bufor kołowy i klipy** · Jetson · 0,5-1 dnia · zdarzenie zapisuje klip
@@ -81,10 +86,20 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       README, krótkie nagranie działającego MVP
 
 ## Poza MVP (pomysły)
+- [ ] Test zliczania na „taśmie” (pasek papieru przeciągany spoza kadru), scena zgodna z E1-01
+      (bez okna, sztuczne światło), prawda oznaczona na nagraniu – rzetelny błąd zliczania na klasę.
+- [ ] Klatki z nagrania E2-04 (światło dzienne, okno w tle, nakrętka pod światło) do retreningu
+      w etapie 6: przykład przesunięcia domeny przez oświetlenie (`bottle` → `missing_cap`).
+- [ ] Tracker NvDCF zamiast IOU, jeśli po RTSP i klipach zostanie zapas GPU (dziś 80-98%):
+      odporniejszy na zasłonięcia ręką i nachodzące na siebie butelki.
 - [ ] Głowica end-to-end YOLO26 na TRT 8.2: zamiana `Mod(a, b)` na `a − (a / b)·b` w grafie ONNX
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **Zliczanie: tracker IOU z `checkClassMatch: 1`, linia w połowie kadru, kierunek L->R, histereza ±20 px,
+  klasa sztuki z głosowania 5 s po przecięciu** *(przyjęte 13.11.2026, E2-04)*. IOU zamiast NvDCF,
+  bo GPU jest zajęte w 80-98% przez model; `checkClassMatch: 0` dawał zamianę ID między leżącą
+  a stojącą butelką.
 - **Wdrażany silnik: 384x640 FP16, workspace 2048, głowica z NMS, conf 0,45** *(przyjęte 13.11.2026, E1-08)*.
   34,4 qps, 20 MiB; mAP jak ONNX FP32. INT8 na Nano = FP32 (brak sprzętowego INT8), głowica
   end-to-end nie przechodzi przez parser TRT 8.2 (operator `Mod`).

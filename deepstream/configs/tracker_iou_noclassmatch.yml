@@ -1,6 +1,6 @@
 %YAML:1.0
 # E2-04: tracker IOU (libnvds_nvmultiobjecttracker.so, DeepStream 6.0.1).
-# Na bazie samples/configs/deepstream-app/config_tracker_IOU.yml; zmiana oznaczona [LineSight].
+# Na bazie samples/configs/deepstream-app/config_tracker_IOU.yml (parametry bez zmian, z komentarzami).
 # IOU łączy ramki z kolejnych klatek po pokryciu – tylko CPU, bez cech wyglądu (GPU zajęte w 80-98% przez model).
 
 BaseConfig:
@@ -20,9 +20,7 @@ TrajectoryManagement:
 DataAssociator:
   dataAssociatorType: 0
   associationMatcherType: 0     # GREEDY
-  checkClassMatch: 1            # [LineSight] wariant do porównania: ślad tylko w obrębie jednej klasy
-                                # (bottle <-> missing_cap, gdy szyjka jest niewyraźna) – ślad ma przetrwać
-                                # zmianę klasy; ostateczną klasę ustala głosowanie po całym śladzie.
+  checkClassMatch: 0            # [LineSight] wariant porównawczy z E2-04: ślad może zmieniać klasę
   minMatchingScore4Overall: 0.0
   minMatchingScore4SizeSimilarity: 0.0
   minMatchingScore4Iou: 0.0
