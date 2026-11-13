@@ -64,8 +64,11 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → `linesight_app.py --rtsp`: NVENC + `tee`, GstRtspServer `rtsp://192.168.0.124:8554/linesight`;
       30 FPS, +40 MB RAM. Opóźnienie od szkła do szkła ~620 ms (VLC, caching 50 ms), z czego potok
       na Jetsonie 73 ms (tracer `latency`) – resztę dokłada głównie klient VLC
-- [ ] **E2-06 ⚠ – bufor kołowy i klipy** · Jetson · 0,5-1 dnia · zdarzenie zapisuje klip
+- [x] **E2-06 ⚠ – bufor kołowy i klipy** · Jetson · 0,5-1 dnia · zdarzenie zapisuje klip
       N s przed i M s po; klip odtwarza się na laptopie
+      → `linesight_app.py --clips`: splitmuxsink 15 × 2 s w `/dev/shm`, klip 10 s przed / 5 s po przecięciu
+      (`missing_cap`, `fallen`), `ffmpeg -c copy`; nazwa klipu w zdarzeniu (`clip`). Test: klip 17 s,
+      przecięcie w 10. s, 30 FPS
 - [ ] **E2-07 – wysyłka zdarzeń** · Jetson → laptop · 2-3 h · zdarzenie (JSON: czas UTC, typ,
       klasa, ID obiektu, nazwa klipu) trafia do brokera MQTT; wymaga E3-01
 - [ ] **E2-08 – dokumentacja i pytania** · · 1-2 h · `docs/etap-2-wideo.md`, README, 5 pytań
