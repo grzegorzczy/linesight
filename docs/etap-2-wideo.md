@@ -1,6 +1,6 @@
 # Etap 2 – wideo: DeepStream, tracking, zliczanie
 
-Status: w trakcie (od 13.11.2026). Zrobione: E2-01…E2-06. Następne: E2-08 (dokumentacja, pytania); E2-07 (MQTT) po E3-01.
+Status: zakończony 13.11.2026 (E2-01…E2-06, E2-08). E2-07 (wysyłka zdarzeń MQTT) przeniesione do etapu 3 – po E3-01 (broker).
 
 ## Cel etapu
 Potok wideo na Jetsonie bez przechodzenia klatek przez CPU: kamera → GPU → model → tracker →

@@ -82,7 +82,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 11.11.2026, etap 1 (etap 1 zakończony; wdrażany silnik: YOLO26n, TensorRT FP16 384x640, 34,4 FPS na Jetsonie, conf 0,45).', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 13.11.2026, etap 2 (wideo) zakończony bez E2-07 (MQTT → etap 3). Potok DeepStream: kamera → YOLO26n FP16 → tracker → zliczanie → OSD → NVENC → RTSP + klipy, 30 FPS.', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -433,6 +433,77 @@ bullet('FP16 = 1,23x, nie 2x: sploty to 71% czasu (Amdahl), FP16 dodaje 25 warst
 bullet('Głowica end-to-end (bez NMS) nie przechodzi przez TRT 8.2: operator Mod (export_onnx.py --e2e).');
 bullet('Przygotowanie zdjęcia w Pythonie na CPU: 12–15 ms → w etapie 2 na GPU (DeepStream).');
 
+h1('10h. DeepStream 6.0.1 i pyds (E2-01)');
+p('Jednorazowo. DeepStream 6.0.1 = jedyna wersja dla JetPack 4.6.1.');
+step('SSH1', 'Zależności GStreamera', ['sudo apt update', 'sudo apt install -y libssl1.0.0 libgstreamer1.0-0 gstreamer1.0-tools gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav libgstrtspserver-1.0-0 libjansson4=2.11-1']);
+step('SSH1', 'DeepStream 6.0.1', ['sudo apt install -y deepstream-6.0', 'dpkg -l deepstream-6.0', 'gst-inspect-1.0 nvinfer | head -20'], 'Oczekiwane: 6.0.1-1, Version 6.0.1. Zajmuje ok. 0,9 GB.');
+step('SSH1', 'pyds 1.1.1 (bez zależności – PyGObject z apt)', [
+  'sudo apt install -y python3-gi python3-dev python3-gst-1.0 python3-pip',
+  'cd ~ && wget https://github.com/NVIDIA-AI-IOT/deepstream_python_apps/releases/download/v1.1.1/pyds-1.1.1-py3-none-linux_aarch64.whl',
+  'pip3 install --user --no-deps ./pyds-1.1.1-py3-none-linux_aarch64.whl',
+  'python3 -c "import pyds; print(pyds.__file__)"',
+]);
+step('SSH1', 'RTSP w Pythonie (E2-05)', 'sudo apt-get install -y gir1.2-gst-rtsp-server-1.0');
+
+h1('10i. Parser i model w nvinfer (E2-03)');
+step('SSH1', 'Budowa parsera C++', ['cd ~/linesight/deepstream/parser', 'make', 'ls -l libnvdsparse_yolo26.so']);
+step('SSH1', 'Test nvinfer', ['cd ~/linesight/deepstream', 'bash test_nvinfer.sh fps'], 'bash test_nvinfer.sh mp4 → nagranie /tmp/e2-03.mp4 (Ctrl+C).');
+bullet('Konfiguracja: deepstream/configs/nvinfer_yolo26.txt (letterbox symetryczny, NMS IoU 0,7, próg 0,45).');
+
+h1('10j. Uruchomienie potoku LineSight (E2-04 – E2-06)');
+p('Zawsze najpierw (po restarcie):');
+step('SSH1', 'Pełna moc', ['sudo nvpmodel -m 0', 'sudo jetson_clocks'], 'sudo wklejać osobno – kolejne linie zjada pytanie o hasło.');
+step('SSH1', 'Najnowszy kod', ['cd ~/linesight', 'git checkout main', 'git pull']);
+step('SSH1', 'Kamera na żywo: zliczanie + RTSP + klipy', ['cd ~/linesight/deepstream', 'python3 linesight_app.py --rtsp --clips'], 'Ctrl+C kończy i wypisuje PODSUMOWANIE (liczniki, FPS).');
+step('LAPTOP', 'Podgląd RTSP', '"C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe" --network-caching=50 --rtsp-tcp rtsp://192.168.0.124:8554/linesight', 'Najpierw program na Jetsonie, potem VLC.');
+step('SSH2', 'Obciążenie', 'tegrastats');
+h2('Inne warianty');
+table([4600, 5038], [
+  ['Komenda (w ~/linesight/deepstream)', 'Co robi'],
+  ['python3 linesight_app.py', 'kamera, tylko zliczanie (bez wyjścia wideo)'],
+  ['python3 linesight_app.py --source /tmp/raw_e204.mp4 --out /tmp/e2-04.mp4', 'nagranie testowe → MP4 z ramkami'],
+  ['bash record_raw.sh /tmp/raw.mp4', 'surowe nagranie z kamery (podgląd: VLC + jetson.sdp)'],
+  ['python3 linesight_app.py --rtsp --clips --clip-classes bottle,missing_cap,fallen', 'klip dla każdej klasy (test)'],
+  ['python3 test_counter.py', '9 testów logiki licznika i klipów (bez Jetsona)'],
+  ['cat /tmp/linesight_events.jsonl', 'zdarzenia JSON (z polem clip)'],
+]);
+h2('Parametry');
+table([3000, 6638], [
+  ['Opcja', 'Domyślnie / znaczenie'],
+  ['--line 0.5', 'linia zliczania w połowie kadru'],
+  ['--direction L->R', 'liczone tylko przejścia w kierunku taśmy'],
+  ['--margin 20', 'histereza ±20 px'],
+  ['--decide 150', 'klasa z głosowania 5 s po przecięciu'],
+  ['--rtsp-port 8554 --rtsp-mount /linesight', 'adres strumienia'],
+  ['--bitrate 4000000', 'H.264 4 Mbit/s, klatka I co 1 s'],
+  ['--pre 10 --post 5', 'klip 10 s przed i 5 s po przecięciu'],
+  ['--clips-dir ~/linesight_clips', 'katalog klipów (bufor: /dev/shm/linesight, 15 × 2 s)'],
+]);
+
+h1('10k. Klipy i bufor (E2-06)');
+step('SSH2', 'Podgląd bufora kołowego', 'watch -n 1 ls -l --time-style=+%T /dev/shm/linesight', 'Ctrl+C kończy. Pliki ~1 MB, nowy co 2 s.');
+step('SSH1', 'Lista i długość klipów', ['ls -lh ~/linesight_clips', 'ffprobe -v error -show_entries format=duration -of csv=p=0 ~/linesight_clips/<klip>.mp4']);
+step('LAPTOP', 'Pobranie klipów', ['cd C:\\Users\\Grzesiek\\Desktop', 'scp grzegorz@192.168.0.124:~/linesight_clips/*.mp4 .']);
+step('SSH1', 'Sprzątanie klipów', 'rm ~/linesight_clips/*.mp4');
+
+h1('10l. Pomiar opóźnienia (E2-05)');
+step('LAPTOP', 'Stoper', ['cd C:\\Users\\Grzesiek\\Desktop\\linesight', 'python laptop\\stoper.py'], 'Kamera na okno stopera, VLC obok, zrzut Win+Shift+S: opóźnienie = stoper − stoper w VLC.');
+step('SSH1', 'Opóźnienie samego Jetsona (tracer GStreamera)', [
+  'GST_TRACERS=latency GST_DEBUG=GST_TRACER:7 GST_DEBUG_FILE=/tmp/latency.log python3 linesight_app.py --rtsp',
+  "grep -o 'time=(guint64)[0-9]*' /tmp/latency.log | cut -d')' -f2 | sort -n | awk '{a[NR]=$1} END {print \"n=\" NR, \"mediana=\" a[int(NR/2)]/1e6 \" ms\"}'",
+]);
+
+h1('10m. Wyniki etapu 2');
+table([5200, 4438], [
+  ['Pomiar', 'Wynik'],
+  ['Potok na żywo (detekcja + tracker + OSD + RTSP + bufor)', '30 FPS, RAM 1873 MB, GPU 61-99%'],
+  ['DeepStream vs TensorRT+Python (mAP50-95 val / test)', '0,754 / 0,760 (było 0,771 / 0,764)'],
+  ['Zliczanie, test ręczny (prawda 3/2/2)', '3/2/1'],
+  ['Opóźnienie od szkła do szkła (VLC, caching 50)', '~620 ms'],
+  ['W tym potok na Jetsonie (tracer)', '73 ms; reszta głównie VLC'],
+  ['Klip testowy', '17 s, przecięcie linii w 10. s'],
+]);
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
@@ -463,6 +534,13 @@ table([3600, 3000, 3038], [
   ['scp: mkdir ... Invalid argument', 'Ścieżka docelowa kończy się \\" – Windows psuje cudzysłów', 'Usunąć \\ z końca ścieżki'],
   ['pip: Operation cancelled by user', 'Wklejony blok komend – kolejne linie przerwały pip', 'Długie komendy wklejać pojedynczo'],
   ['No module named torch', 'PyTorch się nie zainstalował albo .venv nie jest włączone', '.venv\\Scripts\\activate, potem instalacja'],
+  ['sudo: „Sorry, try again” po wklejeniu kilku linii', 'Kolejne linie wzięte jako hasło', 'sudo … wklejać osobno'],
+  ['git checkout: pathspec \'etap2/…\' did not match', 'Jetson nie zna nowej gałęzi', 'git fetch, potem git checkout'],
+  ['git status „up to date”, a brak zmian', 'Porównanie ze starym stanem origin', 'git pull (pobiera i scala)'],
+  ['unrecognized arguments: --rtsp', 'Stara wersja kodu (main sprzed scalenia)', 'git pull na właściwej gałęzi'],
+  ['VLC: nie mógł połączyć się z …:8554', 'Program na Jetsonie nie działa', 'Najpierw linesight_app.py --rtsp'],
+  ['Ostrzeżenie GstUDPSrc has no property named \'pt\'', 'Serwer RTSP ustawia typ ładunku na udpsrc', 'Nieszkodliwe, ignorować'],
+  ['scp: ~/linesight_clips/*.mp4: No such file', 'Brak klipów – zwykła bottle nie zapisuje klipu', 'Test z --clip-classes bottle,missing_cap,fallen'],
 ]);
 
 h1('Archiwum: Intel RealSense (etap 0, niewykorzystana)');

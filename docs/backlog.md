@@ -71,7 +71,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       przecięcie w 10. s, 30 FPS
 - [ ] **E2-07 – wysyłka zdarzeń** · Jetson → laptop · 2-3 h · zdarzenie (JSON: czas UTC, typ,
       klasa, ID obiektu, nazwa klipu) trafia do brokera MQTT; wymaga E3-01
-- [ ] **E2-08 – dokumentacja i pytania** · · 1-2 h · `docs/etap-2-wideo.md`, README, 5 pytań
+      → **przeniesione do etapu 3** (zaraz po E3-01); zdarzenie ma już pole `clip` (E2-06)
+- [x] **E2-08 – dokumentacja i pytania** · · 1-2 h · `docs/etap-2-wideo.md`, README, 5 pytań
+      → README (sekcja potoku wideo), ściąga Word (sekcje 10h–10m), pytania z rozmowy w czacie
 
 ## Etap 3 – PLC i dane (szac. 2-3 dni)
 - [ ] **E3-01 – infrastruktura** · laptop, Docker · 2-3 h · `infra/docker-compose.yml`:
