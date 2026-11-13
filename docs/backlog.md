@@ -33,8 +33,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-06 – trening** · laptop · 0,5 dnia · mAP50 i mAP50-95 na zbiorze testowym,
       macierz pomyłek, przykłady błędów; batch dobrany do 4 GB VRAM
       → zrobione: test mAP50 0,987, mAP50-95 0,778; conf 0,48; 1 FP / 0 FN na val; mapy CAM
-- [ ] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
+- [x] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
       (INT8 z kalibracją na zdjęciach ze zbioru)
+      → zrobione: ONNX 640x640 i 384x640, silniki FP32/FP16; INT8 = FP32 na Nano (brak sprzętowego INT8), bez kalibracji
 - [ ] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,
       mAP na Jetsonie, zużycie pamięci (`tegrastats`); wyjaśnienie wyników, także gdy INT8 nic nie daje
 - [ ] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych

@@ -667,6 +667,93 @@ stopping. `best.pt` = epoka 51.
    Wynik mierzy dopasowanie do tego stanowiska, nie ogólność modelu.
 5. Do eksportu (E1-07): `best.pt` z epoki 51, próg conf 0,48.
 
+## E1-07 – eksport ONNX i silniki TensorRT
+
+### Eksport (laptop)
+
+```
+python training\export_onnx.py
+```
+
+`best.pt` (epoka 51) -> `models\yolo26n_v1_<rozmiar>.onnx`, opset 13,
+`simplify=True`, bez `dynamic`. Skrypt sprawdza graf (`onnx.checker`), opset
+i kształty.
+
+| Wariant | Wejście | Wyjście | Obliczenia | Po co |
+|---|---|---|---|---|
+| 640x640 | `[1, 3, 640, 640]` | `[1, 7, 8400]` | 5,4 GFLOPs | punkt odniesienia z E1-02 |
+| 384x640 | `[1, 3, 384, 640]` | `[1, 7, 5040]` | 3,2 GFLOPs | kamera daje 640x360; w kwadracie ~40% to szare pasy |
+
+- `7` = 4 współrzędne ramki + 3 klasy. `5040` = 48·80 + 24·40 + 12·20
+  (kandydaci z trzech skal, krok 8 / 16 / 32 px).
+- Szerokość w obu wariantach to 640, więc butelka ma tyle samo pikseli –
+  znikają tylko pasy. mAP nie powinien się zmienić (sprawdzenie w E1-08).
+
+### Budowa silników (Jetson)
+
+```
+# LAPTOP
+scp models\yolo26n_v1_640x640.onnx models\yolo26n_v1_384x640.onnx grzegorz@192.168.0.124:~/linesight/models/
+# SSH1
+cd ~/linesight && git fetch && git checkout etap1/e1-07-eksport && mkdir -p models
+nohup bash jetson/build_engines.sh > models/build_all.log 2>&1 &
+tail -f models/build_all.log      # Ctrl+C wychodzi z podglądu, budowa trwa dalej
+```
+
+`nohup … &` – proces w tle, odporny na zerwanie SSH. Sprawdzone w praktyce:
+laptop wyłączył się w trakcie budowy, a Jetson dokończył wszystkie silniki;
+wynik w `models/build_all.log` i `models/<silnik>.log`.
+
+### Wyniki (`trtexec`, batch 1, MAXN, zegary dynamiczne, workspace 1024 MB)
+
+| Silnik | Throughput | Czas GPU (średnio) | Rozmiar | Budowa |
+|---|---|---|---|---|
+| 640x640 FP32 | 15,9 qps | 62,2 ms | 15 MB | 7 min |
+| 640x640 FP16 | 20,8 qps | 47,6 ms | 9,0 MB | 14,5 min |
+| 384x640 FP32 | 27,1 qps | 36,6 ms | 14 MB | 6,5 min |
+| 384x640 INT8 (bez kalibracji, test) | 27,0 qps | 36,8 ms | – | 11,5 min |
+| **384x640 FP16** | **32,7 qps** | **30,2 ms** | **8,3 MB** | 13 min |
+
+Wnioski:
+1. **Rozmiar wejścia daje najwięcej**: FP32 62,2 -> 36,6 ms (−41%), tyle samo
+   co spadek obliczeń (5,4 -> 3,2 GFLOPs). Czas skaluje się liniowo z liczbą
+   operacji.
+2. **FP16 daje 1,2–1,3x, nie 2x.** Przy małym modelu część czasu to dostęp
+   do pamięci (współdzielona z CPU) i uruchamianie wielu małych kerneli,
+   których połowa precyzji nie przyspiesza. Do potwierdzenia w E1-08
+   (`--dumpProfile`, stałe zegary).
+3. **384x640 FP16 przekracza 30 FPS kamery, ale z małym zapasem** – to sam
+   GPU. Przygotowanie klatki, kopiowanie i dekodowanie wyjścia + NMS dochodzą
+   w potoku, dlatego w etapie 2 preprocessing idzie przez DeepStream na
+   sprzęcie.
+4. Max 66 ms przy 384x640 FP16 przy medianie 29,7 ms – pojedynczy skok
+   (zmiana zegara). Pomiar ok. 3 s, więc percentyl 99% ≈ maksimum.
+5. 640x640 FP16 = 20,8 qps, zgodnie z E1-02 (~20 qps) – pomiar powtarzalny.
+
+### INT8 na Jetsonie Nano
+
+```
+cd ~/linesight/models
+/usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640.onnx --int8 --workspace=1024 > int8_test.log 2>&1
+grep -iE "int8|warn|Throughput|GPU Compute Time: min|PASSED|FAILED" int8_test.log
+```
+
+Wynik z logu:
+```
+[W] [TRT] Int8 support requested on hardware without native Int8 support, performance will be negatively affected.
+Throughput: 26.9578 qps   (FP32: 27.07 qps)
+```
+
+- GPU Nano (Maxwell, compute capability 5.3) nie ma sprzętowych instrukcji
+  INT8. TensorRT buduje silnik, ale wybiera implementacje FP32 – wynik równy
+  FP32, wolniejszy od FP16. NVIDIA potwierdza na forum: na Nano dostępne są
+  tylko FP32 i FP16; INT8 – od Xaviera (Volta) wzwyż.
+- Bez kalibracji `trtexec` przyjmuje sztuczne zakresy wartości – taki silnik
+  służy tylko do pomiaru szybkości, więc go nie zapisujemy.
+- **Decyzja: bez kalibracji INT8.** Kalibrator (Python API, pycuda na
+  Pythonie 3.6) kosztowałby dzień pracy dla wyniku bez zysku. Wdrażamy
+  **384x640 FP16**. Na Orin/Xavier INT8 z kalibracją byłby pierwszym krokiem.
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
@@ -674,6 +761,6 @@ stopping. `best.pt` = epoka 51.
 - [x] E1-04 – etykietowanie (214 zdjęć, 536 ramek)
 - [x] E1-05 – środowisko treningowe
 - [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
-- [ ] E1-07 – eksport i silniki
+- [x] E1-07 – eksport i silniki (384x640 FP16: 32,7 qps; INT8 bez zysku na Nano)
 - [ ] E1-08 – benchmark
 - [ ] E1-09 – dokumentacja i pytania
