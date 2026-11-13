@@ -4,7 +4,8 @@ Uruchom z głównego folderu projektu, z aktywnym .venv:
     python training\\eval_trt.py
 
 Wejście: models\\out_384x640_<fp16|fp32>_<val|test>.npz  (z jetson/trt_dump.py, skopiowane scp)
-Odniesienie: models\\yolo26n_v1_384x640.onnx uruchomiony tu przez onnxruntime (FP32, CPU).
+Odniesienie: models\\yolo26n_v1_384x640.onnx uruchomiony tu przez onnxruntime (FP32, CPU);
+yolo26n_v1_640x640.onnx rozdziela wpływ rozmiaru wejścia od wpływu wyeksportowanej głowicy.
 Wszystkie warianty przechodzą przez ten sam letterbox, ten sam NMS (conf 0.001, IoU 0.7)
 i to samo liczenie mAP – różnica pokazuje wyłącznie wpływ TensorRT i FP16.
 """
@@ -22,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DS = ROOT / "data" / "datasets" / "linesight-5b628dbc"
 MODELS = ROOT / "models"
 ONNX = MODELS / "yolo26n_v1_384x640.onnx"
+ONNX_640 = MODELS / "yolo26n_v1_640x640.onnx"  # do rozdzielenia: wpływ rozmiaru wejścia vs głowicy
 SUMMARY = ROOT / "runs" / "detect" / "yolo26n_v1" / "summary.json"
 NAMES = ["bottle", "missing_cap", "fallen"]
 IOUV = np.linspace(0.5, 0.95, 10)
@@ -42,9 +44,9 @@ def letterbox(img, h, w):
     return img, r, (left, top)
 
 
-def onnx_outputs(split):
+def onnx_outputs(split, path=ONNX):
     """Surowe wyjścia modelu ONNX dla każdego zdjęcia: {nazwa: (wyjście [7,N], ratio, pad)}."""
-    sess = ort.InferenceSession(str(ONNX), providers=["CPUExecutionProvider"])
+    sess = ort.InferenceSession(str(path), providers=["CPUExecutionProvider"])
     inp = sess.get_inputs()[0]
     _, _, H, W = inp.shape
     res = {}
@@ -81,8 +83,16 @@ def match(pred_cls, true_cls, iou):
     return correct
 
 
+def counts(correct, conf, n_targets, c):
+    """TP/FP/FN przy progu c i IoU 0,5. Dopasowanie szło w kolejności pewności,
+    więc odcięcie słabszych predykcji nie zmienia trafień silniejszych."""
+    keep = conf >= c
+    tp = int(correct[keep, 0].sum())
+    return tp, int(keep.sum()) - tp, n_targets - tp
+
+
 def evaluate(split, raw):
-    stats, tp_d, fp_d, fn_d = [], 0, 0, 0
+    stats = []
     for name, (out, r, pad) in raw.items():
         h, w = cv2.imread(str(DS / "images" / split / name)).shape[:2]
         tcls, tbox = load_labels(split, name, w, h)
@@ -95,16 +105,14 @@ def evaluate(split, raw):
         conf, pcls = det[:, 4], det[:, 5].astype(int)
         iou = (box_iou(torch.from_numpy(tbox).float(), torch.from_numpy(boxes).float()).numpy()
                if len(tbox) and len(boxes) else np.zeros((len(tbox), len(boxes))))
-        correct = match(pcls, tcls, iou)
-        stats.append((correct, conf, pcls, tcls))
-        keep = conf >= CONF_DEPLOY  # decyzja na linii: próg wdrożeniowy, IoU 0,5
-        tp = int(correct[keep, 0].sum())
-        tp_d, fp_d, fn_d = tp_d + tp, fp_d + int(keep.sum()) - tp, fn_d + len(tcls) - tp
+        stats.append((match(pcls, tcls, iou), conf, pcls, tcls))
     correct, conf, pcls, tcls = [np.concatenate(x, 0) for x in zip(*stats)]
-    _, _, p, r, _, ap, uc, *_ = ap_per_class(correct, conf, pcls, tcls, names=dict(enumerate(NAMES)))
-    per_class = {NAMES[c]: float(ap[i].mean()) for i, c in enumerate(uc)}
+    _, _, p, r, _, ap, uc, _, _, f1_curve, x, _ = ap_per_class(correct, conf, pcls, tcls, names=dict(enumerate(NAMES)))
+    best = float(x[f1_curve.mean(0).argmax()])  # próg z maksimum średniego F1 (jak w E1-06)
     return dict(P=p.mean(), R=r.mean(), mAP50=ap[:, 0].mean(), mAP5095=ap.mean(),
-                TP=tp_d, FP=fp_d, FN=fn_d, per_class=per_class)
+                deploy=counts(correct, conf, len(tcls), CONF_DEPLOY), best=best,
+                at_best=counts(correct, conf, len(tcls), best),
+                per_class={NAMES[c]: float(ap[i].mean()) for i, c in enumerate(uc)})
 
 
 def raw_diff(a, b):
@@ -117,7 +125,8 @@ def raw_diff(a, b):
 def main():
     ref = json.loads(SUMMARY.read_text(encoding="utf-8"))
     for split in ("val", "test"):
-        variants = {"ONNX FP32 (laptop)": onnx_outputs(split)}
+        variants = {"ONNX 640x640 (laptop)": onnx_outputs(split, ONNX_640),
+                    "ONNX FP32 (laptop)": onnx_outputs(split)}
         for prec in ("fp32", "fp16"):
             f = MODELS / f"out_384x640_{prec}_{split}.npz"
             if f.exists():
@@ -127,19 +136,19 @@ def main():
 
         pt = ref[split]["all"]
         print(f"\n=== {split.upper()} ({len(variants['ONNX FP32 (laptop)'])} zdjęć) ===")
-        print(f"{'wariant':<26}{'P':>7}{'R':>7}{'mAP50':>8}{'mAP50-95':>10}   TP/FP/FN przy conf {CONF_DEPLOY}")
+        print(f"{'wariant':<26}{'P':>7}{'R':>7}{'mAP50':>8}{'mAP50-95':>10}   TP/FP/FN @{CONF_DEPLOY}   najlepszy próg -> TP/FP/FN")
         print(f"{'PyTorch 640 (E1-06)':<26}{pt['P']:>7.3f}{pt['R']:>7.3f}{pt['mAP50']:>8.3f}{pt['mAP50-95']:>10.3f}   –")
         results = {}
         for name, raw in variants.items():
             m = results[name] = evaluate(split, raw)
             print(f"{name:<26}{m['P']:>7.3f}{m['R']:>7.3f}{m['mAP50']:>8.3f}{m['mAP5095']:>10.3f}   "
-                  f"{m['TP']}/{m['FP']}/{m['FN']}")
+                  f"{'/'.join(map(str, m['deploy'])):<14}{m['best']:.2f} -> {'/'.join(map(str, m['at_best']))}")
         print("mAP50-95 na klasę: " + " | ".join(
             f"{n}: " + ", ".join(f"{c} {v:.3f}" for c, v in m["per_class"].items()) for n, m in results.items()))
 
         base = variants["ONNX FP32 (laptop)"]
         for name, raw in variants.items():
-            if name != "ONNX FP32 (laptop)":
+            if name.startswith("TensorRT"):
                 b, s = raw_diff(base, raw)
                 print(f"różnica surowych wyjść {name} vs ONNX: ramki max {b:.3f} px, pewności max {s:.4f}")
 
