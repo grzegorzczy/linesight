@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
-"""E2-04/E2-05: potok LineSight na Jetsonie – detekcja (nvinfer), tracking (nvtracker IOU), zliczanie sztuk
-i strumień RTSP H.264 z ramkami detekcji.
+"""E2-04..E2-06: potok LineSight na Jetsonie – detekcja (nvinfer), tracking (nvtracker IOU), zliczanie sztuk,
+strumień RTSP H.264 z ramkami detekcji i klipy ze zdarzeń (bufor kołowy).
 
 Jetson, Python 3.6, DeepStream 6.0.1, pyds 1.1.1. Uruchamiać z ~/linesight/deepstream:
     python3 linesight_app.py --source /dev/video0                 # kamera na żywo, wynik do fakesink
     python3 linesight_app.py --source /tmp/raw.mp4 --out /tmp/e2-04.mp4   # nagranie testowe -> MP4 z OSD
     python3 linesight_app.py --rtsp                                 # kamera -> rtsp://<jetson>:8554/linesight
-    (--rtsp i --out można łączyć: jeden koder, tee na RTSP i MP4)
+    python3 linesight_app.py --rtsp --clips                         # + klip 10 s przed / 5 s po zdarzeniu
+    (--rtsp, --out i --clips można łączyć: jeden koder, tee na RTSP, MP4 i bufor kołowy)
 
 Potok:
     źródło -> nvvideoconvert (NVMM) -> nvstreammux -> nvinfer -> nvtracker
            -> [sonda: zliczanie + rysowanie linii i liczników] -> nvdsosd -> koder H.264 -> tee -> MP4 / RTP
     RTP (rtph264pay -> udpsink 127.0.0.1:5400) odbiera wbudowany serwer RTSP (GstRtspServer, port 8554).
+    Bufor kołowy (--clips): splitmuxsink tnie H.264 na kawałki po 2 s w /dev/shm (RAM) i trzyma ostatnie 15.
+    Zdarzenie klasy z --clip-classes skleja (ffmpeg -c copy, bez ponownego kodowania) kawałki z okna
+    [przecięcie - pre, przecięcie + post] w jeden MP4 w --clips-dir; nazwa klipu trafia do zdarzenia ("clip").
 
 Zliczanie: przejście śladu (stałe ID z trackera) liczymy, gdy środek jego ramki przetnie pionową linię
 x = --line * szerokość w kierunku taśmy (--direction). Klasa = najczęstsza klasa w śladzie
@@ -20,10 +24,13 @@ Zdarzenia trafiają na stdout i do pliku
 JSON Lines (--events) – z nich korzystają bufor klipów (E2-06) i wysyłka MQTT (E2-07).
 """
 import argparse
+import glob
 import json
 import os
 import signal
+import subprocess
 import sys
+import threading
 import time
 from collections import Counter
 
@@ -52,12 +59,16 @@ def source_desc(src):
             "! nvvideoconvert ! video/x-raw(memory:NVMM),format=NV12".format(os.path.abspath(src))), False
 
 
+FPS = 30.0  # nominalne FPS kamery: przeliczenie klatek na sekundy przy wyznaczaniu chwili przecięcia
+SEG_DIR = "/dev/shm/linesight"  # bufor kołowy w RAM (tmpfs): bez zużywania karty SD
+SEG_S = 2  # długość kawałka; klatka I co 1 s (E2-05), więc każdy kawałek zaczyna się od klatki I
+SEG_FILES = 15  # 15 x 2 s = 30 s historii (wystarcza na pre + post + zapas na zamknięcie kawałka)
 UDP_PORT = 5400  # wewnętrzny port RTP: udpsink potoku -> udpsrc serwera RTSP
 
 
 def encoder_desc(args, live):
     """Koniec potoku: jeden sprzętowy koder H.264 (NVENC), tee na MP4 i/lub RTP; bez wyjść -> fakesink."""
-    if not args.out and not args.rtsp:
+    if not args.out and not args.rtsp and not args.clips:
         return "fakesink sync=false"
     # insert-sps-pps + klatka I co 30 klatek (1 s): klient RTSP może dołączyć w dowolnej chwili
     # i po zgubionym pakiecie obraz wraca najpóźniej po 1 s.
@@ -70,7 +81,68 @@ def encoder_desc(args, live):
         # Kamera: sync=false – wysyłamy klatkę od razu (mniejsze opóźnienie). Plik: sync=true – tempo 30 FPS.
         desc += (" enc. ! queue ! rtph264pay config-interval=1 pt=96 "
                  "! udpsink host=127.0.0.1 port={} sync={} async=false").format(UDP_PORT, "false" if live else "true")
+    if args.clips:
+        # max-files: nazwy plików krążą (seg00000..seg00014), najstarszy kawałek jest nadpisywany
+        desc += (" enc. ! queue ! splitmuxsink location={}/seg%05d.mp4 max-size-time={} max-files={}"
+                 ).format(SEG_DIR, SEG_S * 1000000000, SEG_FILES)
     return desc
+
+
+def select_segments(segments, t_start, t_end, now, seg_s=SEG_S):
+    """Wybiera zamknięte kawałki bufora pokrywające okno [t_start, t_end] (czas z time.time()).
+
+    segments: lista (ścieżka, mtime). mtime = chwila zamknięcia kawałka (mp4mux dopisuje nagłówek
+    na końcu), więc kawałek obejmuje mniej więcej [mtime - seg_s, mtime]. Najnowszy plik jest jeszcze
+    zapisywany (bez nagłówka moov) – pomijamy go. Zwraca ścieżki w kolejności czasu.
+    """
+    done = sorted(segments, key=lambda x: x[1])[:-1]
+    return [p for p, m in done if m > t_start and m - seg_s < t_end and m < now]
+
+
+class ClipMaker(object):
+    """Klipy ze zdarzeń: czeka, aż minie `post` s (+ zamknięcie kawałka), skleja kawałki ffmpegiem."""
+
+    def __init__(self, out_dir, classes, pre=10, post=5):
+        self.out_dir, self.classes, self.pre, self.post = out_dir, classes, pre, post
+        if not os.path.isdir(out_dir):
+            os.makedirs(out_dir)
+        if not os.path.isdir(SEG_DIR):
+            os.makedirs(SEG_DIR)
+        for f in glob.glob(os.path.join(SEG_DIR, "seg*.mp4")):  # stare kawałki zafałszowałyby czasy
+            os.remove(f)
+        self.pending = 0
+
+    def on_event(self, ev):
+        """Wołane przez LineCounter przed zapisem zdarzenia: dopisuje nazwę klipu i planuje jego zapis."""
+        if ev["class"] not in self.classes:
+            return
+        # zdarzenie powstaje `decide` klatek po przecięciu linii – klip centrujemy na przecięciu
+        t_cross = ev["t"] - (ev["decided_at"] - ev["frame"]) / FPS
+        name = "{}_{}_id{}.mp4".format(time.strftime("%Y%m%d-%H%M%S", time.localtime(t_cross)),
+                                       ev["class"], ev["track_id"])
+        ev["clip"] = name
+        wait = max(0.0, t_cross + self.post - time.time()) + SEG_S + 1  # + domknięcie bieżącego kawałka
+        self.pending += 1
+        timer = threading.Timer(wait, self._make, (name, t_cross))
+        timer.daemon = True
+        timer.start()
+
+    def _make(self, name, t_cross):
+        self.pending -= 1
+        segs = [(f, os.path.getmtime(f)) for f in glob.glob(os.path.join(SEG_DIR, "seg*.mp4"))]
+        paths = select_segments(segs, t_cross - self.pre, t_cross + self.post, time.time())
+        if not paths:
+            print("KLIP: brak kawałków dla", name)
+            return
+        lst = os.path.join(SEG_DIR, name + ".txt")
+        with open(lst, "w") as f:
+            f.writelines("file '{}'\n".format(p) for p in paths)
+        out = os.path.join(self.out_dir, name)
+        # concat demuxer + -c copy: sklejenie bez dekodowania i kodowania (ułamek sekundy, prawie 0 CPU)
+        rc = subprocess.call(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
+                              "-i", lst, "-c", "copy", out])
+        os.remove(lst)
+        print("KLIP:", out if rc == 0 else "błąd ffmpeg ({})".format(rc), "({} kawałków)".format(len(paths)))
 
 
 def start_rtsp_server(port, mount):
@@ -125,6 +197,7 @@ class LineCounter(object):
         self.counts = Counter()
         self.events = open(events_path, "a") if events_path else None
         self.n_tracks = 0
+        self.on_event = None  # opcjonalnie: funkcja(ev) wołana przed zapisem zdarzenia (E2-06: klipy)
 
     def update(self, frame_num, objects):
         """objects: lista (track_id, class_id, cx). Zwraca listę zdarzeń zamkniętych w tej klatce."""
@@ -165,6 +238,8 @@ class LineCounter(object):
         ev = {"t": round(time.time(), 3), "frame": crossing[0], "decided_at": frame_num, "track_id": tid,
               "class": label, "direction": crossing[1],
               "votes": {NAMES[c]: n for c, n in t["votes"].items()}}
+        if self.on_event:
+            self.on_event(ev)
         print("ZLICZONO", json.dumps(ev))
         if self.events:
             self.events.write(json.dumps(ev) + "\n")
@@ -207,6 +282,13 @@ def main():
     ap.add_argument("--rtsp-port", type=int, default=8554)
     ap.add_argument("--rtsp-mount", default="/linesight")
     ap.add_argument("--bitrate", type=int, default=4000000, help="bitrate kodera H.264 w bit/s (domyślnie 4 Mbit/s)")
+    ap.add_argument("--clips", action="store_true",
+                    help="bufor kołowy i klipy ze zdarzeń (kamera na żywo; z pliku czasy są przybliżone)")
+    ap.add_argument("--clips-dir", default=os.path.expanduser("~/linesight_clips"))
+    ap.add_argument("--clip-classes", default="missing_cap,fallen",
+                    help="klasy, dla których zapisujemy klip (domyślnie missing_cap,fallen)")
+    ap.add_argument("--pre", type=float, default=10, help="sekundy przed przecięciem linii (domyślnie 10)")
+    ap.add_argument("--post", type=float, default=5, help="sekundy po przecięciu linii (domyślnie 5)")
     ap.add_argument("--line", type=float, default=0.5, help="położenie linii zliczania, ułamek szerokości")
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
     ap.add_argument("--decide", type=int, default=150,
@@ -226,6 +308,13 @@ def main():
         server = start_rtsp_server(args.rtsp_port, args.rtsp_mount)
         print("RTSP: rtsp://<ip_jetsona>:{}{}".format(args.rtsp_port, args.rtsp_mount))
     counter = LineCounter(args.line * W, args.events, args.decide, args.direction, args.margin)
+    clips = None
+    if args.clips:
+        if args.pre + args.post + 2 * SEG_S + 1 > SEG_S * (SEG_FILES - 1):
+            sys.exit("--pre + --post za duże dla bufora {} s".format(SEG_S * SEG_FILES))
+        clips = ClipMaker(args.clips_dir, args.clip_classes.split(","), args.pre, args.post)
+        counter.on_event = clips.on_event
+        print("KLIPY: bufor {} s w {}, klipy w {}".format(SEG_S * SEG_FILES, SEG_DIR, args.clips_dir))
     last_frame = [0]
     stats = {"frames": 0, "t0": None}
 
@@ -280,6 +369,8 @@ def main():
         s["fps"] = round((stats["frames"] - 1) / (time.time() - stats["t0"]), 1)
     s["frames"] = stats["frames"]
     print("PODSUMOWANIE", json.dumps(s))
+    if clips and clips.pending:
+        print("KLIPY: {} niezapisanych (program zakończony przed upływem --post)".format(clips.pending))
 
 
 if __name__ == "__main__":
