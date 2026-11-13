@@ -59,8 +59,11 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Test ręczny L->R (prawda 3/2/2 bottle/missing_cap/fallen): **3/2/1** (wariant `checkClassMatch: 0`: 3/1/4).
       Ograniczenia testu: butelki przesuwane ręką, okno w kadrze (scena niezgodna z kryterium E1-01),
       prawda z pamięci + przegląd nagrania
-- [ ] **E2-05 – RTSP H.264** · Jetson → laptop · 2-3 h · strumień z ramkami detekcji
+- [x] **E2-05 – RTSP H.264** · Jetson → laptop · 2-3 h · strumień z ramkami detekcji
       ze sprzętowego kodera, odbiór w VLC na laptopie; zmierzone opóźnienie
+      → `linesight_app.py --rtsp`: NVENC + `tee`, GstRtspServer `rtsp://192.168.0.124:8554/linesight`;
+      30 FPS, +40 MB RAM. Opóźnienie od szkła do szkła ~620 ms (VLC, caching 50 ms), z czego potok
+      na Jetsonie 73 ms (tracer `latency`) – resztę dokłada głównie klient VLC
 - [ ] **E2-06 ⚠ – bufor kołowy i klipy** · Jetson · 0,5-1 dnia · zdarzenie zapisuje klip
       N s przed i M s po; klip odtwarza się na laptopie
 - [ ] **E2-07 – wysyłka zdarzeń** · Jetson → laptop · 2-3 h · zdarzenie (JSON: czas UTC, typ,
@@ -90,6 +93,8 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       (bez okna, sztuczne światło), prawda oznaczona na nagraniu – rzetelny błąd zliczania na klasę.
 - [ ] Klatki z nagrania E2-04 (światło dzienne, okno w tle, nakrętka pod światło) do retreningu
       w etapie 6: przykład przesunięcia domeny przez oświetlenie (`bottle` → `missing_cap`).
+- [ ] Klient RTSP o niskim opóźnieniu (ffplay `nobuffer`/`low_delay` albo GStreamer na laptopie),
+      jeśli podgląd ma być < 200 ms (dziś ~620 ms, z czego ~450 ms to VLC) – E2-05
 - [ ] Tracker NvDCF zamiast IOU, jeśli po RTSP i klipach zostanie zapas GPU (dziś 80-98%):
       odporniejszy na zasłonięcia ręką i nachodzące na siebie butelki.
 - [ ] Głowica end-to-end YOLO26 na TRT 8.2: zamiana `Mod(a, b)` na `a − (a / b)·b` w grafie ONNX
