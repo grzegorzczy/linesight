@@ -40,7 +40,7 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       mAP na Jetsonie, zużycie pamięci (`tegrastats`); wyjaśnienie wyników, także gdy INT8 nic nie daje
       → stałe zegary, pamięć, profil warstw, mAP silników (TRT = ONNX, FP16 bez straty), test głowicy
       end-to-end (Mod nieobsługiwany w TRT 8.2); workspace 2048: +1,6%
-- [ ] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
+- [x] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
 
 ## Etap 2 – wideo (szac. 3 dni)
 - [ ] **E2-01 – instalacja DeepStream 6.0** · Jetson · 1-2 h · przykładowa aplikacja działa;

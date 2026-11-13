@@ -935,6 +935,82 @@ wyłącza tę głowicę dla TensorRT < 8.5). Na Nano zostaje głowica z NMS; NMS
 zrobi DeepStream (`nvinfer`). Obejście – zamiana `Mod(a, b)` na
 `a − (a / b)·b` w grafie (onnx-graphsurgeon) – w backlogu, poza MVP.
 
+## E1-09 – pytania z rozmowy technicznej (etap 1)
+
+**1. Na val mAP50 = 0,995, a mAP50-95 = 0,788. Co mówi ta różnica i jak
+poprawić drugą liczbę?**
+
+mAP50 liczy trafienie już przy IoU ≥ 0,5, czyli sprawdza, czy obiekt został
+znaleziony i dobrze sklasyfikowany. mAP50-95 uśrednia progi IoU od 0,5 do
+0,95, więc mierzy, jak ciasno ramka przylega. Model znajduje prawie
+wszystko (R = 1,0), a gubi punkty na dokładności ramek przy wysokich
+progach IoU. Na krzywych mAP50 stoi od ok. 20. epoki, a mAP50-95 rośnie
+już ledwie. Najbardziej prawdopodobna granica to same etykiety: ręczne
+ramki na przezroczystych butelkach różnią się o kilka pikseli, a przy
+IoU 0,95 to już błąd. Co zrobić, w kolejności: (1) sprawdzić rozkład IoU
+trafień i poprawić etykiety (spójna reguła: krawędź szkła, nie cień);
+(2) większa rozdzielczość, jeśli koszt na Jetsonie pozwala; (3) więcej
+danych z różnymi położeniami. Dla linii ważniejsze jest mAP50 i recall:
+ramka przesunięta o 3 px nie zmienia decyzji „brak nakrętki”.
+
+**2. FP16 przyspieszyło silnik tylko 1,23x, a INT8 nie dało nic. Dlaczego?**
+
+FP16: z profilu warstw (`--dumpProfile`) sploty to 71% czasu w FP32. Nawet
+gdyby przyspieszyły 2x, a reszta nie, wyszłoby maks. ok. 1,55x (prawo
+Amdahla). W praktyce sploty przyspieszyły 1,57x (pierwszy, z 3 kanałami
+wejścia, został w FP32), a FP16 dodało koszty: 25 warstw `Reformatting`
+(konwersje formatu danych między implementacjami, +2 ms) i wolniejsze
+aktywacje SiLU, niepołączone ze splotem i ograniczone przepustowością
+pamięci (+1 ms). Razem zjadły ok. 30% zysku. INT8: GPU Jetsona Nano
+(Maxwell, compute capability 5.3) nie ma instrukcji INT8. TensorRT
+ostrzega „Int8 support requested on hardware without native Int8 support”
+i wybiera implementacje FP32 – wynik 27,0 qps = FP32. Dlatego nie
+robiliśmy kalibracji. Na Xavier/Orin INT8 z kalibracją byłby pierwszym
+krokiem.
+
+**3. Na Jetsonie mAP50-95 = 0,771, w walidacji ultralytics 0,788. Skąd
+różnica i jak ustaliłeś przyczynę?**
+
+Rozdzieliłem trzy podejrzane czynniki, oceniając wszystkie warianty tym
+samym kodem (ten sam letterbox, NMS, dopasowanie ramek):
+- TensorRT: silnik FP32 = ONNX co do 0,002 px – wykluczony.
+- FP16: mAP50-95 −0,005 na val, +0,008 na test, te same TP/FP/FN – szum,
+  wykluczony.
+- Prostokątne wejście 384x640: ONNX 640x640 ma ten sam wynik w granicach
+  szumu – wykluczone.
+
+Zostaje głowica. YOLO26 ma dwie głowice: one-to-one (end-to-end, bez NMS;
+nią liczy walidacja ultralytics) i one-to-many (wymaga NMS; trafia do ONNX
+przy domyślnym `nms=None`). Eksport z `nms=False` dał głowicę end-to-end,
+ale parser TensorRT 8.2 nie obsługuje operatora `Mod`, którego ona używa
+(test na Jetsonie: „No importer registered for op: Mod”). Koszt: ok.
+0,012 mAP50-95 i 2 przeoczenia na 110 obiektów val. Obejście (zamiana
+`Mod` w grafie ONNX) jest w backlogu.
+
+**4. Jak wybrałeś próg 0,45 i dlaczego nie 0,80 z testu?**
+
+Próg to maksimum średniego F1 na zbiorze **walidacyjnym**, policzone dla
+potoku, który naprawdę działa na Jetsonie (głowica z NMS). Próg 0,48
+z E1-06 był dobrany na wyjściach głowicy end-to-end, która ma inny rozkład
+pewności. Test służy wyłącznie do jednorazowego, nieobciążonego raportu.
+Gdybym dobrał na nim próg, wynik testu przestałby być niezależny: zbiór
+staje się częścią strojenia. Przy 21 zdjęciach próg 0,80 i tak jest
+przypadkowy – na val 0,45 i 0,48 dają identyczne TP/FP/FN.
+
+**5. `trtexec` robi 34 FPS, a skrypt w Pythonie ok. 21 FPS. Gdzie ginie czas
+i co z tym zrobisz w produkcji?**
+
+`trtexec` mierzy sam silnik na gotowym tensorze w GPU. Skrypt dokłada:
+przygotowanie zdjęcia na CPU w numpy (letterbox, BGR→RGB, transpozycja,
+/255) – 12–15 ms, czyli ok. 40% czasu sieci; synchroniczne kopie i
+wywołania z Pythona; dekodowanie 5040 kandydatów i NMS. Wszystko po kolei,
+bez nakładania się etapów. W produkcji (etap 2): DeepStream – dekodowanie
+i skalowanie klatki na sprzęcie (NVDEC/VIC, `nvvideoconvert`),
+normalizacja i inferencja w `nvinfer` na GPU, NMS w `nvinfer`, a etapy
+potoku GStreamer działają równolegle (klatka n+1 jest przygotowywana,
+gdy sieć liczy klatkę n). Jeden proces z TensorRT, bo biblioteki CUDA
+zajmują ok. 1 GB RAM na proces.
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
@@ -944,4 +1020,4 @@ zrobi DeepStream (`nvinfer`). Obejście – zamiana `Mod(a, b)` na
 - [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
 - [x] E1-07 – eksport i silniki (384x640 FP16: 32,7 qps; INT8 bez zysku na Nano)
 - [x] E1-08 – benchmark (384x640 FP16, workspace 2048: 34,4 qps, 20 MiB, mAP jak ONNX)
-- [ ] E1-09 – dokumentacja i pytania
+- [x] E1-09 – dokumentacja i pytania
