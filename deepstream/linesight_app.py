@@ -65,41 +65,62 @@ def build_pipeline(args):
 
 
 class LineCounter(object):
-    """Liczy ślady przecinające pionową linię; klasa = większość głosów w śladzie."""
+    """Liczy ślady przecinające pionową linię; klasa = większość głosów w śladzie.
 
-    def __init__(self, line_x, events_path):
+    Sztukę liczymy w chwili przecięcia linii, ale klasę ustalamy z opóźnieniem: po `decide`
+    klatkach od przecięcia (albo gdy ślad zniknie wcześniej). E2-04: przy przecięciu ręka często
+    zasłania szyjkę i pierwsze głosy mówią missing_cap, a dalsza część śladu – bottle.
+    """
+
+    def __init__(self, line_x, events_path, decide=30):
         self.line_x = line_x
-        self.tracks = {}  # id -> {"votes": Counter, "cx": float, "last": nr klatki, "counted": bool}
+        self.decide = decide
+        self.tracks = {}  # id -> votes, cx, last, crossed (nr klatki przecięcia), direction, done
         self.counts = Counter()
         self.events = open(events_path, "a") if events_path else None
         self.n_tracks = 0
 
     def update(self, frame_num, objects):
-        """objects: lista (track_id, class_id, cx). Zwraca listę nowych zdarzeń."""
+        """objects: lista (track_id, class_id, cx). Zwraca listę zdarzeń zamkniętych w tej klatce."""
         new_events = []
         for tid, cls, cx in objects:
             t = self.tracks.get(tid)
             if t is None:
-                t = self.tracks[tid] = {"votes": Counter(), "cx": cx, "last": frame_num, "counted": False}
+                t = self.tracks[tid] = {"votes": Counter(), "cx": cx, "last": frame_num,
+                                        "crossed": None, "direction": None, "done": False}
                 self.n_tracks += 1
             t["votes"][cls] += 1
-            crossed = (t["cx"] - self.line_x) * (cx - self.line_x) < 0  # środek zmienił stronę linii
-            if crossed and not t["counted"]:
-                t["counted"] = True
-                label = NAMES[t["votes"].most_common(1)[0][0]]
-                self.counts[label] += 1
-                ev = {"t": round(time.time(), 3), "frame": frame_num, "track_id": tid, "class": label,
-                      "direction": "L->R" if cx > t["cx"] else "R->L",
-                      "votes": {NAMES[c]: n for c, n in t["votes"].items()}}
-                new_events.append(ev)
-                print("ZLICZONO", json.dumps(ev))
-                if self.events:
-                    self.events.write(json.dumps(ev) + "\n")
-                    self.events.flush()
+            # strona linii: x >= linia to "prawa" – środek dokładnie na linii też zmienia stronę
+            if t["crossed"] is None and (t["cx"] >= self.line_x) != (cx >= self.line_x):
+                t["crossed"] = frame_num  # środek ramki zmienił stronę linii: sztuka policzona
+                t["direction"] = "L->R" if cx > t["cx"] else "R->L"
             t["cx"], t["last"] = cx, frame_num
-        for tid in [k for k, v in self.tracks.items() if frame_num - v["last"] > STALE_FRAMES]:
-            del self.tracks[tid]
+        for tid, t in list(self.tracks.items()):
+            stale = frame_num - t["last"] > STALE_FRAMES
+            if t["crossed"] is not None and not t["done"] and (frame_num - t["crossed"] >= self.decide or stale):
+                new_events.append(self._close(tid, t, frame_num))
+            if stale:
+                del self.tracks[tid]
         return new_events
+
+    def flush(self, frame_num):
+        """Koniec strumienia: zamyka sztuki policzone, a jeszcze bez ustalonej klasy."""
+        for tid, t in self.tracks.items():
+            if t["crossed"] is not None and not t["done"]:
+                self._close(tid, t, frame_num)
+
+    def _close(self, tid, t, frame_num):
+        t["done"] = True
+        label = NAMES[t["votes"].most_common(1)[0][0]]
+        self.counts[label] += 1
+        ev = {"t": round(time.time(), 3), "frame": t["crossed"], "decided_at": frame_num, "track_id": tid,
+              "class": label, "direction": t["direction"],
+              "votes": {NAMES[c]: n for c, n in t["votes"].items()}}
+        print("ZLICZONO", json.dumps(ev))
+        if self.events:
+            self.events.write(json.dumps(ev) + "\n")
+            self.events.flush()
+        return ev
 
     def summary(self):
         return {"counts": {n: self.counts[n] for n in NAMES}, "total": sum(self.counts.values()),
@@ -134,11 +155,14 @@ def main():
     ap.add_argument("--out", help="zapis wyniku z OSD do MP4 (domyślnie brak, fakesink)")
     ap.add_argument("--line", type=float, default=0.5, help="położenie linii zliczania, ułamek szerokości")
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
+    ap.add_argument("--decide", type=int, default=30,
+                    help="po ilu klatkach od przecięcia linii ustalić klasę sztuki (domyślnie 30 = 1 s)")
     args = ap.parse_args()
 
     Gst.init(None)
     pipeline = build_pipeline(args)
-    counter = LineCounter(args.line * W, args.events)
+    counter = LineCounter(args.line * W, args.events, args.decide)
+    last_frame = [0]
     stats = {"frames": 0, "t0": None}
 
     def probe(pad, info, _):
@@ -155,6 +179,7 @@ def main():
                     objects.append((o.object_id, o.class_id, r.left + r.width / 2.0))
                 l_obj = l_obj.next
             counter.update(fm.frame_num, objects)
+            last_frame[0] = fm.frame_num
             add_overlay(batch, fm, counter)
             stats["frames"] += 1
             if stats["t0"] is None:
@@ -185,6 +210,7 @@ def main():
     loop.run()
     pipeline.set_state(Gst.State.NULL)
 
+    counter.flush(last_frame[0])
     s = counter.summary()
     if stats["t0"] and stats["frames"] > 1:
         s["fps"] = round((stats["frames"] - 1) / (time.time() - stats["t0"]), 1)
