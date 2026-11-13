@@ -43,9 +43,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
 
 ## Etap 2 – wideo (szac. 3 dni)
-- [ ] **E2-01 – instalacja DeepStream 6.0** · Jetson · 1-2 h · przykładowa aplikacja działa;
+- [x] **E2-01 – instalacja DeepStream 6.0.1** (pakiet `deepstream-6.0`, wersja 6.0.1-1 – jedyna zgodna z JetPack 4.6.1) · Jetson · 1-2 h · przykładowa aplikacja działa;
       kontrola miejsca na karcie przed i po
-- [ ] **E2-02 – kamera USB w DeepStream** · Jetson · 2 h · obraz z `/dev/video0` przechodzi przez
+- [x] **E2-02 – kamera USB w DeepStream** · Jetson · 2 h · obraz z `/dev/video0` przechodzi przez
       potok z ustawioną ekspozycją (`extra-controls`)
 - [ ] **E2-03 ⚠ – nasz model w `nvinfer`** · Jetson · 0,5-1 dnia · parser wyjścia YOLO dla
       DeepStream 6.0; detekcje zgodne z wynikami z etapu 1
