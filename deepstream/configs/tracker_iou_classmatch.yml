@@ -1,0 +1,30 @@
+%YAML:1.0
+# E2-04: tracker IOU (libnvds_nvmultiobjecttracker.so, DeepStream 6.0.1).
+# Na bazie samples/configs/deepstream-app/config_tracker_IOU.yml; zmiana oznaczona [LineSight].
+# IOU łączy ramki z kolejnych klatek po pokryciu – tylko CPU, bez cech wyglądu (GPU zajęte w 80-98% przez model).
+
+BaseConfig:
+  minDetectorConfidence: 0      # filtr pewności robi już nvinfer (próg 0,48)
+
+TargetManagement:
+  maxTargetsPerStream: 150
+  minIouDiff4NewTarget: 0.5     # nowa ramka z IoU > 0,5 do istniejącego śladu nie tworzy nowego śladu
+                                # -> podwójna ramka (bottle + missing_cap na jednej butelce) nie da drugiego ID
+  probationAge: 4               # ślad jest potwierdzony po 4 klatkach (~0,13 s) – odsiewa jednorazowe FP
+  maxShadowTrackingAge: 38      # ślad bez detekcji przeżywa 38 klatek (~1,3 s)
+  earlyTerminationAge: 1
+
+TrajectoryManagement:
+  useUniqueID: 0
+
+DataAssociator:
+  dataAssociatorType: 0
+  associationMatcherType: 0     # GREEDY
+  checkClassMatch: 1            # [LineSight] wariant do porównania: ślad tylko w obrębie jednej klasy
+                                # (bottle <-> missing_cap, gdy szyjka jest niewyraźna) – ślad ma przetrwać
+                                # zmianę klasy; ostateczną klasę ustala głosowanie po całym śladzie.
+  minMatchingScore4Overall: 0.0
+  minMatchingScore4SizeSimilarity: 0.0
+  minMatchingScore4Iou: 0.0
+  matchingScoreWeight4SizeSimilarity: 0.4
+  matchingScoreWeight4Iou: 0.6

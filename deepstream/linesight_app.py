@@ -61,7 +61,7 @@ def build_pipeline(args):
         "! nvvideoconvert name=post ! video/x-raw(memory:NVMM),format=RGBA "
         "! nvdsosd ! {sink}"
     ).format(src=src, w=W, h=H, live=int(live), cfg=os.path.join(HERE, "configs", "nvinfer_yolo26.txt"),
-             lib=TRACKER_LIB, trk=os.path.join(HERE, "configs", "tracker_iou.yml"), sink=sink)
+             lib=TRACKER_LIB, trk=os.path.abspath(args.tracker), sink=sink)
     return Gst.parse_launch(desc)
 
 
@@ -167,6 +167,8 @@ def main():
                     help="po ilu klatkach od przecięcia ustalić klasę (domyślnie 150 = 5 s albo zniknięcie śladu)")
     ap.add_argument("--margin", type=int, default=20,
                     help="strefa martwa wokół linii w px (histereza przeciw drganiom ramki, domyślnie 20)")
+    ap.add_argument("--tracker", default=os.path.join(HERE, "configs", "tracker_iou.yml"),
+                    help="plik YAML trackera (domyślnie configs/tracker_iou.yml)")
     ap.add_argument("--direction", default="L->R", choices=["L->R", "R->L", "both"],
                     help="kierunek taśmy: liczymy tylko przejścia w tym kierunku (domyślnie L->R)")
     args = ap.parse_args()
