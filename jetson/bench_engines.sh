@@ -24,6 +24,6 @@ for e in $ENGINES; do
   sleep 5   # przerwa: GPU wraca do temperatury spoczynkowej
 done
 
-kill $TS
+kill $TS; wait $TS 2>/dev/null   # bez komunikatu "Terminated"
 sudo jetson_clocks --restore
 echo "Wyniki: models/$OUT"
