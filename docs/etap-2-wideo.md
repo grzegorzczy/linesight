@@ -1,6 +1,6 @@
 # Etap 2 – wideo: DeepStream, tracking, zliczanie
 
-Status: w trakcie (od 13.11.2026). Zrobione: E2-01…E2-05. Następne: E2-06 (bufor kołowy i klipy).
+Status: w trakcie (od 13.11.2026). Zrobione: E2-01…E2-06. Następne: E2-08 (dokumentacja, pytania); E2-07 (MQTT) po E3-01.
 
 ## Cel etapu
 Potok wideo na Jetsonie bez przechodzenia klatek przez CPU: kamera → GPU → model → tracker →
@@ -300,6 +300,69 @@ Wnioski:
 - Dokładność pomiaru stoperem: ±1 odświeżenie ekranu (~16 ms) i ±1 klatka kamery (~33 ms).
 - Tracer obniża FPS (28,1 zamiast 30) – pomiar opóźnienia osobno od pomiaru FPS.
 
+## E2-06 – bufor kołowy i klipy ze zdarzeń (Jetson)
+
+### Pliki
+| Plik | Co robi |
+|---|---|
+| `deepstream/linesight_app.py` | `--clips` (+ `--clips-dir ~/linesight_clips`, `--clip-classes missing_cap,fallen`, `--pre 10`, `--post 5`); `select_segments`, `ClipMaker` |
+| `deepstream/test_counter.py` | +2 testy: wybór kawałków bufora, nazwa klipu w zdarzeniu (razem 9) |
+
+### Jak to działa
+```
+... nvv4l2h264enc ─► h264parse ─► tee ─┬─► MP4 (--out)
+                                        ├─► RTP ─► RTSP (--rtsp)
+                                        └─► splitmuxsink: /dev/shm/linesight/seg00000..00014.mp4 (--clips)
+zdarzenie (missing_cap/fallen) ─► czekaj post + 3 s ─► wybierz kawałki z [przecięcie-10 s, przecięcie+5 s]
+                               ─► ffmpeg -f concat -c copy ─► ~/linesight_clips/<data>_<klasa>_id<N>.mp4
+```
+- **Bufor kołowy = `splitmuxsink` z `max-files=15`**: kawałki ~2 s, nazwy krążą, najstarszy nadpisywany → 30 s historii.
+- **`/dev/shm` (tmpfs w RAM, 2 GB)**: ciągły zapis nie zużywa karty SD; bufor zajmuje ~15 MB.
+- **`max-size-time` 2,5 s, nie 2 s**: przy klatce I co 1 s i limicie dokładnie 2 s część kawałków zamykała się po 1 s
+  (pliki na zmianę ~0,5 i ~1 MB) – 15 plików dawało ~22 s historii. Przy 2,5 s mieszczą się zawsze 2 GOP-y.
+- **Klip centrowany na przecięciu linii**, nie na chwili zdarzenia (klasa ustalana 5 s później):
+  `t_przecięcia = t_zdarzenia − (decided_at − frame) / 30`.
+- **Wybór kawałków po czasie modyfikacji pliku**: `mp4mux` dopisuje nagłówek przy zamknięciu, więc mtime ≈ koniec
+  kawałka; najnowszy plik (wciąż zapisywany, bez `moov`) jest pomijany. Logika w `select_segments` – testowana bez Jetsona.
+- **Sklejanie `ffmpeg -c copy`** (concat demuxer): bez dekodowania i kodowania, ułamek sekundy, prawie 0 CPU.
+  Każdy kawałek zaczyna się od klatki I, więc klip odtwarza się od pierwszej klatki.
+- **Zdarzenie dostaje pole `clip`** (nazwa pliku) – wejście dla E2-07 (MQTT) i asystenta (etap 5).
+- Klip ma dokładność ±1 kawałek (2 s) – granice na klatkach I. Klipy nieukończone przy Ctrl+C program wypisuje.
+- Z pliku MP4 (`--source plik.mp4`) czasy są przybliżone (wybór po zegarze ściennym) – klipy mają sens na żywo.
+
+### Odrzucone
+- **Smart Record DeepStreama (NvDsSR)** – w DS 6.0 tylko API w C, brak w pyds 1.1.1.
+- **Bufor klatek w Pythonie (deque + appsrc)** – więcej kodu i CPU, ta sama funkcja.
+
+### Komendy
+```
+# Jetson: sprawdzenie narzędzi (jednorazowo)
+gst-inspect-1.0 --version                     # 1.14.5
+gst-inspect-1.0 splitmuxsink | grep -E "max-size-time|max-files|muxer|location"
+which ffmpeg; ffmpeg -version | head -1       # 3.4.8 (jest w systemie)
+df -h /dev/shm                                # tmpfs 2,0 G
+
+# Jetson: kamera + RTSP + klipy (test: klip dla każdej klasy)
+cd ~/linesight/deepstream
+python3 linesight_app.py --rtsp --clips --clip-classes bottle,missing_cap,fallen
+# drugie okno: podgląd bufora co 1 s
+watch -n 1 ls -l --time-style=+%T /dev/shm/linesight
+# długość klipu
+ffprobe -v error -show_entries format=duration -of csv=p=0 ~/linesight_clips/<klip>.mp4
+
+# Laptop (cmd): pobranie klipów
+scp grzegorz@192.168.0.124:~/linesight_clips/*.mp4 .
+```
+`watch -n 1` – powtarza komendę co 1 s. `ffprobe` – odczyt parametrów pliku (część ffmpeg). `scp` – kopiowanie przez SSH.
+
+### Wyniki
+| Pomiar | Wynik |
+|---|---|
+| FPS (kamera + RTSP + bufor) | **30,0** |
+| Kawałki bufora po poprawce | ~1 MB, co 2 s (0,77 MB przy małym ruchu – H.264 kompresuje lepiej) |
+| Klip `20261113-221731_bottle_id0.mp4` | 9 kawałków, **17 s**, przecięcie linii w **10. s** (oczekiwane 10 ± 2 s) |
+| Odtwarzanie | od pierwszej klatki, bez szarego obrazu i zacięć na sklejeniach |
+
 ---
 
 ## Pułapki i rozwiązania
@@ -316,6 +379,8 @@ Wnioski:
 | `unrecognized arguments: --rtsp` | Uruchomiona stara wersja z `main` (checkout się nie udał) | j.w. |
 | VLC: „System nie może odnaleźć określonej ścieżki” | VLC 32-bitowy | `C:\Program Files (x86)\VideoLAN\VLC\vlc.exe` |
 | VLC: „nie mógł połączyć się z 192.168.0.124:8554” | Na Jetsonie nie działa serwer RTSP | Najpierw `linesight_app.py --rtsp`, potem VLC |
+| Kawałki bufora na zmianę ~0,5 i ~1 MB | `max-size-time` = dokładnie 2 GOP-y; splitmuxsink czasem tnie po 1 GOP | `max-size-time` 2,5 s |
+| `scp: ~/linesight_clips/*.mp4: No such file` | Brak klipów: zwykła `bottle` nie zapisuje klipu (domyślnie tylko `missing_cap,fallen`) | Do testu `--clip-classes bottle,missing_cap,fallen` |
 | CPU w tegrastats `@102` | Zegary dynamiczne po restarcie | `sudo nvpmodel -m 0 && sudo jetson_clocks` |
 | Biały balans kamery 15000 K zamiast 5500 K | Ustawienia v4l2 nie przetrwały | `extra-controls=c,white_balance_temperature_auto=0,white_balance_temperature=5500` w `v4l2src` |
 
@@ -325,4 +390,5 @@ Wnioski:
 - **Tracker IOU, `checkClassMatch: 1`** – GPU zajęte w 80-98% przez model, NvDCF poza MVP.
 - **Testy zliczania na nagraniu**, nie na żywo – powtarzalne po każdej zmianie parametrów.
 - **RTSP przez `GstRtspServer` w procesie aplikacji**, jeden koder NVENC + `tee` – bez drugiego procesu i bez podwójnego kodowania.
+- **Klipy: `splitmuxsink` w `/dev/shm` + `ffmpeg -c copy`** – bez NvDsSR (brak w pyds) i bez ponownego kodowania; klip centrowany na przecięciu linii.
 - **Opóźnienie mierzone dwiema metodami**: od szkła do szkła (cały tor) i tracerem GStreamera (sam Jetson) – rozkład zamiast jednej liczby.

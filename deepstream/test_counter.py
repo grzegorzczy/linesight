@@ -69,6 +69,29 @@ def test_dwa_slady_obok_siebie():
     assert run(frames) == {"bottle": 1, "missing_cap": 1, "fallen": 0}
 
 
+def test_wybor_kawalkow_bufora():
+    # kawałki 2 s zamknięte w chwilach 100, 102, ..., 130; 130 to plik wciąż zapisywany
+    segs = [("seg{}".format(i), 100.0 + 2 * i) for i in range(16)]
+    # przecięcie w 115, okno [105, 120]: kawałki kończące się w 106..120 (pokrywają 104..120)
+    got = app.select_segments(segs, 105, 120, now=131)
+    assert got == ["seg{}".format(i) for i in range(3, 11)], got
+    # najnowszy (otwarty) kawałek nigdy nie jest brany
+    assert "seg15" not in app.select_segments(segs, 120, 140, now=131)
+
+
+def test_zdarzenie_dostaje_nazwe_klipu():
+    c = app.LineCounter(320, None, decide=3)
+    c.on_event = lambda ev: ev.update(clip="x.mp4")
+    for n, x in enumerate((280, 360, 360, 360, 360)):
+        c.update(n, [(1, FALLEN, x)])
+    assert c.counts["fallen"] == 1
+    evs = []
+    c.on_event = lambda ev: evs.append(ev)
+    for n, x in enumerate((280, 280, 360, 360, 360, 360), start=10):
+        c.update(n, [(2, BOTTLE, x)])
+    assert evs and evs[0]["class"] == "bottle"
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
