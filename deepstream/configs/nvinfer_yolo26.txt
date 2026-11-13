@@ -27,7 +27,7 @@ custom-lib-path=../parser/libnvdsparse_yolo26.so
 cluster-mode=2
 
 [class-attrs-all]
-# próg wdrożeniowy z E1-06 (maks. średniego F1 na val) i IoU NMS z eval_trt.py
-pre-cluster-threshold=0.48
+# próg wdrożeniowy z E1-08 (maks. F1 na val dla głowicy z NMS) i IoU NMS z eval_trt.py
+pre-cluster-threshold=0.45
 nms-iou-threshold=0.7
 topk=100

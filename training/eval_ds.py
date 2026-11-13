@@ -15,7 +15,10 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from eval_trt import CONF_DEPLOY, MODELS, NAMES, raw_to_dets, score, trt_outputs  # noqa: E402
+import eval_trt  # noqa: E402
+from eval_trt import MODELS, NAMES, raw_to_dets, score, trt_outputs  # noqa: E402
+
+CONF_DEPLOY = 0.45  # próg wdrożeniowy z E1-08 (eval_trt.CONF_DEPLOY = 0,48 to próg z E1-06, głowica end-to-end)
 
 
 def iou_xyxy(a, b):
@@ -49,6 +52,7 @@ def agreement(ds, trt, c=CONF_DEPLOY):
 
 
 def main():
+    eval_trt.CONF_DEPLOY = CONF_DEPLOY  # score() liczy TP/FP/FN przy tym progu
     for split in ("val", "test"):
         f_ds, f_trt = MODELS / f"ds_{split}.json", MODELS / f"out_384x640_fp16_{split}.npz"
         if not (f_ds.exists() and f_trt.exists()):
