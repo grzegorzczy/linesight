@@ -20,9 +20,9 @@ spec.loader.exec_module(app)
 BOTTLE, MISSING, FALLEN = 0, 1, 2
 
 
-def run(frames, decide=30, line=320, direction="L->R"):
+def run(frames, decide=30, line=320, direction="L->R", margin=20):
     """frames: lista klatek, każda to lista (track_id, class_id, cx)."""
-    c = app.LineCounter(line, None, decide, direction)
+    c = app.LineCounter(line, None, decide, direction, margin)
     for n, objs in enumerate(frames):
         c.update(n, objs)
     c.flush(len(frames))
@@ -35,9 +35,15 @@ def test_klasa_ustalana_po_przecieciu():
     assert run(frames) == {"bottle": 1, "missing_cap": 0, "fallen": 0}
 
 
-def test_srodek_dokladnie_na_linii():
-    frames = [[(1, BOTTLE, x)] for x in (300, 310, 320, 330, 340)]
+def test_przejscie_przez_strefe_martwa():
+    frames = [[(1, BOTTLE, x)] for x in (280, 300, 310, 320, 330, 345)]
     assert run(frames)["bottle"] == 1
+
+
+def test_drgania_przy_linii_nie_licza_sie():
+    # środek ramki skacze wokół linii w strefie ±20 px: brak przejścia
+    frames = [[(1, FALLEN, x)] for x in (290, 305, 330, 315, 335, 310, 325, 300)]
+    assert sum(run(frames, direction="both").values()) == 0
 
 
 def test_tylko_kierunek_tasmy():
@@ -48,7 +54,7 @@ def test_tylko_kierunek_tasmy():
 
 def test_tam_i_z_powrotem():
     # ta sama butelka 3x w prawo i 2x w lewo -> 3 przejścia L->R, 5 w trybie both
-    frames = [[(1, FALLEN, x)] for x in (300, 330, 300, 330, 300, 330)]
+    frames = [[(1, FALLEN, x)] for x in (280, 360, 280, 360, 280, 360)]
     assert run(frames)["fallen"] == 3
     assert run(frames, direction="both")["fallen"] == 5
 

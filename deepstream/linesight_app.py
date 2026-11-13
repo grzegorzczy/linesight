@@ -75,8 +75,9 @@ class LineCounter(object):
       (albo gdy ślad zniknie wcześniej): przy linii ręka często zasłania szyjkę.
     """
 
-    def __init__(self, line_x, events_path, decide=30, direction="L->R"):
+    def __init__(self, line_x, events_path, decide=150, direction="L->R", margin=20):
         self.line_x = line_x
+        self.margin = margin  # strefa martwa ±margin px wokół linii (histereza)
         self.decide = decide
         self.direction = direction
         self.tracks = {}  # id -> votes, cx, last, pending (lista przejść czekających na klasę)
@@ -90,15 +91,19 @@ class LineCounter(object):
         for tid, cls, cx in objects:
             t = self.tracks.get(tid)
             if t is None:
-                t = self.tracks[tid] = {"votes": Counter(), "cx": cx, "last": frame_num, "pending": []}
+                t = self.tracks[tid] = {"votes": Counter(), "side": None, "last": frame_num, "pending": []}
                 self.n_tracks += 1
             t["votes"][cls] += 1
-            # strona linii: x >= linia to "prawa" – środek dokładnie na linii też zmienia stronę
-            if (t["cx"] >= self.line_x) != (cx >= self.line_x):
-                d = "L->R" if cx > t["cx"] else "R->L"
-                if self.direction in ("both", d):
-                    t["pending"].append((frame_num, d))
-            t["cx"], t["last"] = cx, frame_num
+            # Histereza: strona zmienia się dopiero, gdy środek ramki wyjdzie poza strefę ±margin.
+            # E2-04: środek ramki leżącej butelki drgał przy linii i dawał 2-3 przejścia w 1-12 klatek.
+            side = "L" if cx < self.line_x - self.margin else "R" if cx > self.line_x + self.margin else None
+            if side is not None:
+                if t["side"] is not None and side != t["side"]:
+                    d = "L->R" if side == "R" else "R->L"
+                    if self.direction in ("both", d):
+                        t["pending"].append((frame_num, d))
+                t["side"] = side
+            t["last"] = frame_num
         for tid, t in list(self.tracks.items()):
             stale = frame_num - t["last"] > STALE_FRAMES
             while t["pending"] and (frame_num - t["pending"][0][0] >= self.decide or stale):
@@ -158,15 +163,17 @@ def main():
     ap.add_argument("--out", help="zapis wyniku z OSD do MP4 (domyślnie brak, fakesink)")
     ap.add_argument("--line", type=float, default=0.5, help="położenie linii zliczania, ułamek szerokości")
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
-    ap.add_argument("--decide", type=int, default=30,
-                    help="po ilu klatkach od przecięcia linii ustalić klasę sztuki (domyślnie 30 = 1 s)")
+    ap.add_argument("--decide", type=int, default=150,
+                    help="po ilu klatkach od przecięcia ustalić klasę (domyślnie 150 = 5 s albo zniknięcie śladu)")
+    ap.add_argument("--margin", type=int, default=20,
+                    help="strefa martwa wokół linii w px (histereza przeciw drganiom ramki, domyślnie 20)")
     ap.add_argument("--direction", default="L->R", choices=["L->R", "R->L", "both"],
                     help="kierunek taśmy: liczymy tylko przejścia w tym kierunku (domyślnie L->R)")
     args = ap.parse_args()
 
     Gst.init(None)
     pipeline = build_pipeline(args)
-    counter = LineCounter(args.line * W, args.events, args.decide, args.direction)
+    counter = LineCounter(args.line * W, args.events, args.decide, args.direction, args.margin)
     last_frame = [0]
     stats = {"frames": 0, "t0": None}
 
