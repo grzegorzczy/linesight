@@ -1,0 +1,32 @@
+%YAML:1.0
+# E2-04: tracker IOU (libnvds_nvmultiobjecttracker.so, DeepStream 6.0.1).
+# Na bazie samples/configs/deepstream-app/config_tracker_IOU.yml (parametry bez zmian, z komentarzami).
+# IOU łączy ramki z kolejnych klatek po pokryciu – tylko CPU, bez cech wyglądu (GPU zajęte w 80-98% przez model).
+
+BaseConfig:
+  minDetectorConfidence: 0      # filtr pewności robi już nvinfer (próg 0,48)
+
+TargetManagement:
+  maxTargetsPerStream: 150
+  minIouDiff4NewTarget: 0.5     # nowa ramka z IoU > 0,5 do istniejącego śladu nie tworzy nowego śladu
+                                # -> podwójna ramka (bottle + missing_cap na jednej butelce) nie da drugiego ID
+  probationAge: 4               # ślad jest potwierdzony po 4 klatkach (~0,13 s) – odsiewa jednorazowe FP
+  maxShadowTrackingAge: 38      # ślad bez detekcji przeżywa 38 klatek (~1,3 s)
+  earlyTerminationAge: 1
+
+TrajectoryManagement:
+  useUniqueID: 0
+
+DataAssociator:
+  dataAssociatorType: 0
+  associationMatcherType: 0     # GREEDY
+  checkClassMatch: 1            # ślad łączy tylko ramki tej samej klasy (wartość domyślna z DS).
+                                # E2-04, test ręczny L->R (prawda 3/2/2): z 1 -> 3/2/1 (suma błędów 1),
+                                # z 0 -> 3/1/4 (suma błędów 3). Przy 0 ślad leżącej butelki przeskakiwał
+                                # na stojącą obok (zamiana ID); przy 1 zmiana klasy dzieli ślad na części,
+                                # ale krótkie części nie przechodzą przez linię. Wariant 0: tracker_iou_noclassmatch.yml
+  minMatchingScore4Overall: 0.0
+  minMatchingScore4SizeSimilarity: 0.0
+  minMatchingScore4Iou: 0.0
+  matchingScoreWeight4SizeSimilarity: 0.4
+  matchingScoreWeight4Iou: 0.6
