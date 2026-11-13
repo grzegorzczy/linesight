@@ -83,8 +83,10 @@ def encoder_desc(args, live):
                  "! udpsink host=127.0.0.1 port={} sync={} async=false").format(UDP_PORT, "false" if live else "true")
     if args.clips:
         # max-files: nazwy plików krążą (seg00000..seg00014), najstarszy kawałek jest nadpisywany
+        # max-size-time 2,5 s, nie 2 s: przy klatce I co dokładnie 1 s i limicie 2 s splitmuxsink czasem
+        # zamykał kawałek po 1 s (E2-06: pliki na zmianę ~0,5 i ~1 MB) i 15 plików dawało ~22 s zamiast 30 s
         desc += (" enc. ! queue ! splitmuxsink location={}/seg%05d.mp4 max-size-time={} max-files={}"
-                 ).format(SEG_DIR, SEG_S * 1000000000, SEG_FILES)
+                 ).format(SEG_DIR, int((SEG_S + 0.5) * 1000000000), SEG_FILES)
     return desc
 
 
