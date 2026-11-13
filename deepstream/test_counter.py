@@ -20,9 +20,9 @@ spec.loader.exec_module(app)
 BOTTLE, MISSING, FALLEN = 0, 1, 2
 
 
-def run(frames, decide=30, line=320):
+def run(frames, decide=30, line=320, direction="L->R"):
     """frames: lista klatek, każda to lista (track_id, class_id, cx)."""
-    c = app.LineCounter(line, None, decide)
+    c = app.LineCounter(line, None, decide, direction)
     for n, objs in enumerate(frames):
         c.update(n, objs)
     c.flush(len(frames))
@@ -40,9 +40,17 @@ def test_srodek_dokladnie_na_linii():
     assert run(frames)["bottle"] == 1
 
 
-def test_cofniecie_nie_liczy_drugi_raz():
-    frames = [[(1, FALLEN, x)] for x in (300, 330, 300, 330, 300)]
-    assert run(frames)["fallen"] == 1
+def test_tylko_kierunek_tasmy():
+    frames = [[(1, BOTTLE, x)] for x in (400, 350, 300, 250)]  # R->L
+    assert sum(run(frames).values()) == 0
+    assert run(frames, direction="R->L")["bottle"] == 1
+
+
+def test_tam_i_z_powrotem():
+    # ta sama butelka 3x w prawo i 2x w lewo -> 3 przejścia L->R, 5 w trybie both
+    frames = [[(1, FALLEN, x)] for x in (300, 330, 300, 330, 300, 330)]
+    assert run(frames)["fallen"] == 3
+    assert run(frames, direction="both")["fallen"] == 5
 
 
 def test_bez_przeciecia_brak_zliczenia():

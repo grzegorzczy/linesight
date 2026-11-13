@@ -9,9 +9,10 @@ Potok:
     źródło -> nvvideoconvert (NVMM) -> nvstreammux -> nvinfer -> nvtracker
            -> [sonda: zliczanie + rysowanie linii i liczników] -> nvdsosd -> koder H.264 -> MP4 | fakesink
 
-Zliczanie: ślad (stałe ID z trackera) jest liczony raz, gdy środek jego ramki przetnie pionową linię
-x = --line * szerokość. Klasa sztuki = najczęstsza klasa w całym śladzie do chwili przecięcia
-(głosowanie większościowe), a nie klasa z pojedynczej klatki. Zdarzenia trafiają na stdout i do pliku
+Zliczanie: przejście śladu (stałe ID z trackera) liczymy, gdy środek jego ramki przetnie pionową linię
+x = --line * szerokość w kierunku taśmy (--direction). Klasa = najczęstsza klasa w śladzie
+(głosowanie większościowe) ustalona --decide klatek po przecięciu, a nie klasa z pojedynczej klatki.
+Zdarzenia trafiają na stdout i do pliku
 JSON Lines (--events) – z nich korzystają bufor klipów (E2-06) i wysyłka MQTT (E2-07).
 """
 import argparse
@@ -65,17 +66,20 @@ def build_pipeline(args):
 
 
 class LineCounter(object):
-    """Liczy ślady przecinające pionową linię; klasa = większość głosów w śladzie.
+    """Liczy przejścia śladów przez pionową linię; klasa = większość głosów w śladzie.
 
-    Sztukę liczymy w chwili przecięcia linii, ale klasę ustalamy z opóźnieniem: po `decide`
-    klatkach od przecięcia (albo gdy ślad zniknie wcześniej). E2-04: przy przecięciu ręka często
-    zasłania szyjkę i pierwsze głosy mówią missing_cap, a dalsza część śladu – bottle.
+    - `direction`: kierunek taśmy ("L->R", "R->L") albo "both". Liczymy tylko przejścia w tym
+      kierunku. Ślad, który wróci na stronę wejściową, może zostać policzony ponownie
+      (E2-04: ta sama butelka przesuwana tam i z powrotem to kilka przejść).
+    - Przejście liczymy w chwili przecięcia linii, a klasę ustalamy `decide` klatek później
+      (albo gdy ślad zniknie wcześniej): przy linii ręka często zasłania szyjkę.
     """
 
-    def __init__(self, line_x, events_path, decide=30):
+    def __init__(self, line_x, events_path, decide=30, direction="L->R"):
         self.line_x = line_x
         self.decide = decide
-        self.tracks = {}  # id -> votes, cx, last, crossed (nr klatki przecięcia), direction, done
+        self.direction = direction
+        self.tracks = {}  # id -> votes, cx, last, pending (lista przejść czekających na klasę)
         self.counts = Counter()
         self.events = open(events_path, "a") if events_path else None
         self.n_tracks = 0
@@ -86,35 +90,34 @@ class LineCounter(object):
         for tid, cls, cx in objects:
             t = self.tracks.get(tid)
             if t is None:
-                t = self.tracks[tid] = {"votes": Counter(), "cx": cx, "last": frame_num,
-                                        "crossed": None, "direction": None, "done": False}
+                t = self.tracks[tid] = {"votes": Counter(), "cx": cx, "last": frame_num, "pending": []}
                 self.n_tracks += 1
             t["votes"][cls] += 1
             # strona linii: x >= linia to "prawa" – środek dokładnie na linii też zmienia stronę
-            if t["crossed"] is None and (t["cx"] >= self.line_x) != (cx >= self.line_x):
-                t["crossed"] = frame_num  # środek ramki zmienił stronę linii: sztuka policzona
-                t["direction"] = "L->R" if cx > t["cx"] else "R->L"
+            if (t["cx"] >= self.line_x) != (cx >= self.line_x):
+                d = "L->R" if cx > t["cx"] else "R->L"
+                if self.direction in ("both", d):
+                    t["pending"].append((frame_num, d))
             t["cx"], t["last"] = cx, frame_num
         for tid, t in list(self.tracks.items()):
             stale = frame_num - t["last"] > STALE_FRAMES
-            if t["crossed"] is not None and not t["done"] and (frame_num - t["crossed"] >= self.decide or stale):
-                new_events.append(self._close(tid, t, frame_num))
+            while t["pending"] and (frame_num - t["pending"][0][0] >= self.decide or stale):
+                new_events.append(self._close(tid, t, t["pending"].pop(0), frame_num))
             if stale:
                 del self.tracks[tid]
         return new_events
 
     def flush(self, frame_num):
-        """Koniec strumienia: zamyka sztuki policzone, a jeszcze bez ustalonej klasy."""
+        """Koniec strumienia: zamyka przejścia policzone, a jeszcze bez ustalonej klasy."""
         for tid, t in self.tracks.items():
-            if t["crossed"] is not None and not t["done"]:
-                self._close(tid, t, frame_num)
+            while t["pending"]:
+                self._close(tid, t, t["pending"].pop(0), frame_num)
 
-    def _close(self, tid, t, frame_num):
-        t["done"] = True
+    def _close(self, tid, t, crossing, frame_num):
         label = NAMES[t["votes"].most_common(1)[0][0]]
         self.counts[label] += 1
-        ev = {"t": round(time.time(), 3), "frame": t["crossed"], "decided_at": frame_num, "track_id": tid,
-              "class": label, "direction": t["direction"],
+        ev = {"t": round(time.time(), 3), "frame": crossing[0], "decided_at": frame_num, "track_id": tid,
+              "class": label, "direction": crossing[1],
               "votes": {NAMES[c]: n for c, n in t["votes"].items()}}
         print("ZLICZONO", json.dumps(ev))
         if self.events:
@@ -157,11 +160,13 @@ def main():
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
     ap.add_argument("--decide", type=int, default=30,
                     help="po ilu klatkach od przecięcia linii ustalić klasę sztuki (domyślnie 30 = 1 s)")
+    ap.add_argument("--direction", default="L->R", choices=["L->R", "R->L", "both"],
+                    help="kierunek taśmy: liczymy tylko przejścia w tym kierunku (domyślnie L->R)")
     args = ap.parse_args()
 
     Gst.init(None)
     pipeline = build_pipeline(args)
-    counter = LineCounter(args.line * W, args.events, args.decide)
+    counter = LineCounter(args.line * W, args.events, args.decide, args.direction)
     last_frame = [0]
     stats = {"frames": 0, "t0": None}
 
