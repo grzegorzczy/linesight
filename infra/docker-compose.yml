@@ -1,0 +1,15 @@
+# LineSight – infrastruktura na laptopie (etap 3).
+# Start:  docker compose -f infra/docker-compose.yml up -d
+# Stop:   docker compose -f infra/docker-compose.yml down
+# TimescaleDB (E3-06) i Grafana (E3-07) dojdą do tego samego pliku.
+name: linesight
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2.0
+    container_name: linesight-mosquitto
+    restart: unless-stopped
+    ports:
+      - "1883:1883"   # MQTT bez TLS – tylko sieć domowa
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro

@@ -78,6 +78,8 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 ## Etap 3 – PLC i dane (szac. 2-3 dni)
 - [ ] **E3-01 – infrastruktura** · laptop, Docker · 2-3 h · `infra/docker-compose.yml`:
       Mosquitto, TimescaleDB, Grafana; wszystko wstaje jedną komendą
+      → 14.11: Mosquitto 2.0 (`infra/mosquitto/mosquitto.conf`: listener LAN, bez haseł – sieć domowa);
+      TimescaleDB i Grafana dochodzą do tego samego pliku w E3-06 / E3-07
 - [ ] **E3-02 – synchronizacja czasu** · Jetson + laptop · 1 h · NTP na obu urządzeniach,
       wszystkie znaczniki czasu w UTC; zmierzona różnica zegarów
 - [ ] **E3-03 – maszyna stanów PackML** · CODESYS · 0,5-1 dnia · podzbiór stanów PackML,
