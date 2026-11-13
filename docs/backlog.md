@@ -49,8 +49,8 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       potok z ustawioną ekspozycją (`extra-controls`)
 - [x] **E2-03 ⚠ – nasz model w `nvinfer`** · Jetson · 0,5-1 dnia · parser wyjścia YOLO dla
       DeepStream 6.0; detekcje zgodne z wynikami z etapu 1
-      → parser `deepstream/parser` (.so, C++), NMS w nvinfer (IoU 0,7, próg 0,48), 30 FPS przy GPU 80-98%;
-      decyzje @0,48 identyczne z TensorRT+Python (val 108/1/2, test 51/1/1, 0 ramek bez pary),
+      → parser `deepstream/parser` (.so, C++), NMS w nvinfer (IoU 0,7, próg 0,45 z E1-08), 30 FPS przy GPU 80-98%;
+      decyzje przy progu identyczne (mierzone @0,48) z TensorRT+Python (val 108/1/2, test 51/1/1, 0 ramek bez pary),
       mAP50-95 val 0,771→0,754, test 0,764→0,760 (preprocessing: dekodowanie, NV12, kolor pasów)
 - [x] **E2-04 – tracking i zliczanie** · Jetson · 0,5 dnia · tracker nadaje stałe ID; licznik
       sztuk po przekroczeniu linii; błąd zliczania zmierzony na nagranym teście
