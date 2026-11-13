@@ -1,13 +1,17 @@
 #!/usr/bin/env python3
-"""E2-04: potok LineSight na Jetsonie – detekcja (nvinfer), tracking (nvtracker IOU) i zliczanie sztuk.
+"""E2-04/E2-05: potok LineSight na Jetsonie – detekcja (nvinfer), tracking (nvtracker IOU), zliczanie sztuk
+i strumień RTSP H.264 z ramkami detekcji.
 
 Jetson, Python 3.6, DeepStream 6.0.1, pyds 1.1.1. Uruchamiać z ~/linesight/deepstream:
     python3 linesight_app.py --source /dev/video0                 # kamera na żywo, wynik do fakesink
     python3 linesight_app.py --source /tmp/raw.mp4 --out /tmp/e2-04.mp4   # nagranie testowe -> MP4 z OSD
+    python3 linesight_app.py --rtsp                                 # kamera -> rtsp://<jetson>:8554/linesight
+    (--rtsp i --out można łączyć: jeden koder, tee na RTSP i MP4)
 
 Potok:
     źródło -> nvvideoconvert (NVMM) -> nvstreammux -> nvinfer -> nvtracker
-           -> [sonda: zliczanie + rysowanie linii i liczników] -> nvdsosd -> koder H.264 -> MP4 | fakesink
+           -> [sonda: zliczanie + rysowanie linii i liczników] -> nvdsosd -> koder H.264 -> tee -> MP4 / RTP
+    RTP (rtph264pay -> udpsink 127.0.0.1:5400) odbiera wbudowany serwer RTSP (GstRtspServer, port 8554).
 
 Zliczanie: przejście śladu (stałe ID z trackera) liczymy, gdy środek jego ramki przetnie pionową linię
 x = --line * szerokość w kierunku taśmy (--direction). Klasa = najczęstsza klasa w śladzie
@@ -48,11 +52,48 @@ def source_desc(src):
             "! nvvideoconvert ! video/x-raw(memory:NVMM),format=NV12".format(os.path.abspath(src))), False
 
 
+UDP_PORT = 5400  # wewnętrzny port RTP: udpsink potoku -> udpsrc serwera RTSP
+
+
+def encoder_desc(args, live):
+    """Koniec potoku: jeden sprzętowy koder H.264 (NVENC), tee na MP4 i/lub RTP; bez wyjść -> fakesink."""
+    if not args.out and not args.rtsp:
+        return "fakesink sync=false"
+    # insert-sps-pps + klatka I co 30 klatek (1 s): klient RTSP może dołączyć w dowolnej chwili
+    # i po zgubionym pakiecie obraz wraca najpóźniej po 1 s.
+    desc = ("nvvideoconvert ! video/x-raw(memory:NVMM),format=I420 "
+            "! nvv4l2h264enc bitrate={} insert-sps-pps=1 iframeinterval=30 ! h264parse ! tee name=enc"
+            ).format(args.bitrate)
+    if args.out:
+        desc += " enc. ! queue ! qtmux ! filesink location={}".format(args.out)
+    if args.rtsp:
+        # Kamera: sync=false – wysyłamy klatkę od razu (mniejsze opóźnienie). Plik: sync=true – tempo 30 FPS.
+        desc += (" enc. ! queue ! rtph264pay config-interval=1 pt=96 "
+                 "! udpsink host=127.0.0.1 port={} sync={} async=false").format(UDP_PORT, "false" if live else "true")
+    return desc
+
+
+def start_rtsp_server(port, mount):
+    """Serwer RTSP (GstRtspServer) w tym samym procesie: dla każdego klienta podaje pakiety RTP z UDP_PORT.
+
+    set_shared(True): wszyscy klienci dostają ten sam strumień (bez osobnego kodowania na klienta).
+    """
+    gi.require_version("GstRtspServer", "1.0")
+    from gi.repository import GstRtspServer
+    server = GstRtspServer.RTSPServer.new()
+    server.props.service = str(port)
+    factory = GstRtspServer.RTSPMediaFactory.new()
+    factory.set_launch('( udpsrc name=pay0 port={} buffer-size=524288 caps="application/x-rtp, media=video, '
+                       'clock-rate=90000, encoding-name=(string)H264, payload=96" )'.format(UDP_PORT))
+    factory.set_shared(True)
+    server.get_mount_points().add_factory(mount, factory)
+    server.attach(None)
+    return server
+
+
 def build_pipeline(args):
     src, live = source_desc(args.source)
-    sink = ("nvvideoconvert ! video/x-raw(memory:NVMM),format=I420 ! nvv4l2h264enc bitrate=4000000 "
-            "! h264parse ! qtmux ! filesink location={}".format(args.out)) if args.out \
-        else "fakesink sync=false"
+    sink = encoder_desc(args, live)
     desc = (
         "{src} ! m.sink_0 nvstreammux name=m batch-size=1 width={w} height={h} live-source={live} "
         "! nvinfer name=infer config-file-path={cfg} "
@@ -161,6 +202,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--source", default="/dev/video0", help="/dev/videoN albo plik .mp4 (H.264)")
     ap.add_argument("--out", help="zapis wyniku z OSD do MP4 (domyślnie brak, fakesink)")
+    ap.add_argument("--rtsp", action="store_true",
+                    help="strumień RTSP H.264 z OSD: rtsp://<ip_jetsona>:<--rtsp-port>/<--rtsp-mount>")
+    ap.add_argument("--rtsp-port", type=int, default=8554)
+    ap.add_argument("--rtsp-mount", default="/linesight")
+    ap.add_argument("--bitrate", type=int, default=4000000, help="bitrate kodera H.264 w bit/s (domyślnie 4 Mbit/s)")
     ap.add_argument("--line", type=float, default=0.5, help="położenie linii zliczania, ułamek szerokości")
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
     ap.add_argument("--decide", type=int, default=150,
@@ -175,6 +221,10 @@ def main():
 
     Gst.init(None)
     pipeline = build_pipeline(args)
+    server = None  # referencja musi żyć do końca programu
+    if args.rtsp:
+        server = start_rtsp_server(args.rtsp_port, args.rtsp_mount)
+        print("RTSP: rtsp://<ip_jetsona>:{}{}".format(args.rtsp_port, args.rtsp_mount))
     counter = LineCounter(args.line * W, args.events, args.decide, args.direction, args.margin)
     last_frame = [0]
     stats = {"frames": 0, "t0": None}

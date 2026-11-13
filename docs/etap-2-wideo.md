@@ -1,6 +1,6 @@
 # Etap 2 – wideo: DeepStream, tracking, zliczanie
 
-Status: w trakcie (od 13.11.2026). Zrobione: E2-01…E2-04. Następne: E2-05 (RTSP).
+Status: w trakcie (od 13.11.2026). Zrobione: E2-01…E2-05. Następne: E2-06 (bufor kołowy i klipy).
 
 ## Cel etapu
 Potok wideo na Jetsonie bez przechodzenia klatek przez CPU: kamera → GPU → model → tracker →
@@ -232,6 +232,74 @@ python3 linesight_app.py --source /dev/video0
   prawda z pamięci + przegląd nagrania. Przesunięcie domeny przez światło dzienne: różowa nakrętka
   na tle okna znika → `bottle` mylony z `missing_cap`. Dalsze testy w backlogu (poza MVP).
 
+## E2-05 – strumień RTSP H.264 (Jetson → laptop)
+
+### Pliki
+| Plik | Co robi |
+|---|---|
+| `deepstream/linesight_app.py` | `--rtsp` (+ `--rtsp-port 8554`, `--rtsp-mount /linesight`, `--bitrate 4000000`) |
+| `laptop/stoper.py` | Stoper z ms (tkinter) do pomiaru opóźnienia od szkła do szkła |
+
+### Jak to działa
+```
+nvdsosd ─► nvvideoconvert (I420) ─► nvv4l2h264enc (NVENC) ─► h264parse ─► tee ─┬─► qtmux ─► MP4 (--out)
+                                                                                 └─► rtph264pay ─► udpsink 127.0.0.1:5400
+GstRtspServer (ten sam proces, port 8554, /linesight): udpsrc :5400 ─► klienci RTSP (set_shared: jeden strumień dla wszystkich)
+```
+- Jeden koder sprzętowy, `tee` za koderem – RTSP i MP4 bez podwójnego kodowania (to samo `tee` wykorzysta E2-06).
+- `insert-sps-pps=1 iframeinterval=30`: klatka I + nagłówki co 1 s – klient dołącza w każdej chwili,
+  po zgubionym pakiecie obraz wraca najpóźniej po 1 s.
+- `udpsink sync=false` dla kamery (klatka wychodzi od razu), `sync=true` dla pliku (tempo 30 FPS).
+- Układ z przykładu NVIDIA `deepstream-test1-rtsp-out` (deepstream_python_apps v1.1.1 = DS 6.0.1).
+- Ostrzeżenie `GstUDPSrc has no property named 'pt'` – nieszkodliwe: serwer próbuje ustawić typ ładunku
+  na `pay0`, a u nas `pay0` to `udpsrc` z gotowymi pakietami RTP (`pt=96`).
+
+### Komendy
+```
+# Jetson (jednorazowo): typelib GstRtspServer dla Pythona (biblioteka libgstrtspserver jest od E2-01)
+sudo apt-get install -y gir1.2-gst-rtsp-server-1.0
+
+# Jetson: kamera -> RTSP
+cd ~/linesight/deepstream && python3 linesight_app.py --rtsp
+
+# Laptop (cmd): odbiór; VLC jest 32-bitowy -> Program Files (x86)
+"C:\Program Files (x86)\VideoLAN\VLC\vlc.exe" --network-caching=50 --rtsp-tcp rtsp://192.168.0.124:8554/linesight
+
+# Laptop: stoper do pomiaru opóźnienia
+python laptop\stoper.py
+
+# Jetson: opóźnienie samego potoku (tracer GStreamera, v4l2src -> udpsink)
+GST_TRACERS=latency GST_DEBUG=GST_TRACER:7 GST_DEBUG_FILE=/tmp/latency.log python3 linesight_app.py --rtsp
+grep -o 'time=(guint64)[0-9]*' /tmp/latency.log | cut -d')' -f2 | sort -n | \
+  awk '{a[NR]=$1} END {print "n=" NR, "mediana=" a[int(NR/2)]/1e6 " ms", "min=" a[1]/1e6, "max=" a[NR]/1e6}'
+```
+`--network-caching` – bufor sieciowy VLC (domyślnie 1000 ms). `--rtsp-tcp` – RTP w połączeniu TCP z RTSP
+(omija blokadę przychodzącego UDP przez zaporę Windows).
+
+### Wyniki
+| Pomiar | Wynik |
+|---|---|
+| FPS z RTSP (kamera, 3844 klatki) | **30,0** (jak bez RTSP) |
+| RAM / GPU (GR3D) / CPU (tegrastats) | 1873 MB (+~40 MB względem E2-04) / 61-99 % / 20-30 % na rdzeń |
+| Opóźnienie od szkła do szkła, VLC `network-caching=200` | 610-960 ms (2 odczyty) |
+| **Opóźnienie od szkła do szkła, VLC `network-caching=50`** | **mediana ~620 ms** (522 / 614 / 622 / 636 ms + 2 odczyty z obrazu w obrazie: 604, 625) |
+| **Potok na Jetsonie (tracer `latency`, v4l2src → udpsink)** | **mediana 73 ms** (n = 657; max 1,7 s = pierwsze klatki przy starcie) |
+
+Rozkład opóźnienia (~620 ms):
+- **potok na Jetsonie ~73 ms** – zmierzone (mux, nvinfer, tracker, sonda, OSD, NVENC, pakowanie RTP);
+- kamera USB (naświetlanie + bufory UVC/v4l2, 1-3 klatki po ~33 ms) i sieć LAN – razem szacunkowo ~50-100 ms;
+- **reszta, ~450 ms – odbiornik (VLC)**: bufor na jitter i zegar odtwarzania, dekodowanie, wyświetlanie.
+  Zmniejszenie `network-caching` z 200 do 50 ms prawie nic nie dało, więc to nie jest sam bufor sieciowy.
+
+Wnioski:
+- NVENC to osobny blok sprzętowy – RTSP nie zmniejszył FPS ani nie zabrał GPU detekcji.
+- Wąskim gardłem opóźnienia jest klient, nie Jetson. Do podglądu dla operatora 0,6 s wystarcza;
+  diagnoza postojów korzysta z klipów (E2-06) i zdarzeń, które powstają na Jetsonie przed koderem.
+- Gdyby było trzeba poniżej ~200 ms: klient o niskim opóźnieniu (np. `ffplay -fflags nobuffer -flags low_delay`
+  albo GStreamer na laptopie) – w backlogu, poza MVP.
+- Dokładność pomiaru stoperem: ±1 odświeżenie ekranu (~16 ms) i ±1 klatka kamery (~33 ms).
+- Tracer obniża FPS (28,1 zamiast 30) – pomiar opóźnienia osobno od pomiaru FPS.
+
 ---
 
 ## Pułapki i rozwiązania
@@ -243,6 +311,11 @@ python3 linesight_app.py --source /dev/video0
 | `index.lock: File exists` w gicie na laptopie | Polecenia git uruchomione równolegle z innego środowiska na tym samym folderze | `del .git\index.lock`; operacje git z jednego miejsca |
 | `moov atom not found` przy odtwarzaniu MP4 | Plik skopiowany (`scp`), zanim aplikacja domknęła MP4 (`106%` w scp) | Kopiować po `PODSUMOWANIE` / `Zapisano` |
 | Brak podglądu w trybie `mp4` | Potok zapisuje do pliku, SSH nie ma ekranu | Podgląd przez RTP/UDP → VLC (`record_raw.sh`), w E2-05 RTSP |
+| `sudo` zjada kolejne wklejone linie („Sorry, try again”) | Linie po `sudo` wzięte jako hasło | `sudo …` wklejać osobno, resztę po podaniu hasła |
+| `pathspec 'etap2/…' did not match` przy `git checkout` | Jetson nie wie o nowej gałęzi z GitHuba | Najpierw `git fetch`, potem `git checkout <gałąź>` |
+| `unrecognized arguments: --rtsp` | Uruchomiona stara wersja z `main` (checkout się nie udał) | j.w. |
+| VLC: „System nie może odnaleźć określonej ścieżki” | VLC 32-bitowy | `C:\Program Files (x86)\VideoLAN\VLC\vlc.exe` |
+| VLC: „nie mógł połączyć się z 192.168.0.124:8554” | Na Jetsonie nie działa serwer RTSP | Najpierw `linesight_app.py --rtsp`, potem VLC |
 | CPU w tegrastats `@102` | Zegary dynamiczne po restarcie | `sudo nvpmodel -m 0 && sudo jetson_clocks` |
 | Biały balans kamery 15000 K zamiast 5500 K | Ustawienia v4l2 nie przetrwały | `extra-controls=c,white_balance_temperature_auto=0,white_balance_temperature=5500` w `v4l2src` |
 
@@ -251,3 +324,5 @@ python3 linesight_app.py --source /dev/video0
 - **NMS w nvinfer** (`cluster-mode=2`, IoU 0,7, próg 0,45 z E1-08) – parser tylko dekoduje tensor.
 - **Tracker IOU, `checkClassMatch: 1`** – GPU zajęte w 80-98% przez model, NvDCF poza MVP.
 - **Testy zliczania na nagraniu**, nie na żywo – powtarzalne po każdej zmianie parametrów.
+- **RTSP przez `GstRtspServer` w procesie aplikacji**, jeden koder NVENC + `tee` – bez drugiego procesu i bez podwójnego kodowania.
+- **Opóźnienie mierzone dwiema metodami**: od szkła do szkła (cały tor) i tracerem GStreamera (sam Jetson) – rozkład zamiast jednej liczby.
