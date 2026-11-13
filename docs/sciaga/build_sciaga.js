@@ -82,7 +82,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 11.11.2026, etap 1 (E1-01…E1-06 zakończone; model: YOLO26n; zbiór 214 zdjęć, 536 ramek; test mAP50 0,987, mAP50-95 0,778; próg conf 0,48).', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 11.11.2026, etap 1 (etap 1 zakończony; wdrażany silnik: YOLO26n, TensorRT FP16 384x640, 34,4 FPS na Jetsonie, conf 0,45).', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -403,6 +403,35 @@ bullet('Próg do wdrożenia: conf = 0,48 (maks. F1 na val). Do eksportu: best.pt
 bullet('Ograniczenie: dokładność ramek (mAP50-95), nie wykrywanie.');
 bullet('Jedyny błąd: szyjka ucięta górną krawędzią kadru → dwie ramki (missing_cap + bottle). W etapie 2 kadr z zapasem nad szyjkami.');
 bullet('Puste stanowisko: słaba aktywacja na żebrach kaloryfera przy prawej krawędzi (pod progiem). Sprawdzić przy INT8 (E1-08) i na wideo.');
+
+h1('10f. Eksport ONNX i silniki TensorRT (E1-07)');
+step('LAPTOP', 'Eksport best.pt do ONNX (opset 13): 640x640 i 384x640', 'python training\\export_onnx.py', 'Wynik: models\\yolo26n_v1_640x640.onnx [1,7,8400] i yolo26n_v1_384x640.onnx [1,7,5040]. 384 = kamera 360 zaokrąglona do wielokrotności 32 → −41% obliczeń.');
+step('SSH1', 'Pobranie skryptów, folder na modele', 'cd ~/linesight && git pull && mkdir -p models');
+step('LAPTOP', 'Kopiowanie ONNX na Jetsona', 'scp models\\yolo26n_v1_640x640.onnx models\\yolo26n_v1_384x640.onnx grzegorz@192.168.0.124:~/linesight/models/');
+step('SSH1', 'Budowa 4 silników w tle (FP32/FP16 × 2 rozmiary, ok. 40 min)', ['nohup bash jetson/build_engines.sh > models/build_all.log 2>&1 &', 'tail -f models/build_all.log'], 'nohup … & = proces w tle, przeżyje zerwanie SSH i wyłączenie laptopa. Ctrl+C wychodzi tylko z podglądu. Po ponownym logowaniu: cat models/build_all.log.');
+step('SSH1', 'Czekanie na zadanie w tle', 'wait %1', 'Terminal stoi, aż skończy się zadanie nr 1 z listy jobs.');
+step('SSH1', 'Test INT8 (tylko pomiar, bez zapisu silnika)', ['cd ~/linesight/models', '/usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640.onnx --int8 --workspace=1024 > int8_test.log 2>&1', 'grep -iE "int8|warn|Throughput" int8_test.log'], 'Wynik: „Int8 support requested on hardware without native Int8 support”, 27 qps = jak FP32. Nano (Maxwell) nie ma sprzętowego INT8.');
+
+h1('10g. Benchmark i dokładność silników (E1-08)');
+p('Komendy z sudo wpisuj osobno – pytanie o hasło „zjada” kolejne wklejone linie.');
+step('SSH1', 'Benchmark 4 silników przy stałych zegarach', 'bash jetson/bench_engines.sh', 'jetson_clocks + trtexec --loadEngine --warmUp=2000 --duration=20 --useSpinWait + tegrastats. Logi: models/bench_<data>/.');
+step('SSH1', 'Pamięć silników i obciążenie GPU', ['grep -h "MemUsageChange" models/bench_*/*.log | grep -iE "deserial|ExecutionContext"', 'grep -o "RAM [0-9]*" models/bench_*/tegrastats.log | sort -k2 -n | tail -1', 'grep -o "GR3D_FREQ [0-9]*%" models/bench_*/tegrastats.log | sort | uniq -c | sort -rn | head -3']);
+step('SSH1', 'Profil warstw (czas każdej warstwy)', ['sudo jetson_clocks', 'cd ~/linesight/models', 'for p in fp16 fp32; do /usr/src/tensorrt/bin/trtexec --loadEngine=yolo26n_v1_384x640_$p.engine --warmUp=2000 --duration=10 --dumpProfile --separateProfileRun > profile_$p.log 2>&1; done', 'sudo jetson_clocks --restore', 'grep -A 12 "Layer   Time" profile_fp16.log | head -14']);
+step('LAPTOP', 'Zdjęcia val i test na Jetsona', ['ssh grzegorz@192.168.0.124 "mkdir -p ~/linesight/data/eval"', 'scp -r data\\datasets\\linesight-5b628dbc\\images\\val data\\datasets\\linesight-5b628dbc\\images\\test grzegorz@192.168.0.124:~/linesight/data/eval/']);
+step('SSH1', 'Surowe wyjścia silników (Python 3.6, bez pycuda)', 'for p in fp16 fp32; do for s in val test; do python3 jetson/trt_dump.py models/yolo26n_v1_384x640_$p.engine data/eval/$s models/out_384x640_${p}_$s.npz; done; done');
+step('LAPTOP', 'mAP silników vs ONNX (aktywne .venv!)', ['.venv\\Scripts\\activate', 'scp grzegorz@192.168.0.124:~/linesight/models/out_384x640_*.npz models\\', 'python training\\eval_trt.py'], 'Bez (.venv) w znaku zachęty Python bierze globalne, starsze ultralytics → „No module named ultralytics.utils.nms”.');
+table([3600, 1500, 1500, 1500, 1438], [
+  ['Silnik (Jetson, stałe zegary)', 'FPS', 'GPU ms', 'Pamięć', 'val mAP50-95'],
+  ['384x640 FP16, workspace 2048', '34,4', '28,8', '20 MiB', '0,771'],
+  ['384x640 FP16, workspace 1024', '33,9', '29,2', '20 MiB', '0,771'],
+  ['384x640 FP32', '27,4', '36,1', '33 MiB', '0,776'],
+  ['640x640 FP16', '21,1', '46,9', '27 MiB', '–'],
+  ['640x640 FP32', '16,1', '61,5', '42 MiB', '–'],
+]);
+bullet('Wdrażamy: 384x640 FP16, workspace 2048, głowica z NMS, conf 0,45.');
+bullet('FP16 = 1,23x, nie 2x: sploty to 71% czasu (Amdahl), FP16 dodaje 25 warstw Reformatting i wolniejsze SiLU.');
+bullet('Głowica end-to-end (bez NMS) nie przechodzi przez TRT 8.2: operator Mod (export_onnx.py --e2e).');
+bullet('Przygotowanie zdjęcia w Pythonie na CPU: 12–15 ms → w etapie 2 na GPU (DeepStream).');
 
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');

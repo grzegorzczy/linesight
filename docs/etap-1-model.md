@@ -667,6 +667,350 @@ stopping. `best.pt` = epoka 51.
    Wynik mierzy dopasowanie do tego stanowiska, nie ogólność modelu.
 5. Do eksportu (E1-07): `best.pt` z epoki 51, próg conf 0,48.
 
+## E1-07 – eksport ONNX i silniki TensorRT
+
+### Eksport (laptop)
+
+```
+python training\export_onnx.py
+```
+
+`best.pt` (epoka 51) -> `models\yolo26n_v1_<rozmiar>.onnx`, opset 13,
+`simplify=True`, bez `dynamic`. Skrypt sprawdza graf (`onnx.checker`), opset
+i kształty.
+
+| Wariant | Wejście | Wyjście | Obliczenia | Po co |
+|---|---|---|---|---|
+| 640x640 | `[1, 3, 640, 640]` | `[1, 7, 8400]` | 5,4 GFLOPs | punkt odniesienia z E1-02 |
+| 384x640 | `[1, 3, 384, 640]` | `[1, 7, 5040]` | 3,2 GFLOPs | kamera daje 640x360; w kwadracie ~40% to szare pasy |
+
+- `7` = 4 współrzędne ramki + 3 klasy. `5040` = 48·80 + 24·40 + 12·20
+  (kandydaci z trzech skal, krok 8 / 16 / 32 px).
+- Szerokość w obu wariantach to 640, więc butelka ma tyle samo pikseli –
+  znikają tylko pasy. mAP nie powinien się zmienić (sprawdzenie w E1-08).
+
+### Budowa silników (Jetson)
+
+```
+# LAPTOP
+scp models\yolo26n_v1_640x640.onnx models\yolo26n_v1_384x640.onnx grzegorz@192.168.0.124:~/linesight/models/
+# SSH1
+cd ~/linesight && git fetch && git checkout etap1/e1-07-eksport && mkdir -p models
+nohup bash jetson/build_engines.sh > models/build_all.log 2>&1 &
+tail -f models/build_all.log      # Ctrl+C wychodzi z podglądu, budowa trwa dalej
+```
+
+`nohup … &` – proces w tle, odporny na zerwanie SSH. Sprawdzone w praktyce:
+laptop wyłączył się w trakcie budowy, a Jetson dokończył wszystkie silniki;
+wynik w `models/build_all.log` i `models/<silnik>.log`.
+
+### Wyniki (`trtexec`, batch 1, MAXN, zegary dynamiczne, workspace 1024 MB)
+
+| Silnik | Throughput | Czas GPU (średnio) | Rozmiar | Budowa |
+|---|---|---|---|---|
+| 640x640 FP32 | 15,9 qps | 62,2 ms | 15 MB | 7 min |
+| 640x640 FP16 | 20,8 qps | 47,6 ms | 9,0 MB | 14,5 min |
+| 384x640 FP32 | 27,1 qps | 36,6 ms | 14 MB | 6,5 min |
+| 384x640 INT8 (bez kalibracji, test) | 27,0 qps | 36,8 ms | – | 11,5 min |
+| **384x640 FP16** | **32,7 qps** | **30,2 ms** | **8,3 MB** | 13 min |
+
+Wnioski:
+1. **Rozmiar wejścia daje najwięcej**: FP32 62,2 -> 36,6 ms (−41%), tyle samo
+   co spadek obliczeń (5,4 -> 3,2 GFLOPs). Czas skaluje się liniowo z liczbą
+   operacji.
+2. **FP16 daje 1,2–1,3x, nie 2x.** Przy małym modelu część czasu to dostęp
+   do pamięci (współdzielona z CPU) i uruchamianie wielu małych kerneli,
+   których połowa precyzji nie przyspiesza. Do potwierdzenia w E1-08
+   (`--dumpProfile`, stałe zegary).
+3. **384x640 FP16 przekracza 30 FPS kamery, ale z małym zapasem** – to sam
+   GPU. Przygotowanie klatki, kopiowanie i dekodowanie wyjścia + NMS dochodzą
+   w potoku, dlatego w etapie 2 preprocessing idzie przez DeepStream na
+   sprzęcie.
+4. Max 66 ms przy 384x640 FP16 przy medianie 29,7 ms – pojedynczy skok
+   (zmiana zegara). Pomiar ok. 3 s, więc percentyl 99% ≈ maksimum.
+5. 640x640 FP16 = 20,8 qps, zgodnie z E1-02 (~20 qps) – pomiar powtarzalny.
+
+### INT8 na Jetsonie Nano
+
+```
+cd ~/linesight/models
+/usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640.onnx --int8 --workspace=1024 > int8_test.log 2>&1
+grep -iE "int8|warn|Throughput|GPU Compute Time: min|PASSED|FAILED" int8_test.log
+```
+
+Wynik z logu:
+```
+[W] [TRT] Int8 support requested on hardware without native Int8 support, performance will be negatively affected.
+Throughput: 26.9578 qps   (FP32: 27.07 qps)
+```
+
+- GPU Nano (Maxwell, compute capability 5.3) nie ma sprzętowych instrukcji
+  INT8. TensorRT buduje silnik, ale wybiera implementacje FP32 – wynik równy
+  FP32, wolniejszy od FP16. NVIDIA potwierdza na forum: na Nano dostępne są
+  tylko FP32 i FP16; INT8 – od Xaviera (Volta) wzwyż.
+- Bez kalibracji `trtexec` przyjmuje sztuczne zakresy wartości – taki silnik
+  służy tylko do pomiaru szybkości, więc go nie zapisujemy.
+- **Decyzja: bez kalibracji INT8.** Kalibrator (Python API, pycuda na
+  Pythonie 3.6) kosztowałby dzień pracy dla wyniku bez zysku. Wdrażamy
+  **384x640 FP16**. Na Orin/Xavier INT8 z kalibracją byłby pierwszym krokiem.
+
+## E1-08 – benchmark i dokładność silników na Jetsonie
+
+### Szybkość przy stałych zegarach
+
+```
+cd ~/linesight && git pull
+bash jetson/bench_engines.sh       # jetson_clocks, trtexec --loadEngine, tegrastats; logi w models/bench_<data>/
+```
+
+| Flaga / komenda | Znaczenie |
+|---|---|
+| `sudo jetson_clocks --store` / `jetson_clocks` / `--restore` | zapis zegarów, stałe maksimum CPU/GPU/EMC, przywrócenie |
+| `--loadEngine=` | pomiar gotowego silnika (bez budowy) |
+| `--warmUp=2000 --duration=20` | 2 s rozgrzewki, 20 s pomiaru (domyślnie 0,2 s i 3 s) |
+| `--useSpinWait` | CPU aktywnie czeka na GPU – stabilniejszy pomiar |
+| `tegrastats --interval 500 --logfile` | RAM, obciążenie GPU (`GR3D_FREQ`), temperatury co 0,5 s |
+
+Flagi sprawdzone w `trtexec --help` na Jetsonie (TensorRT 8.2.1).
+
+| Silnik | Throughput | Czas GPU min / mediana / max | Opóźnienie całkowite | Kopia CPU→GPU |
+|---|---|---|---|---|
+| **384x640 FP16** | **33,9 qps** | 29,15 / 29,21 / 29,29 ms | 29,5 ms | 0,30 ms |
+| 384x640 FP32 | 27,4 qps | 36,01 / 36,11 / 36,23 ms | 36,4 ms | 0,30 ms |
+| 640x640 FP16 | 21,1 qps | 46,83 / 46,94 / 47,02 ms | 47,5 ms | 0,50 ms |
+| 640x640 FP32 | 16,1 qps | 61,39 / 61,51 / 61,72 ms | 62,0 ms | 0,51 ms |
+
+- Rozrzut min–max 0,15–0,3 ms (wcześniej skoki do 66 ms) – zmienne zegary
+  (DVFS) były przyczyną.
+- Mniejsze wejście: −41% (FP32) i −38% (FP16) – tyle co spadek GFLOPs.
+- Kopie danych to ok. 1% czasu (wejście FP32 2,9 MB, wyjście 141 kB);
+  wąskim gardłem są obliczenia GPU.
+- 33,9 qps = zapas ok. 13% nad 30 FPS kamery – tylko dla samej sieci.
+
+### Pamięć i obciążenie
+
+```
+grep -h "MemUsageChange" models/bench_*/*.log | grep -iE "deserial|ExecutionContext"
+grep -o "RAM [0-9]*" models/bench_*/tegrastats.log | sort -k2 -n | tail -1
+grep -o "GR3D_FREQ [0-9]*%" models/bench_*/tegrastats.log | sort | uniq -c | sort -rn | head -3
+```
+
+| Silnik | Wagi + taktyki | Pamięć robocza (aktywacje) | Razem |
+|---|---|---|---|
+| **384x640 FP16** | 6 MiB | 14 MiB | **20 MiB** |
+| 384x640 FP32 | 12 MiB | 21 MiB | 33 MiB |
+| 640x640 FP16 | 7 MiB | 20 MiB | 27 MiB |
+| 640x640 FP32 | 13 MiB | 29 MiB | 42 MiB |
+
+- RAM: 422 MB przed testem, szczyt 1558 MB. Przyrost ok. 1,1 GB to prawie
+  w całości biblioteki CUDA / cuDNN / cuBLAS, nie model. Wniosek na etap 2:
+  jeden proces z TensorRT (DeepStream), nie kilka – każdy ładuje biblioteki
+  osobno.
+- `GR3D_FREQ 99%` przez cały pomiar (154 próbki ≈ 77 s), 0–1% przy ładowaniu
+  i przerwach. GPU w pełni zajęte – na drugi model przy 30 FPS miejsca nie ma.
+  `GR3D_FREQ` to czas zajętości GPU, nie liczba pracujących rdzeni.
+
+### Profil warstw: dlaczego FP16 daje 1,23x, nie 2x
+
+```
+sudo jetson_clocks
+for p in fp16 fp32; do /usr/src/tensorrt/bin/trtexec --loadEngine=yolo26n_v1_384x640_$p.engine --warmUp=2000 --duration=10 --dumpProfile --separateProfileRun > profile_$p.log 2>&1; done
+sudo jetson_clocks --restore
+# suma "Avg. Time" wg typu warstwy (wiersz Total pomijamy)
+for f in profile_fp16.log profile_fp32.log; do awk '/Layer +Time/{on=1;next} on && /Total/{next} on && $NF ~ /^[0-9.]+$/ && $(NF-1) ~ /^[0-9.]+$/ {t=$(NF-1); if($0~/Reformatting/)r+=t; else if($0~/PWN/)p+=t; else if($0~/[Cc]onv/)c+=t; else o+=t} END{printf "Conv %.2f | PWN %.2f | Reformatting %.2f | inne %.2f | suma %.2f ms\n",c,p,r,o,c+p+r+o}' $f; done
+```
+
+`--dumpProfile` – czas każdej warstwy po fuzji; `--separateProfileRun` –
+profil w osobnym przebiegu, bez wpływu na główny pomiar.
+
+| Grupa warstw | FP32 | FP16 | Zmiana |
+|---|---|---|---|
+| Conv (sploty) | 26,05 ms (71%) | 16,59 ms (56%) | −9,46 ms (1,57x) |
+| PWN – SiLU i inne operacje element po elemencie | 5,61 ms (15%) | 6,64 ms (22%) | +1,03 ms |
+| Reformatting – konwersje formatu | 1,13 ms (2 warstwy) | 3,10 ms (25 warstw) | +1,97 ms |
+| inne (Split, Concat, Resize, MaxPool…) | 3,92 ms | 3,44 ms | −0,48 ms |
+| **Suma** | **36,70 ms** | **29,77 ms** | **1,23x** |
+
+1. **Prawo Amdahla**: sploty to 71% czasu FP32. Nawet gdyby przyspieszyły
+   2x, a reszta nie, wyszłoby 23,7 ms, czyli maksymalnie ok. 1,55x.
+2. Sploty przyspieszyły 1,57x, nie 2x – część jest ograniczona pamięcią;
+   pierwszy splot (3 kanały wejścia) został w FP32 (1,63 vs 1,64 ms).
+3. FP16 ma koszty, których FP32 nie ma: 25 warstw `Reformatting CopyNode`
+   (przepisanie tensora między implementacjami o różnym formacie danych)
+   i wolniejsze aktywacje SiLU, niepołączone ze splotem – razem ok. 3 ms,
+   ok. 30% zysku ze splotów.
+
+### Workspace 1024 vs 2048 MB
+
+```
+nohup /usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640.onnx --saveEngine=yolo26n_v1_384x640_fp16_ws2048.engine --fp16 --workspace=2048 > yolo26n_v1_384x640_fp16_ws2048.log 2>&1 &
+wait %1; grep -E "PASSED|FAILED|sufficient" yolo26n_v1_384x640_fp16_ws2048.log
+sudo jetson_clocks
+/usr/src/tensorrt/bin/trtexec --loadEngine=yolo26n_v1_384x640_fp16_ws2048.engine --warmUp=2000 --duration=20 --useSpinWait 2>&1 | grep -E "Throughput|GPU Compute Time: min"
+sudo jetson_clocks --restore
+```
+
+`wait %1` – czeka na koniec zadania nr 1 z `jobs` (budowa w tle).
+
+| Silnik 384x640 FP16 | Throughput | Czas GPU min – max | Mediana |
+|---|---|---|---|
+| workspace 1024 MB | 33,85 qps | 29,15 – 29,29 ms | 29,21 ms |
+| **workspace 2048 MB** | **34,38 qps** | **28,66 – 28,83 ms** | **28,77 ms** |
+
+- +1,6% (−0,44 ms). Przedziały min–max się nie pokrywają, więc to realna
+  różnica, nie szum pomiaru: przy większym limicie TensorRT wybrał szybszą
+  implementację części warstw.
+- Ostrzeżenie `Some tactics do not have sufficient workspace` zostaje także
+  przy 2048 MB – pominięte taktyki chcą więcej niż połowę RAM Jetsona.
+- Workspace to limit pamięci na czas **budowy** (autotuning). Zastrzeżenie:
+  autotuning nie jest w pełni deterministyczny – ponowna budowa przy 1024 MB
+  mogłaby wybrać inne taktyki; różnica 1,6% jest na granicy tego efektu.
+- Decyzja: wdrażamy `yolo26n_v1_384x640_fp16_ws2048.engine` (szybszy, ta sama
+  dokładność – graf i precyzja bez zmian).
+
+### Dokładność silników (val i test)
+
+```
+# LAPTOP
+scp -r data\datasets\linesight-5b628dbc\images\val data\datasets\linesight-5b628dbc\images\test grzegorz@192.168.0.124:~/linesight/data/eval/
+# SSH1
+for p in fp16 fp32; do for s in val test; do python3 jetson/trt_dump.py models/yolo26n_v1_384x640_$p.engine data/eval/$s models/out_384x640_${p}_$s.npz; done; done
+# LAPTOP (aktywne .venv)
+scp grzegorz@192.168.0.124:~/linesight/models/out_384x640_*.npz models\
+python training\eval_trt.py
+```
+
+- `jetson/trt_dump.py` (Python 3.6): silnik przez API TensorRT, pamięć GPU
+  przez `ctypes` → `libcudart` (`cudaMalloc`, `cudaMemcpy`, `cudaFree`) – bez
+  instalowania pycuda. Letterbox jak w ultralytics. Zapis surowych wyjść
+  `[7, 5040]` do `.npz`.
+- `training/eval_trt.py`: ten sam letterbox, NMS (conf 0,001, IoU 0,7)
+  i dopasowanie ramek (jak `match_predictions` w ultralytics) dla wszystkich
+  wariantów. ONNX uruchamiany na laptopie przez onnxruntime jako odniesienie.
+
+| Wariant | VAL mAP50 | VAL mAP50-95 | TEST mAP50 | TEST mAP50-95 | VAL TP/FP/FN (najlepszy próg) |
+|---|---|---|---|---|---|
+| PyTorch 640, głowica end-to-end (E1-06) | 0,995 | 0,788 | 0,987 | 0,778 | 110/1/0 (0,48) |
+| ONNX 640x640, głowica z NMS | 0,995 | 0,772 | 0,967 | 0,764 | 109/1/1 (0,45) |
+| ONNX 384x640, głowica z NMS | 0,995 | 0,776 | 0,964 | 0,756 | 108/1/2 (0,45) |
+| TensorRT FP32 384x640 | 0,995 | 0,776 | 0,964 | 0,756 | 108/1/2 (0,45) |
+| **TensorRT FP16 384x640** | **0,995** | **0,771** | **0,964** | **0,764** | **108/1/2 (0,45)** |
+
+Różnica surowych wyjść względem ONNX: TensorRT FP32 – ramki 0,002 px,
+pewności 0,0000; FP16 – ramki do 6,6 px, pewności do 0,035 (pojedynczy,
+słaby kandydat; decyzje TP/FP/FN identyczne).
+
+Wnioski:
+1. **TensorRT jest bezstratny**: FP32 = ONNX co do 0,002 px. **FP16** zmienia
+   mAP50-95 o −0,005 (val) i +0,008 (test) – szum, te same decyzje.
+2. **Prostokątne wejście jest za darmo**: 640x640 vs 384x640 różnią się
+   w obie strony w granicach szumu.
+3. **Spadek o ok. 0,012 mAP50-95 i 2 przeoczenia na val to koszt głowicy.**
+   YOLO26 ma dwie głowice: one-to-one (end-to-end, bez NMS – nią liczy
+   ultralytics w walidacji) i one-to-many (wymaga NMS – ta trafia do ONNX
+   przy domyślnym `nms=None`). Progiem tych przeoczeń nie odzyskamy.
+4. **Próg do wdrożenia: conf = 0,45** – maksimum F1 na val dla potoku z NMS
+   (te same TP/FP/FN co 0,48). Próg 0,80 z testu ignorujemy: próg wybiera się
+   na val, test służy tylko do raportu.
+5. Czas w Pythonie na Jetsonie: przygotowanie zdjęcia na CPU 12–15 ms
+   (≈ 40% czasu sieci), sieć z kopiami ok. 34 ms → ok. 21 FPS. Preprocessing
+   musi przejść na GPU (DeepStream, etap 2).
+
+### Głowica end-to-end na TensorRT 8.2 – test
+
+```
+python training\export_onnx.py --e2e                 # LAPTOP: nms=False -> wyjście [1, 300, 6]
+/usr/src/tensorrt/bin/trtexec --onnx=yolo26n_v1_384x640_e2e.onnx --fp16 --workspace=1024 > e2e_test.log 2>&1
+```
+
+```
+[TRT] No importer registered for op: Mod. Attempting to import as plugin.
+[E] [TRT] ModelImporter.cpp:773: While parsing node number 375 [Mod -> "/model.23/Mod_output_0"]
+```
+
+Głowica end-to-end wybiera `TopK` najlepszych wyników z płaskiej tablicy
+kandydaci × klasy, a `Mod` (reszta z dzielenia) zamienia pozycję na numer
+klasy. Parser ONNX w TensorRT 8.2 nie obsługuje `Mod` (ultralytics sam
+wyłącza tę głowicę dla TensorRT < 8.5). Na Nano zostaje głowica z NMS; NMS
+zrobi DeepStream (`nvinfer`). Obejście – zamiana `Mod(a, b)` na
+`a − (a / b)·b` w grafie (onnx-graphsurgeon) – w backlogu, poza MVP.
+
+## E1-09 – pytania z rozmowy technicznej (etap 1)
+
+**1. Na val mAP50 = 0,995, a mAP50-95 = 0,788. Co mówi ta różnica i jak
+poprawić drugą liczbę?**
+
+mAP50 liczy trafienie już przy IoU ≥ 0,5, czyli sprawdza, czy obiekt został
+znaleziony i dobrze sklasyfikowany. mAP50-95 uśrednia progi IoU od 0,5 do
+0,95, więc mierzy, jak ciasno ramka przylega. Model znajduje prawie
+wszystko (R = 1,0), a gubi punkty na dokładności ramek przy wysokich
+progach IoU. Na krzywych mAP50 stoi od ok. 20. epoki, a mAP50-95 rośnie
+już ledwie. Najbardziej prawdopodobna granica to same etykiety: ręczne
+ramki na przezroczystych butelkach różnią się o kilka pikseli, a przy
+IoU 0,95 to już błąd. Co zrobić, w kolejności: (1) sprawdzić rozkład IoU
+trafień i poprawić etykiety (spójna reguła: krawędź szkła, nie cień);
+(2) większa rozdzielczość, jeśli koszt na Jetsonie pozwala; (3) więcej
+danych z różnymi położeniami. Dla linii ważniejsze jest mAP50 i recall:
+ramka przesunięta o 3 px nie zmienia decyzji „brak nakrętki”.
+
+**2. FP16 przyspieszyło silnik tylko 1,23x, a INT8 nie dało nic. Dlaczego?**
+
+FP16: z profilu warstw (`--dumpProfile`) sploty to 71% czasu w FP32. Nawet
+gdyby przyspieszyły 2x, a reszta nie, wyszłoby maks. ok. 1,55x (prawo
+Amdahla). W praktyce sploty przyspieszyły 1,57x (pierwszy, z 3 kanałami
+wejścia, został w FP32), a FP16 dodało koszty: 25 warstw `Reformatting`
+(konwersje formatu danych między implementacjami, +2 ms) i wolniejsze
+aktywacje SiLU, niepołączone ze splotem i ograniczone przepustowością
+pamięci (+1 ms). Razem zjadły ok. 30% zysku. INT8: GPU Jetsona Nano
+(Maxwell, compute capability 5.3) nie ma instrukcji INT8. TensorRT
+ostrzega „Int8 support requested on hardware without native Int8 support”
+i wybiera implementacje FP32 – wynik 27,0 qps = FP32. Dlatego nie
+robiliśmy kalibracji. Na Xavier/Orin INT8 z kalibracją byłby pierwszym
+krokiem.
+
+**3. Na Jetsonie mAP50-95 = 0,771, w walidacji ultralytics 0,788. Skąd
+różnica i jak ustaliłeś przyczynę?**
+
+Rozdzieliłem trzy podejrzane czynniki, oceniając wszystkie warianty tym
+samym kodem (ten sam letterbox, NMS, dopasowanie ramek):
+- TensorRT: silnik FP32 = ONNX co do 0,002 px – wykluczony.
+- FP16: mAP50-95 −0,005 na val, +0,008 na test, te same TP/FP/FN – szum,
+  wykluczony.
+- Prostokątne wejście 384x640: ONNX 640x640 ma ten sam wynik w granicach
+  szumu – wykluczone.
+
+Zostaje głowica. YOLO26 ma dwie głowice: one-to-one (end-to-end, bez NMS;
+nią liczy walidacja ultralytics) i one-to-many (wymaga NMS; trafia do ONNX
+przy domyślnym `nms=None`). Eksport z `nms=False` dał głowicę end-to-end,
+ale parser TensorRT 8.2 nie obsługuje operatora `Mod`, którego ona używa
+(test na Jetsonie: „No importer registered for op: Mod”). Koszt: ok.
+0,012 mAP50-95 i 2 przeoczenia na 110 obiektów val. Obejście (zamiana
+`Mod` w grafie ONNX) jest w backlogu.
+
+**4. Jak wybrałeś próg 0,45 i dlaczego nie 0,80 z testu?**
+
+Próg to maksimum średniego F1 na zbiorze **walidacyjnym**, policzone dla
+potoku, który naprawdę działa na Jetsonie (głowica z NMS). Próg 0,48
+z E1-06 był dobrany na wyjściach głowicy end-to-end, która ma inny rozkład
+pewności. Test służy wyłącznie do jednorazowego, nieobciążonego raportu.
+Gdybym dobrał na nim próg, wynik testu przestałby być niezależny: zbiór
+staje się częścią strojenia. Przy 21 zdjęciach próg 0,80 i tak jest
+przypadkowy – na val 0,45 i 0,48 dają identyczne TP/FP/FN.
+
+**5. `trtexec` robi 34 FPS, a skrypt w Pythonie ok. 21 FPS. Gdzie ginie czas
+i co z tym zrobisz w produkcji?**
+
+`trtexec` mierzy sam silnik na gotowym tensorze w GPU. Skrypt dokłada:
+przygotowanie zdjęcia na CPU w numpy (letterbox, BGR→RGB, transpozycja,
+/255) – 12–15 ms, czyli ok. 40% czasu sieci; synchroniczne kopie i
+wywołania z Pythona; dekodowanie 5040 kandydatów i NMS. Wszystko po kolei,
+bez nakładania się etapów. W produkcji (etap 2): DeepStream – dekodowanie
+i skalowanie klatki na sprzęcie (NVDEC/VIC, `nvvideoconvert`),
+normalizacja i inferencja w `nvinfer` na GPU, NMS w `nvinfer`, a etapy
+potoku GStreamer działają równolegle (klatka n+1 jest przygotowywana,
+gdy sieć liczy klatkę n). Jeden proces z TensorRT, bo biblioteki CUDA
+zajmują ok. 1 GB RAM na proces.
+
 ## Do zrobienia w etapie 1
 - [x] E1-01 – scena
 - [x] E1-02 – zgodność z TensorRT 8.2 (wybrany YOLO26n)
@@ -674,6 +1018,6 @@ stopping. `best.pt` = epoka 51.
 - [x] E1-04 – etykietowanie (214 zdjęć, 536 ramek)
 - [x] E1-05 – środowisko treningowe
 - [x] E1-06 – trening (mAP50 0,987 / mAP50-95 0,778 na teście, conf 0,48)
-- [ ] E1-07 – eksport i silniki
-- [ ] E1-08 – benchmark
-- [ ] E1-09 – dokumentacja i pytania
+- [x] E1-07 – eksport i silniki (384x640 FP16: 32,7 qps; INT8 bez zysku na Nano)
+- [x] E1-08 – benchmark (384x640 FP16, workspace 2048: 34,4 qps, 20 MiB, mAP jak ONNX)
+- [x] E1-09 – dokumentacja i pytania

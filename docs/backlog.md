@@ -33,11 +33,14 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E1-06 – trening** · laptop · 0,5 dnia · mAP50 i mAP50-95 na zbiorze testowym,
       macierz pomyłek, przykłady błędów; batch dobrany do 4 GB VRAM
       → zrobione: test mAP50 0,987, mAP50-95 0,778; conf 0,48; 1 FP / 0 FN na val; mapy CAM
-- [ ] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
+- [x] **E1-07 – eksport i silniki** · laptop + Jetson · 0,5 dnia · ONNX; silniki FP32, FP16, INT8
       (INT8 z kalibracją na zdjęciach ze zbioru)
-- [ ] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,
+      → zrobione: ONNX 640x640 i 384x640, silniki FP32/FP16; INT8 = FP32 na Nano (brak sprzętowego INT8), bez kalibracji
+- [x] **E1-08 – benchmark** · Jetson · 0,5 dnia · tabela FP32/FP16/INT8: FPS, opóźnienie,
       mAP na Jetsonie, zużycie pamięci (`tegrastats`); wyjaśnienie wyników, także gdy INT8 nic nie daje
-- [ ] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
+      → stałe zegary, pamięć, profil warstw, mAP silników (TRT = ONNX, FP16 bez straty), test głowicy
+      end-to-end (Mod nieobsługiwany w TRT 8.2); workspace 2048: +1,6%
+- [x] **E1-09 – dokumentacja i pytania** · · 1-2 h · `docs/etap-1-model.md`, README, 5 pytań technicznych
 
 ## Etap 2 – wideo (szac. 3 dni)
 - [ ] **E2-01 – instalacja DeepStream 6.0** · Jetson · 1-2 h · przykładowa aplikacja działa;
@@ -74,7 +77,14 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
       README, krótkie nagranie działającego MVP
 
+## Poza MVP (pomysły)
+- [ ] Głowica end-to-end YOLO26 na TRT 8.2: zamiana `Mod(a, b)` na `a − (a / b)·b` w grafie ONNX
+      (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
+
 ## Decyzje
+- **Wdrażany silnik: 384x640 FP16, workspace 2048, głowica z NMS, conf 0,45** *(przyjęte 13.11.2026, E1-08)*.
+  34,4 qps, 20 MiB; mAP jak ONNX FP32. INT8 na Nano = FP32 (brak sprzętowego INT8), głowica
+  end-to-end nie przechodzi przez parser TRT 8.2 (operator `Mod`).
 - **Architektura: YOLO26n** *(przyjęte 10.11.2026)*. Wszystkie trzy kandydatki działają z TensorRT 8.2
   przy podobnej szybkości (20 qps FP16); YOLO26n ma najwyższą dokładność na COCO i najmniejszy silnik.
   Eksport ONNX zawsze z `opset=13` (limit parsera TensorRT 8.2).

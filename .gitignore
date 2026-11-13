@@ -66,3 +66,6 @@ Thumbs.db
 
 # Node (generator ściągi)
 node_modules/
+
+# Modele, logi trtexec, wyjścia silników (E1-07/E1-08)
+models/
