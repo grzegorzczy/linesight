@@ -136,10 +136,44 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
 - [x] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
       README, krótkie nagranie działającego MVP
 
+## Etap 4 – diagnostyka postojów (szac. 3-4 dni)
+Cel: na pytanie „dlaczego linia stanęła” odpowiada zdarzenie postoju z przyczyną, dowodami (sygnały PLC
+z 30 s wstecz, zdarzenia z kamery) i linkiem do klipu; osobno model PyTorch wykrywa anomalie czasu cyklu,
+zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klipy.
+
+- [ ] **E4-01 – Mosquitto: kolejka i trwałość** · laptop, Docker · 30 min · `max_queued_messages 100000`
+      (domyślnie 1000 na klienta – przy ok. 120 wiadomościach/min ingest wyłączony > 8 min gubił dane),
+      `persistence true` z wolumenem `mosquitto-data` (restart brokera kasował kolejki, sesje trwałe i retained).
+      Test: ingest zatrzymany 10 min → licznik `udiProdProcessed` w bazie bez dziur; restart brokera przy
+      zatrzymanym ingest → po starcie ingest dane z przerwy są w bazie
+- [ ] **E4-02 – zdarzenie postoju** · laptop, Docker · 0,5 dnia · nowa usługa `diag` (Python):
+      wyjście z `Execute` (Held / Suspended / Aborting / Stopping) = początek postoju, powrót do `Execute`
+      = koniec; tabela `stop_event` (początek, koniec, czas trwania, stan, `iStopReason`); logika jako czysta
+      funkcja z testami, uruchamiana także wstecz na danych z bazy (odtworzenie postojów z 14.11)
+- [ ] **E4-03 – reguły przyczyny** · laptop · 0,5 dnia · przyczyna (zator / brak produktu / awaria /
+      zatrzymanie operatora / nieznana) z dowodami: kod PLC, sygnały z `signals_before(t, '30 s')`,
+      zdarzenia kamery w oknie; zgodność PLC–kamera (np. „PLC: zator, kamera: przewrócona butelka 4 s
+      wcześniej” vs „PLC: zator, kamera nic nie widziała”); test na scenariuszach wstrzykniętych ręcznie,
+      także trudnych (zator bez wady, wada bez postoju)
+- [ ] **E4-04 – klip przy postoju** · Jetson + laptop · 1-2 h · klip ze zdarzenia kamery w oknie postoju
+      dostępny przez HTTP z Jetsona; link w `stop_event`; brak klipu jest informacją, nie błędem
+- [ ] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
+      link do klipu), liczba i łączny czas postojów wg przyczyny
+- [ ] **E4-06 – dane czasu cyklu** · CODESYS + laptop · 0,5 dnia · realistyczny czas cyklu w PLC
+      (losowy rozrzut, powolny dryf `xInjDrift` obok skoku `xInjSlow`); sesja 1-2 h; zbiór z bazy
+      z etykietami z sygnałów `xInj*`; podział train/val/test wg czasu, nie losowo; baseline bez ML
+      (próg na średniej kroczącej / z-score) z wynikami
+- [ ] **E4-07 – model anomalii w PyTorch** · laptop · 1 dzień · własna pętla treningowa (Dataset,
+      DataLoader, optymalizator, walidacja, early stopping, zapis najlepszego modelu); autoenkoder okien
+      czasu cyklu uczony tylko na danych normalnych; próg z błędu rekonstrukcji na walidacji; na teście:
+      precision / recall zdarzeń, opóźnienie wykrycia, fałszywe alarmy na godzinę – w tabeli obok baseline;
+      eksport ONNX
+- [ ] **E4-08 – anomalie online** · laptop, Docker · 2-3 h · `diag` liczy wynik modelu (ONNX Runtime,
+      bez PyTorcha w kontenerze) po każdym cyklu; tabela `cycle_anomaly`, panel w Grafanie
+- [ ] **E4-09 – dokumentacja i pytania** · · 2 h · `docs/etap-4-diagnostyka.md`, README, ściąga,
+      5 pytań technicznych
+
 ## Poza MVP (pomysły)
-- [ ] **Mosquitto: kolejka i trwałość** (przed etapem 4, 15 min) · laptop · `max_queued_messages` > 1000 (domyślnie
-      1000 na klienta – przy ok. 120 wiadomościach/min ingest wyłączony na > 8 min gubi dane) i `persistence true`
-      z wolumenem (restart brokera kasuje kolejki, sesje i retained). Test: ingest zatrzymany 10 min, liczba wierszy
 - [ ] Demo MVP (14.11, 3:35 min, lokalnie `2026-11-14 18-46-13.mkv`) – do YouTube i README w etapie 7.
 - [ ] Test zliczania na „taśmie” (pasek papieru przeciągany spoza kadru), scena zgodna z E1-01
       (bez okna, sztuczne światło), prawda oznaczona na nagraniu – rzetelny błąd zliczania na klasę.

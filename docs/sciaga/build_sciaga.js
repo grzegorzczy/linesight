@@ -610,6 +610,12 @@ table([3000, 6638], [
   ['5. 30 zamiast 40 sztuk/min', 'Timer kwantowany do zadania 200 ms (1,6 s) + 2 cykle na kasowanie = 2,0 s; PLC raportował czas zadany. Wykrywanie: dwie niezależne miary tej samej wielkości i alarm przy różnicy > 5 %; mierzyć zamiast raportować nastawy.'],
 ]);
 
+h1('10v. Mosquitto: kolejka i trwałość (E4-01)');
+p('infra/mosquitto/mosquitto.conf: persistence true (wolumen mosquitto-data), autosave_interval 60, max_queued_messages 100000.');
+step('LAPTOP', 'Nowa konfiguracja brokera', ['git pull', 'docker compose -f infra/docker-compose.yml up -d mosquitto', 'docker logs --tail 20 linesight-mosquitto']);
+step('LAPTOP', 'Test: przerwa ingest 10 min', ['docker stop linesight-ingest', 'docker start linesight-ingest', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT count(*) AS wiersze, max(value)-min(value)+1 AS oczekiwane FROM plc_signal WHERE name=\'udiProdProcessed\' AND time > now() - interval \'15 minutes\'"'], 'Między stop a start 10 min. wiersze = oczekiwane → brak dziur.');
+step('LAPTOP', 'Test: restart brokera', ['docker stop linesight-ingest', 'docker restart linesight-mosquitto', 'docker start linesight-ingest'], 'Między stop a restart 2 min; potem zapytanie jak wyżej, okno 5 minutes.');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
