@@ -96,9 +96,15 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Test 14.11 na sterowniku (CODESYS V3.5 SP22 P4, zmiany wartości w GVL_Line online): Execute 6 → Held 11/101 →
       6 → Suspended 5/201 → 6; `xInjSlow`: czas cyklu ~1500 → 2058 ms (37–42 → 29 szt./min); awaria 8 → 9/301;
       Clear → 2/0. Sterowanie z widoku online zamiast wizualizacji (wystarcza; komendy pójdą też przez OPC UA)
-- [ ] **E3-04 – serwer OPC UA** · CODESYS · 1 h · zmienne wystawione przez konfigurację symboli
+- [x] **E3-04 – serwer OPC UA** · CODESYS · 1 h · zmienne wystawione przez konfigurację symboli
+      → 14.11: Symbol Configuration z „Support OPC UA features”, całe `GVL_Line`; `tools/opcua_browse.py` z laptopa:
+      `opc.tcp://192.168.0.244:4840`, dostęp anonimowy, 15 zmiennych, NodeId
+      `ns=4;s=|var|JUMO ARM Cortex A7 Linux iMX6ULL ARM32.Application.GVL_Line.<nazwa>`
 - [ ] **E3-05 – most OPC UA → MQTT** · laptop, Docker · 0,5 dnia · klient OPC UA w Pythonie
       (subskrypcja zmian) publikuje do MQTT; obsługa zerwania połączenia
+      → 14.11: `bridge/opcua_mqtt_bridge.py` + usługa `bridge` w compose: subskrypcja 9 zmiennych co 200 ms,
+      tematy `linesight/plc/<zmienna>` (QoS 1, retained, JSON t/value/t_src), `linesight/plc/status`,
+      ponowne łączenie co 5 s; czas `t` nadaje most (zegar laptopa)
 - [ ] **E3-06 – zapis do TimescaleDB** · laptop, Docker · 0,5 dnia · hypertabele dla sygnałów
       i zdarzeń; zapytanie „sygnały z 30 s przed zdarzeniem” działa
 - [ ] **E3-07 – Grafana** · laptop · 2-3 h · oś czasu stanów, liczniki, detekcje z kamery
