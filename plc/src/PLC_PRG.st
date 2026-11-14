@@ -11,6 +11,8 @@ VAR
     tCycle    : TIME := T#1500MS;    // czas bieżącego cyklu (nominalny ± rozrzut)
     udiBase   : UDINT;
     udiSeed   : UDINT := 12345;      // generator pseudolosowy (LCG) do rozrzutu czasu cyklu
+    xRun, xRunPrev : BOOL;
+    tStart, tNow   : TIME;           // TIME() = czas od startu sterownika; z niego mierzymy rzeczywisty cykl
 END_VAR
 VAR CONSTANT
     T_ACT : TIME := T#1S;            // ile trwa każdy stan przejściowy
@@ -96,10 +98,20 @@ ELSE
 END_IF
 
 // --- Symulacja produkcji: w Execute jedna sztuka co tCycle ---
-tonCycle(IN := (eState = E_PackML.Execute) AND NOT tonCycle.Q, PT := tCycle);
+// udiCycleTime_ms to ZMIERZONY czas od poprzedniej sztuki (TIME()), a nie zadany tCycle:
+// timer widzi czas tylko co cykl zadania, więc rzeczywisty cykl jest dłuższy od zadanego.
+xRun := eState = E_PackML.Execute;
+IF xRun AND NOT xRunPrev THEN
+    tStart := TIME();                // wejście w Execute: liczymy od nowa (postój nie wlicza się do cyklu)
+END_IF
+xRunPrev := xRun;
+tonCycle(IN := xRun, PT := tCycle);
 IF tonCycle.Q THEN
+    tNow := TIME();
     GVL_Line.udiProdProcessed := GVL_Line.udiProdProcessed + 1;
-    GVL_Line.udiCycleTime_ms := TIME_TO_UDINT(tCycle);
+    GVL_Line.udiCycleTime_ms := TIME_TO_UDINT(tNow - tStart);
+    tStart := tNow;
+    tonCycle(IN := FALSE);           // kasowanie timera; nowy cykl rusza w następnym cyklu zadania
 
     // czas następnego cyklu: nominalny (x1,4 przy degradacji) z rozrzutem ±100 ms
     udiBase := TIME_TO_UDINT(GVL_Line.tCycleNominal);
