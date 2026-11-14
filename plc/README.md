@@ -10,3 +10,5 @@ w `src/` (diff i przegląd w PR). Do projektu wklejamy je ręcznie:
 | `src/PLC_PRG.st` | `PLC_PRG` (część deklaracji i część implementacji osobno) |
 
 Tylko biblioteka `Standard` (TON, R_TRIG); kod nie zależy od urządzenia docelowego.
+
+Urządzenie w projekcie: JUMO variTRON 300 (CODESYS V3.5 SP22 Patch 4), `MainTask` cykliczny 200 ms.

@@ -89,10 +89,13 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → 14.11: `tools/clock_offset.py` (SNTP). Jetson +13,0 ms, laptop −384,5 ms → różnica 397,5 ms (cel < 100 ms).
       Na laptopie usługa czasu Windows była wyłączona; włączona (`w32time`, start auto), offset po chwili bez zmian.
       **Odłożone:** ponowny pomiar przed E3-06 (zapis do bazy)
-- [ ] **E3-03 – maszyna stanów PackML** · CODESYS · 0,5-1 dnia · podzbiór stanów PackML,
+- [x] **E3-03 – maszyna stanów PackML** · CODESYS · 0,5-1 dnia · podzbiór stanów PackML,
       liczniki sztuk, kody błędów, ręczne wstrzykiwanie awarii (wizualizacja)
       → 14.11: kod w `plc/src/` (E_PackML, GVL_Line, PLC_PRG): 11 stanów, zator → Held (101), brak produktu →
-      Suspended (201), awaria → Aborted (301), degradacja czasu cyklu; jeszcze nie skompilowany w CODESYS
+      Suspended (201), awaria → Aborted (301), degradacja czasu cyklu.
+      Test 14.11 na sterowniku (CODESYS V3.5 SP22 P4, zmiany wartości w GVL_Line online): Execute 6 → Held 11/101 →
+      6 → Suspended 5/201 → 6; `xInjSlow`: czas cyklu ~1500 → 2058 ms (37–42 → 29 szt./min); awaria 8 → 9/301;
+      Clear → 2/0. Sterowanie z widoku online zamiast wizualizacji (wystarcza; komendy pójdą też przez OPC UA)
 - [ ] **E3-04 – serwer OPC UA** · CODESYS · 1 h · zmienne wystawione przez konfigurację symboli
 - [ ] **E3-05 – most OPC UA → MQTT** · laptop, Docker · 0,5 dnia · klient OPC UA w Pythonie
       (subskrypcja zmian) publikuje do MQTT; obsługa zerwania połączenia
@@ -117,6 +120,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **PLC: sterownik JUMO variTRON 300 (705003, 192.168.0.244) zamiast programowego CODESYS Control Win**
+  *(decyzja Grzegorza 14.11.2026, E3-03)*. Kod ST nie zależy od urządzenia (tylko biblioteka `Standard`),
+  więc przeniesienie na Control Win to wklejenie trzech obiektów. Minus: projektu nie da się odtworzyć bez tego sterownika.
 - **Zliczanie: tracker IOU z `checkClassMatch: 1`, linia w połowie kadru, kierunek L->R, histereza ±20 px,
   klasa sztuki z głosowania 5 s po przecięciu** *(przyjęte 13.11.2026, E2-04)*. IOU zamiast NvDCF,
   bo GPU jest zajęte w 80-98% przez model; `checkClassMatch: 0` dawał zamianę ID między leżącą
