@@ -7,6 +7,7 @@ Jetson, Python 3.6, DeepStream 6.0.1, pyds 1.1.1. Uruchamiać z ~/linesight/deep
     python3 linesight_app.py --source /tmp/raw.mp4 --out /tmp/e2-04.mp4   # nagranie testowe -> MP4 z OSD
     python3 linesight_app.py --rtsp                                 # kamera -> rtsp://<jetson>:8554/linesight
     python3 linesight_app.py --rtsp --clips                         # + klip 10 s przed / 5 s po zdarzeniu
+    python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203    # + zdarzenia do brokera MQTT (E2-07)
     (--rtsp, --out i --clips można łączyć: jeden koder, tee na RTSP, MP4 i bufor kołowy)
 
 Potok:
@@ -21,7 +22,7 @@ Zliczanie: przejście śladu (stałe ID z trackera) liczymy, gdy środek jego ra
 x = --line * szerokość w kierunku taśmy (--direction). Klasa = najczęstsza klasa w śladzie
 (głosowanie większościowe) ustalona --decide klatek po przecięciu, a nie klasa z pojedynczej klatki.
 Zdarzenia trafiają na stdout i do pliku
-JSON Lines (--events) – z nich korzystają bufor klipów (E2-06) i wysyłka MQTT (E2-07).
+JSON Lines (--events); z --mqtt każde zdarzenie idzie też do brokera (temat linesight/vision/events, QoS 1).
 """
 import argparse
 import glob
@@ -147,6 +148,58 @@ class ClipMaker(object):
         print("KLIP:", out if rc == 0 else "błąd ffmpeg ({})".format(rc), "({} kawałków)".format(len(paths)))
 
 
+class MqttPublisher(object):
+    """E2-07: zdarzenia zliczania do brokera MQTT (paho-mqtt 1.6.1 – ostatnia linia dla Pythona 3.6).
+
+    - connect_async + loop_start: połączenie i ponawianie w wątku w tle; potok wideo nie czeka na sieć
+      i startuje także wtedy, gdy broker jest wyłączony.
+    - QoS 1: broker potwierdza odbiór (PUBACK); zdarzenia opublikowane bez połączenia czekają w kolejce
+      klienta (w RAM, do `max_queued`) i wychodzą po ponownym połączeniu. Możliwy duplikat – odbiorca
+      rozpoznaje go po (t_cross, track_id).
+    - Temat <prefix>/status (retained): "online" po połączeniu, "offline" przy zamknięciu, a przy
+      zerwaniu bez pożegnania wysyła go sam broker (Last Will) – widać, czy kamera żyje.
+    """
+
+    def __init__(self, host, port=1883, prefix="linesight/vision", client=None, max_queued=1000):
+        if client is None:
+            import paho.mqtt.client as mqtt  # import tutaj: bez --mqtt biblioteka nie jest potrzebna
+            client = mqtt.Client(client_id="linesight-jetson")
+        self.client = client
+        self.topic_events = prefix + "/events"
+        self.topic_status = prefix + "/status"
+        self.last = None
+        client.max_queued_messages_set(max_queued)
+        client.will_set(self.topic_status, "offline", qos=1, retain=True)
+        client.on_connect = self._on_connect
+        client.on_disconnect = self._on_disconnect
+        client.connect_async(host, port, keepalive=30)
+        client.loop_start()
+
+    def _on_connect(self, client, _userdata, _flags, rc):
+        if rc == 0:
+            print("MQTT: połączono")
+            client.publish(self.topic_status, "online", qos=1, retain=True)
+        else:
+            print("MQTT: broker odrzucił połączenie, kod", rc)
+
+    def _on_disconnect(self, _client, _userdata, rc):
+        if rc != 0:
+            print("MQTT: rozłączono (kod {}), ponawiam w tle".format(rc))
+
+    def publish(self, ev):
+        self.last = self.client.publish(self.topic_events, json.dumps(ev), qos=1)
+
+    def close(self, timeout=2.0):
+        """Czeka krótko na potwierdzenie ostatniego zdarzenia, zgłasza offline i zamyka połączenie."""
+        last = self.client.publish(self.topic_status, "offline", qos=1, retain=True)
+        end = time.time() + timeout
+        if last.rc == 0:  # rc != 0: brak połączenia – nie ma na co czekać (is_published rzuciłoby wyjątek)
+            while not last.is_published() and time.time() < end:
+                time.sleep(0.05)
+        self.client.disconnect()
+        self.client.loop_stop()
+
+
 def start_rtsp_server(port, mount):
     """Serwer RTSP (GstRtspServer) w tym samym procesie: dla każdego klienta podaje pakiety RTP z UDP_PORT.
 
@@ -237,7 +290,10 @@ class LineCounter(object):
     def _close(self, tid, t, crossing, frame_num):
         label = NAMES[t["votes"].most_common(1)[0][0]]
         self.counts[label] += 1
-        ev = {"t": round(time.time(), 3), "frame": crossing[0], "decided_at": frame_num, "track_id": tid,
+        now = time.time()
+        # t: chwila ustalenia klasy; t_cross: chwila przecięcia linii (czas zdarzenia na linii). Epoka = UTC.
+        ev = {"t": round(now, 3), "t_cross": round(now - (frame_num - crossing[0]) / float(FPS), 3),
+              "frame": crossing[0], "decided_at": frame_num, "track_id": tid,
               "class": label, "direction": crossing[1],
               "votes": {NAMES[c]: n for c, n in t["votes"].items()}}
         if self.on_event:
@@ -293,6 +349,8 @@ def main():
     ap.add_argument("--post", type=float, default=5, help="sekundy po przecięciu linii (domyślnie 5)")
     ap.add_argument("--line", type=float, default=0.5, help="położenie linii zliczania, ułamek szerokości")
     ap.add_argument("--events", default="/tmp/linesight_events.jsonl", help="plik zdarzeń (JSON Lines)")
+    ap.add_argument("--mqtt", metavar="HOST", help="adres brokera MQTT (np. 192.168.0.203); domyślnie bez wysyłki")
+    ap.add_argument("--mqtt-port", type=int, default=1883)
     ap.add_argument("--decide", type=int, default=150,
                     help="po ilu klatkach od przecięcia ustalić klasę (domyślnie 150 = 5 s albo zniknięcie śladu)")
     ap.add_argument("--margin", type=int, default=20,
@@ -315,8 +373,19 @@ def main():
         if args.pre + args.post + 2 * SEG_S + 1 > SEG_S * (SEG_FILES - 1):
             sys.exit("--pre + --post za duże dla bufora {} s".format(SEG_S * SEG_FILES))
         clips = ClipMaker(args.clips_dir, args.clip_classes.split(","), args.pre, args.post)
-        counter.on_event = clips.on_event
         print("KLIPY: bufor {} s w {}, klipy w {}".format(SEG_S * SEG_FILES, SEG_DIR, args.clips_dir))
+    mqtt_pub = None
+    if args.mqtt:
+        mqtt_pub = MqttPublisher(args.mqtt, args.mqtt_port)
+        print("MQTT: {}:{} temat {}".format(args.mqtt, args.mqtt_port, mqtt_pub.topic_events))
+
+    def on_event(ev):  # kolejność: najpierw klip dopisuje pole "clip", potem zdarzenie idzie do brokera
+        if clips:
+            clips.on_event(ev)
+        if mqtt_pub:
+            mqtt_pub.publish(ev)
+
+    counter.on_event = on_event
     last_frame = [0]
     stats = {"frames": 0, "t0": None}
 
@@ -371,6 +440,8 @@ def main():
         s["fps"] = round((stats["frames"] - 1) / (time.time() - stats["t0"]), 1)
     s["frames"] = stats["frames"]
     print("PODSUMOWANIE", json.dumps(s))
+    if mqtt_pub:
+        mqtt_pub.close()
     if clips and clips.pending:
         print("KLIPY: {} niezapisanych (program zakończony przed upływem --post)".format(clips.pending))
 
