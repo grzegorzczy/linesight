@@ -46,4 +46,11 @@ docker start linesight-ingest
 :: ponownie zapytanie z testu 1, okno '5 minutes'
 ```
 
-Wynik: *(uzupełnić po teście)*
+Wynik (14.11, linia cały czas w `Execute`, 40 szt./min):
+- Test 2 (restart brokera, ingest zatrzymany 2 min): 595 = 595 – kolejka i sesja trwała przetrwały restart.
+- Test 1 (ingest zatrzymany 12 min): w ciągu 30 min `udiProdProcessed` 2038 → 3226, 1189 wierszy = 1189 oczekiwanych.
+  Most wysyła 3 zmienne na sztukę (`udiProdProcessed`, `udiCycleTime_ms`, `rMachSpeed`) ≈ 120 wiad./min,
+  więc w kolejce było ok. 1400 wiadomości – ponad dawny limit 1000. Bez dziur.
+- Pułapka: zapytanie zaraz po `docker start` pokazało 30 = 30 – ingest dopiero oddawał kolejkę (zapis po jednej
+  wiadomości). Dane z przerwy docierają z opóźnieniem; diagnostyka postoju (E4-02) musi na nie poczekać,
+  zanim policzy okno 30 s.

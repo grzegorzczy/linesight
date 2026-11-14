@@ -141,11 +141,12 @@ Cel: na pytanie „dlaczego linia stanęła” odpowiada zdarzenie postoju z prz
 z 30 s wstecz, zdarzenia z kamery) i linkiem do klipu; osobno model PyTorch wykrywa anomalie czasu cyklu,
 zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klipy.
 
-- [ ] **E4-01 – Mosquitto: kolejka i trwałość** · laptop, Docker · 30 min · `max_queued_messages 100000`
+- [x] **E4-01 – Mosquitto: kolejka i trwałość** · laptop, Docker · 30 min · `max_queued_messages 100000`
       (domyślnie 1000 na klienta – przy ok. 120 wiadomościach/min ingest wyłączony > 8 min gubił dane),
       `persistence true` z wolumenem `mosquitto-data` (restart brokera kasował kolejki, sesje trwałe i retained).
       Test: ingest zatrzymany 10 min → licznik `udiProdProcessed` w bazie bez dziur; restart brokera przy
       zatrzymanym ingest → po starcie ingest dane z przerwy są w bazie
+      → 14.11: przerwa 12 min (≈ 1400 wiad.) 1189/1189 bez dziur; restart brokera 595/595
 - [ ] **E4-02 – zdarzenie postoju** · laptop, Docker · 0,5 dnia · nowa usługa `diag` (Python):
       wyjście z `Execute` (Held / Suspended / Aborting / Stopping) = początek postoju, powrót do `Execute`
       = koniec; tabela `stop_event` (początek, koniec, czas trwania, stan, `iStopReason`); logika jako czysta
