@@ -125,6 +125,11 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → 14.11: `grafana/grafana:13.2.4`, źródło danych i dashboard z plików (provisioning), użytkownik bazy
       `grafana_ro` (tylko SELECT). Panele: stan PackML + przyczyna, łącza PLC/kamera, sztuki/min PLC vs kamera,
       czas cyklu, tabela zdarzeń; wady z kamery jako adnotacje na osi czasu
+      Test 14.11: Grafana wczytała źródło danych i dashboard. Poprawki: (1) mapowania stanów w nadpisaniach pól
+      nie zadziałały (panel pokazywał progi „< 80”) – jedna tabela mapowań, kod przyczyny +1000 w zapytaniu;
+      (2) PLC: wykres pokazał 30 szt./min przy zadanym cyklu 1,5 s (40 szt./min). Timer widzi czas tylko co
+      cykl zadania (200 ms) i tracił cykl na kasowanie, a udiCycleTime_ms raportował czas ZADANY. Teraz czas
+      cyklu jest mierzony (TIME()), a MainTask ma 10 ms. Dane czasu cyklu sprzed poprawki są niewiarygodne
 - [ ] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne)* · laptop · · tylko jeśli
       zostanie czas
 - [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
