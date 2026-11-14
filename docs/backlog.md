@@ -121,7 +121,7 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Test 14.11: 9 zmiennych PLC w `plc_signal`; `signals_before(now())` zwraca stan na początku okna (zator 11/101)
       i jego koniec (6/0); zdarzenie `missing_cap` z Jetsona w `vision_event` z klipem, a `signals_before` dla chwili
       przecięcia: Execute 6, przyczyna 0. Obraz bazy pobrany przez mirror.gcr.io
-- [ ] **E3-07 – Grafana** · laptop · 2-3 h · oś czasu stanów, liczniki, detekcje z kamery
+- [x] **E3-07 – Grafana** · laptop · 2-3 h · oś czasu stanów, liczniki, detekcje z kamery
       → 14.11: `grafana/grafana:13.2.4`, źródło danych i dashboard z plików (provisioning), użytkownik bazy
       `grafana_ro` (tylko SELECT). Panele: stan PackML + przyczyna, łącza PLC/kamera, sztuki/min PLC vs kamera,
       czas cyklu, tabela zdarzeń; wady z kamery jako adnotacje na osi czasu
@@ -129,8 +129,9 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       nie zadziałały (panel pokazywał progi „< 80”) – jedna tabela mapowań, kod przyczyny +1000 w zapytaniu;
       (2) PLC: wykres pokazał 30 szt./min przy zadanym cyklu 1,5 s (40 szt./min). Timer widzi czas tylko co
       cykl zadania (200 ms) i tracił cykl na kasowanie, a udiCycleTime_ms raportował czas ZADANY. Teraz czas
-      cyklu jest mierzony (TIME()), a MainTask ma 10 ms. Dane czasu cyklu sprzed poprawki są niewiarygodne
-- [ ] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne)* · laptop · · tylko jeśli
+      cyklu jest mierzony (TIME()), a MainTask ma 10 ms. Dane czasu cyklu sprzed poprawki są niewiarygodne.
+      Po poprawce: 40/40/39 szt./min, cykl 1,40–1,62 s
+- [~] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne, pominięte 14.11: symulacja w CODESYS wystarcza)* · laptop · · tylko jeśli
       zostanie czas
 - [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
       README, krótkie nagranie działającego MVP

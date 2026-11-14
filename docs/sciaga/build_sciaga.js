@@ -85,7 +85,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 14.11.2026, etap 3 w toku (E3-01 – E3-06 zrobione, E3-07 Grafana do testu). Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 14.11.2026, etap 3 (MVP) zakończony. Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -100,7 +100,7 @@ table([3000, 6638], [
   ['GitHub', 'github.com/grzegorzczy/linesight'],
   ['Kamera', 'ASUS „web camera”, /dev/video0, YUYV 640x360 @ 30 FPS'],
   ['Model', 'YOLO26n, ONNX opset 13, silnik FP16 ok. 20 FPS (640x640)'],
-  ['Sterownik (PLC)', 'JUMO variTRON 300 (705003), 192.168.0.244, CODESYS V3.5 SP22 Patch 4, MainTask 200 ms'],
+  ['Sterownik (PLC)', 'JUMO variTRON 300 (705003), 192.168.0.244, CODESYS V3.5 SP22 Patch 4, MainTask 10 ms (t#10ms)'],
   ['OPC UA', 'opc.tcp://192.168.0.244:4840, anonimowo, ns=4, zmienne GVL_Line'],
   ['Docker na laptopie', 'mosquitto :1883, bridge (OPC UA → MQTT), db (TimescaleDB) :5432, ingest (MQTT → baza), grafana :3000'],
   ['Tematy MQTT', 'linesight/vision/events, linesight/vision/status, linesight/plc/<zmienna>, linesight/plc/status'],
@@ -555,6 +555,7 @@ h1('10q. Sterownik: maszyna stanów PackML (E3-03)');
 p('Kod w repo: plc/src/E_PackML.st (DUT), GVL_Line.st (GVL), PLC_PRG.st (program). Do projektu CODESYS wklejany ręcznie.');
 step('PLC', 'Wgranie i start', ['Build → Generate code (F11)', 'Online → Login (Alt+F8), Debug → Start (F5)']);
 step('PLC', 'Zmiana wartości online', 'GVL_Line: kolumna „Prepared value” → Ctrl+F7 (Write values)', 'Komendy xCmd… działają na zbocze – po użyciu ustaw z powrotem FALSE.');
+step('PLC', 'Interwał zadania (raz)', 'Task Configuration → MainTask → Interval: t#10ms', 'Przy 200 ms timer cyklu był kwantowany: 2,0 s na sztukę (30/min) zamiast 1,5 s. Czas cyklu jest mierzony TIME().');
 table([1600, 2400, 5638], [
   ['iStateCurrent', 'Stan', 'Znaczenie'],
   ['2', 'Stopped', 'zatrzymana'], ['15', 'Resetting', 'przygotowanie (1 s)'], ['4', 'Idle', 'gotowa, czeka na start'],
@@ -640,6 +641,8 @@ table([3600, 3000, 3038], [
   ['w32tm: „Usługa nie została uruchomiona (0x80070426)”', 'Usługa czasu Windows wyłączona', 'Punkt 10p: sc config w32time start= auto, net start w32time'],
   ['Offset zegara laptopa się nie zmienia po resync', 'Domyślny próg skoku 300 s – zegar tylko powoli dociągany', 'Punkt 10p: MaxAllowedPhaseOffset = 1'],
   ['MQTT Explorer: brak stanów 15 i 3', 'Drzewo pokazuje tylko ostatnią wartość', 'Temat → Value → History'],
+  ['Grafana: „< 80” zamiast nazw stanów', 'Mapowania nie zadziałały, użyte domyślne progi', 'Poprawione w dashboardzie; po zmianie pliku: F5 w przeglądarce'],
+  ['Grafana: 30 szt./min zamiast 40', 'Stary program PLC / MainTask 200 ms', 'Program z plc/src, MainTask t#10ms'],
   ['Komendy cmd sklejone w jedną linię', 'Wklejony blok bez Entera', 'Wklejać pojedynczo'],
 ]);
 
