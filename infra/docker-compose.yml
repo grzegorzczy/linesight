@@ -1,7 +1,7 @@
 # LineSight – infrastruktura na laptopie (etap 3).
 # Start:  docker compose -f infra/docker-compose.yml up -d
 # Stop:   docker compose -f infra/docker-compose.yml down
-# TimescaleDB (E3-06) i Grafana (E3-07) dojdą do tego samego pliku.
+# Grafana (E3-07) dojdzie do tego samego pliku.
 name: linesight
 
 services:
@@ -23,3 +23,38 @@ services:
     environment:
       OPCUA_URL: opc.tcp://192.168.0.244:4840
       MQTT_HOST: mosquitto   # nazwa usługi w sieci compose
+
+  db:   # E3-06: TimescaleDB (PostgreSQL 17 z rozszerzeniem szeregów czasowych)
+    image: timescale/timescaledb:2.25.2-pg17
+    container_name: linesight-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"   # dla psql / DBeavera z laptopa; Grafana łączy się wewnątrz sieci compose
+    environment:
+      POSTGRES_DB: linesight
+      POSTGRES_USER: linesight
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-linesight}   # lokalnie; inne hasło: zmienna PG_PASSWORD
+    volumes:
+      - pgdata:/var/lib/postgresql/data              # dane przeżywają `docker compose down`
+      - ./db/init.sql:/docker-entrypoint-initdb.d/10-linesight.sql:ro   # schemat, tylko przy pustym wolumenie
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U linesight -d linesight"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ingest:   # E3-06: MQTT -> TimescaleDB
+    build: ../ingest
+    container_name: linesight-ingest
+    restart: unless-stopped
+    depends_on:
+      mosquitto:
+        condition: service_started
+      db:
+        condition: service_healthy
+    environment:
+      MQTT_HOST: mosquitto
+      DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
+
+volumes:
+  pgdata:
