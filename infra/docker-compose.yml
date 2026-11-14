@@ -13,6 +13,7 @@ services:
       - "1883:1883"   # MQTT bez TLS – tylko sieć domowa
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data   # E4-01: kolejki, sesje i retained przeżywają restart brokera
 
   bridge:   # E3-05: most OPC UA (sterownik) -> MQTT
     build: ../bridge
@@ -75,5 +76,6 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 volumes:
+  mosquitto-data:
   pgdata:
   grafana:
