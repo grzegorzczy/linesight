@@ -1,0 +1,10 @@
+# Dashboardy z plików JSON w /var/lib/grafana/dashboards (infra/grafana/dashboards w repo).
+# Zmiany w UI nie są zapisywane do pliku: żeby zmienić dashboard na stałe, eksportujemy JSON do repo.
+apiVersion: 1
+providers:
+  - name: linesight
+    folder: LineSight
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

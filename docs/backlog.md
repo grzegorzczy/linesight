@@ -84,11 +84,16 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Mosquitto, TimescaleDB, Grafana; wszystko wstaje jedną komendą
       → 14.11: Mosquitto 2.0 (`infra/mosquitto/mosquitto.conf`: listener LAN, bez haseł – sieć domowa);
       TimescaleDB i Grafana dochodzą do tego samego pliku w E3-06 / E3-07
-- [ ] **E3-02 – synchronizacja czasu** · Jetson + laptop · 1 h · NTP na obu urządzeniach,
+- [x] **E3-02 – synchronizacja czasu** · Jetson + laptop · 1 h · NTP na obu urządzeniach,
       wszystkie znaczniki czasu w UTC; zmierzona różnica zegarów
       → 14.11: `tools/clock_offset.py` (SNTP). Jetson +13,0 ms, laptop −384,5 ms → różnica 397,5 ms (cel < 100 ms).
       Na laptopie usługa czasu Windows była wyłączona; włączona (`w32time`, start auto), offset po chwili bez zmian.
-      **Odłożone:** ponowny pomiar przed E3-06 (zapis do bazy)
+      Ponowny pomiar 14.11 po południu: laptop −1042 ms (dryf ok. 100 ms/h, usługa nie korygowała). Naprawa:
+      `w32tm /config /manualpeerlist:time.google.com /syncfromflags:manual /update` i próg skoku
+      `MaxAllowedPhaseOffset` = 1 s (domyślnie 300 s poza domeną → zegar tylko powoli dociągany).
+      Wynik: Windows +1,8 ms, **kontener Dockera (WSL2) +6,5 ms**, Jetson −1,1 ms; błąd pomiaru ≤ 20 ms.
+      Liczy się zegar kontenera: to nim most znakuje sygnały PLC. Skok zegara cofnął czas o ok. 1 s
+      w danych testowych z ok. 17:31
 - [x] **E3-03 – maszyna stanów PackML** · CODESYS · 0,5-1 dnia · podzbiór stanów PackML,
       liczniki sztuk, kody błędów, ręczne wstrzykiwanie awarii (wizualizacja)
       → 14.11: kod w `plc/src/` (E_PackML, GVL_Line, PLC_PRG): 11 stanów, zator → Held (101), brak produktu →
@@ -108,12 +113,18 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Test 14.11: sekwencja stanów 2 → 15 → 4 → 3 → 6 → 11 (historia tematu w MQTT Explorer), wartości zgodne
       z CODESYS; kabel sterownika wyjęty: status offline, po włożeniu online po ok. 5 s.
       Zegar sterownika różni się od laptopa o ok. 1,2 s (`t` − `t_src`) – dlatego czas nadaje most
-- [ ] **E3-06 – zapis do TimescaleDB** · laptop, Docker · 0,5 dnia · hypertabele dla sygnałów
+- [x] **E3-06 – zapis do TimescaleDB** · laptop, Docker · 0,5 dnia · hypertabele dla sygnałów
       i zdarzeń; zapytanie „sygnały z 30 s przed zdarzeniem” działa
       → 14.11: `timescale/timescaledb:2.25.2-pg17`, schemat `infra/db/init.sql` (plc_signal w formacie wąskim,
       vision_event z time = t_cross, link_status), funkcja `signals_before(t, '30 s')`; usługa `ingest`
-      (MQTT → baza, sesja trwała, ON CONFLICT DO NOTHING). Sprawdzone na PostgreSQL 16 bez rozszerzenia
+      (MQTT → baza, sesja trwała, ON CONFLICT DO NOTHING).
+      Test 14.11: 9 zmiennych PLC w `plc_signal`; `signals_before(now())` zwraca stan na początku okna (zator 11/101)
+      i jego koniec (6/0); zdarzenie `missing_cap` z Jetsona w `vision_event` z klipem, a `signals_before` dla chwili
+      przecięcia: Execute 6, przyczyna 0. Obraz bazy pobrany przez mirror.gcr.io
 - [ ] **E3-07 – Grafana** · laptop · 2-3 h · oś czasu stanów, liczniki, detekcje z kamery
+      → 14.11: `grafana/grafana:13.2.4`, źródło danych i dashboard z plików (provisioning), użytkownik bazy
+      `grafana_ro` (tylko SELECT). Panele: stan PackML + przyczyna, łącza PLC/kamera, sztuki/min PLC vs kamera,
+      czas cyklu, tabela zdarzeń; wady z kamery jako adnotacje na osi czasu
 - [ ] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne)* · laptop · · tylko jeśli
       zostanie czas
 - [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
