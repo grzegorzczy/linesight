@@ -15,6 +15,9 @@ const TAGS = {
   SSH2: { label: 'SSH2', color: '2E7D7D' },
   LAPTOP: { label: 'LAPTOP (cmd)', color: '1F4E8C' },
   FIZ: { label: 'FIZYCZNIE', color: '8C5A1F' },
+  ADMIN: { label: 'LAPTOP (cmd jako administrator)', color: '8C1F1F' },
+  PLC: { label: 'CODESYS', color: 'B5651D' },
+  WWW: { label: 'PRZEGLĄDARKA', color: '555555' },
 };
 
 const children = [];
@@ -82,7 +85,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 13.11.2026, etap 2 (wideo) zakończony bez E2-07 (MQTT → etap 3). Potok DeepStream: kamera → YOLO26n FP16 → tracker → zliczanie → OSD → NVENC → RTSP + klipy, 30 FPS.', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 14.11.2026, etap 3 w toku (E3-01 – E3-06 zrobione, E3-07 Grafana do testu). Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -97,7 +100,19 @@ table([3000, 6638], [
   ['GitHub', 'github.com/grzegorzczy/linesight'],
   ['Kamera', 'ASUS „web camera”, /dev/video0, YUYV 640x360 @ 30 FPS'],
   ['Model', 'YOLO26n, ONNX opset 13, silnik FP16 ok. 20 FPS (640x640)'],
+  ['Sterownik (PLC)', 'JUMO variTRON 300 (705003), 192.168.0.244, CODESYS V3.5 SP22 Patch 4, MainTask 200 ms'],
+  ['OPC UA', 'opc.tcp://192.168.0.244:4840, anonimowo, ns=4, zmienne GVL_Line'],
+  ['Docker na laptopie', 'mosquitto :1883, bridge (OPC UA → MQTT), db (TimescaleDB) :5432, ingest (MQTT → baza), grafana :3000'],
+  ['Tematy MQTT', 'linesight/vision/events, linesight/vision/status, linesight/plc/<zmienna>, linesight/plc/status'],
+  ['Baza', 'linesight / linesight (Grafana: grafana_ro / grafana_ro, tylko odczyt)'],
 ]);
+
+h1('Szybki start: wszystko naraz');
+step('LAPTOP', 'Usługi w Dockerze (Docker Desktop uruchomiony)', ['cd /d "C:\\Users\\Grzesiek\\Desktop\\linesight"', 'git pull', 'docker compose -f infra/docker-compose.yml up -d --build', 'docker ps'], 'Oczekiwane: linesight-mosquitto, -bridge, -db, -ingest, -grafana – wszystkie „Up”.');
+step('PLC', 'Linia', 'Online → Login, Start (F5); w GVL_Line: xCmdReset TRUE→FALSE, xCmdStart TRUE→FALSE (Ctrl+F7 zapisuje)', 'iStateCurrent = 6 (Execute).');
+step('SSH1', 'Kamera i zdarzenia', ['sudo nvpmodel -m 0 && sudo jetson_clocks', 'cd ~/linesight && git pull', 'cd deepstream && python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203']);
+step('LAPTOP', 'Odpalenie kamery w cmd (podgląd RTSP)', '"C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe" --network-caching=200 --rtsp-tcp rtsp://192.168.0.124:8554/linesight', 'Najpierw program na Jetsonie, potem VLC.');
+step('WWW', 'Dashboard', 'http://localhost:3000', 'Login admin, hasło linesight.');
 p('Trzy okna cmd na laptopie:');
 table([2200, 7438], [
   ['Okno', 'Do czego'],
@@ -504,6 +519,85 @@ table([5200, 4438], [
   ['Klip testowy', '17 s, przecięcie linii w 10. s'],
 ]);
 
+h1('10n. Broker MQTT (E3-01)');
+p('Mosquitto w Dockerze na laptopie. Broker tylko przekazuje wiadomości; nadawcy (Jetson, most) i odbiorcy (MQTT Explorer, ingest) znają tylko jego adres i nazwę tematu.');
+step('LAPTOP', 'Obraz z kopii u Google (Docker Hub / CloudFront zrywa pobieranie: EOF)', ['docker pull mirror.gcr.io/library/eclipse-mosquitto:2.0', 'docker tag mirror.gcr.io/library/eclipse-mosquitto:2.0 eclipse-mosquitto:2.0']);
+step('LAPTOP', 'Start i logi', ['docker compose -f infra/docker-compose.yml up -d', 'docker logs linesight-mosquitto'], 'Oczekiwane: „mosquitto version 2.0.x running”. Linia „chown: … Read-only file system” jest niegroźna.');
+step('SSH1', 'Czy Jetson widzi brokera', 'nc -zv 192.168.0.203 1883', 'Oczekiwane: „succeeded!”. Brak odpowiedzi = Zapora Windows.');
+step('LAPTOP', 'Podgląd wiadomości', 'MQTT Explorer: host localhost, port 1883, bez loginu', 'Ostatnia wartość tematu w drzewie; wszystkie wiadomości: temat → Value → History.');
+
+h1('10o. Zdarzenia z Jetsona do MQTT (E2-07)');
+step('SSH1', 'Biblioteka MQTT (raz)', 'pip3 install --user paho-mqtt==1.6.1', 'Wersja 2.x wymaga Pythona ≥ 3.7, Jetson ma 3.6.');
+step('SSH1', 'Potok z wysyłką zdarzeń', 'python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203', 'Oczekiwane: „MQTT: połączono”. Tematy: linesight/vision/events (QoS 1), linesight/vision/status (online/offline, Last Will).');
+p('Pola zdarzenia: t (ustalenie klasy), t_cross (przecięcie linii, ok. 5 s wcześniej), track_id, class, direction, votes, clip (tylko missing_cap i fallen).');
+
+h1('10p. Zegary (E3-02)');
+step('LAPTOP', 'Pomiar zegara Windows', 'python tools\\clock_offset.py');
+step('LAPTOP', 'Pomiar zegara kontenera (to nim most znakuje sygnały PLC)', 'docker run --rm -v "%cd%\\tools:/t" linesight-bridge python /t/clock_offset.py');
+step('SSH1', 'Pomiar zegara Jetsona', ['timedatectl status', 'python3 ~/linesight/tools/clock_offset.py'], 'Oczekiwane: „System clock synchronized: yes”.');
+step('ADMIN', 'Naprawa zegara Windows (gdy offset > 50 ms) – komendy pojedynczo', [
+  'sc config w32time start= auto',
+  'w32tm /config /manualpeerlist:time.google.com /syncfromflags:manual /update',
+  'reg add HKLM\\SYSTEM\\CurrentControlSet\\Services\\W32Time\\Config /v MaxAllowedPhaseOffset /t REG_DWORD /d 1 /f',
+  'net stop w32time && net start w32time',
+  'w32tm /resync /force',
+  'w32tm /query /status',
+], 'MaxAllowedPhaseOffset = 1: przy błędzie > 1 s zegar jest przestawiany od razu (domyślnie poza domeną 300 s – tylko powolne dociąganie).');
+table([4000, 5638], [
+  ['Pomiar 14.11.2026', 'Offset'],
+  ['Laptop przed naprawą', '−384 ms rano, −1042 ms po południu (usługa czasu wyłączona, potem nieskuteczna)'],
+  ['Laptop (Windows) po naprawie', '+1,8 ms'],
+  ['Kontener Dockera (WSL2)', '+6,5 ms'],
+  ['Jetson', '−1,1 ms (wcześniej +13 ms)'],
+]);
+
+h1('10q. Sterownik: maszyna stanów PackML (E3-03)');
+p('Kod w repo: plc/src/E_PackML.st (DUT), GVL_Line.st (GVL), PLC_PRG.st (program). Do projektu CODESYS wklejany ręcznie.');
+step('PLC', 'Wgranie i start', ['Build → Generate code (F11)', 'Online → Login (Alt+F8), Debug → Start (F5)']);
+step('PLC', 'Zmiana wartości online', 'GVL_Line: kolumna „Prepared value” → Ctrl+F7 (Write values)', 'Komendy xCmd… działają na zbocze – po użyciu ustaw z powrotem FALSE.');
+table([1600, 2400, 5638], [
+  ['iStateCurrent', 'Stan', 'Znaczenie'],
+  ['2', 'Stopped', 'zatrzymana'], ['15', 'Resetting', 'przygotowanie (1 s)'], ['4', 'Idle', 'gotowa, czeka na start'],
+  ['3', 'Starting', 'rusza (1 s)'], ['6', 'Execute', 'produkuje (sztuka co ok. 1,5 s)'], ['11', 'Held', 'zator (iStopReason 101)'],
+  ['5', 'Suspended', 'brak produktu (201)'], ['8 / 9', 'Aborting / Aborted', 'awaria (301), abort operatora (302)'],
+  ['7', 'Stopping', 'zatrzymywanie (stop operatora: 1)'], ['1', 'Clearing', 'kasowanie awarii (1 s)'],
+]);
+table([3000, 6638], [
+  ['Zmienna', 'Działanie'],
+  ['xCmdReset / xCmdStart / xCmdStop', 'Stopped → Idle; Idle → Execute; stop z Idle/Execute/Held/Suspended'],
+  ['xCmdAbort / xCmdClear', 'awaria z dowolnego stanu; Aborted → Stopped (gdy xInjFault = FALSE)'],
+  ['xInjJam', 'zator → Held (101), po wyłączeniu powrót do Execute'],
+  ['xInjNoProduct', 'brak produktu → Suspended (201)'],
+  ['xInjFault', 'awaria → Aborted (301)'],
+  ['xInjSlow', 'czas cyklu +40 % (dane do wykrywania anomalii)'],
+]);
+
+h1('10r. OPC UA i most do MQTT (E3-04, E3-05)');
+step('PLC', 'Serwer OPC UA (raz)', ['Application → Add Object → Symbol Configuration, zaznacz „Support OPC UA features”', 'Build w edytorze symboli, zaznacz całe GVL_Line', 'Login (wgranie), Start']);
+step('LAPTOP', 'Lista zmiennych z laptopa (aktywne .venv)', ['.venv\\Scripts\\activate', 'pip install asyncua', 'python tools\\opcua_browse.py'], 'Oczekiwane: „Znaleziono zmiennych: 15”, NodeId ns=4;s=|var|JUMO ARM Cortex A7 Linux iMX6ULL ARM32.Application.GVL_Line.<nazwa>.');
+step('LAPTOP', 'Most (usługa bridge) – start i logi', ['docker compose -f infra/docker-compose.yml up -d --build', 'docker logs linesight-bridge'], 'Oczekiwane: „OPC UA: połączono … subskrypcja 9 zmiennych co 200 ms”. Tematy linesight/plc/<zmienna>, treść {"t", "value", "t_src"}.');
+p('Most subskrybuje zmiany (serwer sam zgłasza nową wartość), czas t nadaje most (zegar laptopa/kontenera). Zegar sterownika różni się o ok. 1,2 s (t − t_src). Bez sterownika: status offline, ponowna próba co 5 s.');
+
+h1('10s. TimescaleDB i zapis z MQTT (E3-06)');
+step('LAPTOP', 'Obraz bazy z kopii u Google', ['docker pull mirror.gcr.io/timescale/timescaledb:2.25.2-pg17', 'docker tag mirror.gcr.io/timescale/timescaledb:2.25.2-pg17 timescale/timescaledb:2.25.2-pg17']);
+step('LAPTOP', 'Logi zapisu', 'docker logs linesight-ingest', 'Oczekiwane: „MQTT: połączono (kod Success)” i „DB: połączono”.');
+step('LAPTOP', 'Sygnały PLC w bazie', 'docker exec linesight-db psql -U linesight -c "select name, count(*), max(value) from plc_signal group by name order by name;"');
+step('LAPTOP', 'Sygnały z 30 s przed chwilą', 'docker exec linesight-db psql -U linesight -c "select * from signals_before(now()) where name <> \'udiProdProcessed\';"', 'Pierwsze wiersze (jednakowy, najstarszy czas) = wartość każdej zmiennej na początku okna.');
+step('LAPTOP', 'Zdarzenia z kamery', 'docker exec linesight-db psql -U linesight -c "select time, class, track_id, clip from vision_event order by time desc limit 3;"');
+step('LAPTOP', 'Stan linii w chwili ostatniego zdarzenia z kamery', 'docker exec linesight-db psql -U linesight -c "select s.* from signals_before((select max(time) from vision_event)) s where name in (\'iStateCurrent\',\'iStopReason\',\'xInjJam\');"');
+table([2600, 7038], [
+  ['Tabela', 'Zawartość'],
+  ['plc_signal', 'jedna zmiana jednej zmiennej: time, name, value (BOOL = 0/1), t_src'],
+  ['vision_event', 'przecięcia linii: time = t_cross, t_decided, track_id, class, clip, votes, raw'],
+  ['link_status', 'online/offline mostu (plc) i kamery (vision)'],
+]);
+p('Czasy w bazie są w UTC (+00); 16:26 w bazie = 17:26 czasu polskiego. Brak wiersza w plc_signal znaczy „bez zmian”, a nie „brak danych”.');
+
+h1('10t. Grafana (E3-07)');
+step('LAPTOP', 'Użytkownik tylko do odczytu (raz, na istniejącej bazie)', 'docker exec -i linesight-db psql -U linesight < infra\\db\\20-grafana-ro.sql');
+step('LAPTOP', 'Obraz Grafany i start', ['docker pull mirror.gcr.io/grafana/grafana:13.2.4', 'docker tag mirror.gcr.io/grafana/grafana:13.2.4 grafana/grafana:13.2.4', 'docker compose -f infra/docker-compose.yml up -d']);
+step('WWW', 'Dashboard „LineSight – linia”', 'http://localhost:3000', 'admin / linesight. Źródło danych i dashboard z plików w infra/grafana (zmiany w przeglądarce nie zapisują się do repo).');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
@@ -541,6 +635,12 @@ table([3600, 3000, 3038], [
   ['VLC: nie mógł połączyć się z …:8554', 'Program na Jetsonie nie działa', 'Najpierw linesight_app.py --rtsp'],
   ['Ostrzeżenie GstUDPSrc has no property named \'pt\'', 'Serwer RTSP ustawia typ ładunku na udpsrc', 'Nieszkodliwe, ignorować'],
   ['scp: ~/linesight_clips/*.mp4: No such file', 'Brak klipów – zwykła bottle nie zapisuje klipu', 'Test z --clip-classes bottle,missing_cap,fallen'],
+  ['docker pull / compose: „failed to copy … cloudfront … EOF”', 'Sieć laptopa zrywa pobieranie z CloudFront (Docker Hub)', 'docker pull mirror.gcr.io/…, potem docker tag; albo hotspot z telefonu'],
+  ['„System nie może odnaleźć określonej ścieżki” (vlc.exe)', 'VLC jest w Program Files (x86)', '"C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe"'],
+  ['w32tm: „Usługa nie została uruchomiona (0x80070426)”', 'Usługa czasu Windows wyłączona', 'Punkt 10p: sc config w32time start= auto, net start w32time'],
+  ['Offset zegara laptopa się nie zmienia po resync', 'Domyślny próg skoku 300 s – zegar tylko powoli dociągany', 'Punkt 10p: MaxAllowedPhaseOffset = 1'],
+  ['MQTT Explorer: brak stanów 15 i 3', 'Drzewo pokazuje tylko ostatnią wartość', 'Temat → Value → History'],
+  ['Komendy cmd sklejone w jedną linię', 'Wklejony blok bez Entera', 'Wklejać pojedynczo'],
 ]);
 
 h1('Archiwum: Intel RealSense (etap 0, niewykorzystana)');
