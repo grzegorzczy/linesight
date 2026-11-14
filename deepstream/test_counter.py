@@ -92,6 +92,49 @@ def test_zdarzenie_dostaje_nazwe_klipu():
     assert evs and evs[0]["class"] == "bottle"
 
 
+def test_czas_przeciecia():
+    # klasa ustalana `decide` klatek po przecięciu: t_cross = t - decide / FPS
+    evs = []
+    c = app.LineCounter(320, None, decide=30)
+    c.on_event = evs.append
+    for n, x in enumerate([280] + [360] * 40):
+        c.update(n, [(1, BOTTLE, x)])
+    ev = evs[0]
+    assert ev["decided_at"] - ev["frame"] == 30
+    assert abs((ev["t"] - ev["t_cross"]) - 30 / app.FPS) < 0.002, ev
+
+
+class FakeMqtt(object):
+    """Atrapa klienta paho: zapisuje wywołania, publikacje od razu „potwierdzone”."""
+
+    def __init__(self):
+        self.calls, self.sent = [], []
+
+    def __getattr__(self, name):
+        return lambda *a, **k: self.calls.append((name, a, k))
+
+    def publish(self, topic, payload, qos=0, retain=False):
+        self.sent.append((topic, payload, qos, retain))
+        return types.SimpleNamespace(rc=0, is_published=lambda: True)
+
+
+def test_mqtt_zdarzenie_i_status():
+    import json
+    fake = FakeMqtt()
+    pub = app.MqttPublisher("broker", client=fake)
+    names = [c[0] for c in fake.calls]
+    assert "will_set" in names and "connect_async" in names and "loop_start" in names
+    assert [c for c in fake.calls if c[0] == "will_set"][0][1] == ("linesight/vision/status", "offline")
+    pub._on_connect(fake, None, None, 0)
+    pub.publish({"class": "fallen", "track_id": 7, "clip": "x.mp4"})
+    pub.close()
+    assert fake.sent[0] == ("linesight/vision/status", "online", 1, True)
+    topic, payload, qos, retain = fake.sent[1]
+    assert (topic, qos, retain) == ("linesight/vision/events", 1, False)
+    assert json.loads(payload) == {"class": "fallen", "track_id": 7, "clip": "x.mp4"}
+    assert fake.sent[2] == ("linesight/vision/status", "offline", 1, True)
+
+
 if __name__ == "__main__":
     tests = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for t in tests:
