@@ -86,8 +86,13 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       TimescaleDB i Grafana dochodzą do tego samego pliku w E3-06 / E3-07
 - [ ] **E3-02 – synchronizacja czasu** · Jetson + laptop · 1 h · NTP na obu urządzeniach,
       wszystkie znaczniki czasu w UTC; zmierzona różnica zegarów
+      → 14.11: `tools/clock_offset.py` (SNTP). Jetson +13,0 ms, laptop −384,5 ms → różnica 397,5 ms (cel < 100 ms).
+      Na laptopie usługa czasu Windows była wyłączona; włączona (`w32time`, start auto), offset po chwili bez zmian.
+      **Odłożone:** ponowny pomiar przed E3-06 (zapis do bazy)
 - [ ] **E3-03 – maszyna stanów PackML** · CODESYS · 0,5-1 dnia · podzbiór stanów PackML,
       liczniki sztuk, kody błędów, ręczne wstrzykiwanie awarii (wizualizacja)
+      → 14.11: kod w `plc/src/` (E_PackML, GVL_Line, PLC_PRG): 11 stanów, zator → Held (101), brak produktu →
+      Suspended (201), awaria → Aborted (301), degradacja czasu cyklu; jeszcze nie skompilowany w CODESYS
 - [ ] **E3-04 – serwer OPC UA** · CODESYS · 1 h · zmienne wystawione przez konfigurację symboli
 - [ ] **E3-05 – most OPC UA → MQTT** · laptop, Docker · 0,5 dnia · klient OPC UA w Pythonie
       (subskrypcja zmian) publikuje do MQTT; obsługa zerwania połączenia
