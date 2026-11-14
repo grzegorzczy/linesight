@@ -13,3 +13,13 @@ services:
       - "1883:1883"   # MQTT bez TLS – tylko sieć domowa
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
+  bridge:   # E3-05: most OPC UA (sterownik) -> MQTT
+    build: ../bridge
+    container_name: linesight-bridge
+    restart: unless-stopped
+    depends_on:
+      - mosquitto
+    environment:
+      OPCUA_URL: opc.tcp://192.168.0.244:4840
+      MQTT_HOST: mosquitto   # nazwa usługi w sieci compose
