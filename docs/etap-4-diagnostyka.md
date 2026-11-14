@@ -54,3 +54,48 @@ Wynik (14.11, linia cały czas w `Execute`, 40 szt./min):
 - Pułapka: zapytanie zaraz po `docker start` pokazało 30 = 30 – ingest dopiero oddawał kolejkę (zapis po jednej
   wiadomości). Dane z przerwy docierają z opóźnieniem; diagnostyka postoju (E4-02) musi na nie poczekać,
   zanim policzy okno 30 s.
+
+## E4-02 – zdarzenie postoju (laptop)
+
+Postój = od wyjścia ze stanu `Execute` (6) do powrotu do `Execute`. Cały łańcuch stanów (np. Stopping → Stopped →
+Resetting → Idle → Starting) to jeden postój; zapisujemy **pierwszy** stan po Execute, bo on mówi, co zatrzymało linię:
+
+| Pierwszy stan | Znaczenie | `iStopReason` |
+|---|---|---|
+| 11 Held | zator w maszynie | 101 |
+| 5 Suspended | brak produktu na wejściu | 201 |
+| 8 Aborting | awaria | 301 / 302 |
+| 7 Stopping | zatrzymanie przez operatora | 1 |
+
+Pliki:
+- `infra/db/30-diag.sql` – tabela `stop_event` (zwykła, nie hypertabela: kilkadziesiąt wierszy dziennie);
+  kolumny `cause`, `evidence`, `clip` wypełnią E4-03 i E4-04.
+- `diag/stops.py` – `find_stops()`: czysta funkcja (lista zmian stanu → postoje), bez bazy; `diag/test_stops.py` – 8 testów
+  (zator, pełny łańcuch operatora, awaria + drugi postój, powtórzona wartość po ponownym połączeniu mostu, postój trwający,
+  start linii poza Execute to nie postój, brak wartości).
+- `diag/diag.py` – usługa: co 5 s czyta historię `iStateCurrent` z ostatnich 24 h, wylicza postoje i zapisuje je
+  **UPSERT-em** (`INSERT … ON CONFLICT (t_start) DO UPDATE` – wstaw, a gdy wiersz o tym kluczu już jest, zaktualizuj).
+  Kod PLC: ostatnia wartość `iStopReason` najpóźniej 1 s po początku postoju.
+
+Dlaczego odpytywanie bazy, a nie reakcja na wiadomość MQTT: dane z przerwy docierają z opóźnieniem (E4-01); każdy przebieg
+liczy od nowa i zapisuje idempotentnie, więc spóźnione dane same poprawiają wynik, restart usługi niczego nie gubi ani nie
+dubluje, a pierwszy przebieg odtwarza postoje z ostatniej doby. Koszt: opóźnienie do 5 s. Zakres zaczyna się najpóźniej
+od początku najstarszego trwającego postoju – postój dłuższy niż 24 h też zostanie zamknięty.
+
+Ograniczenie: gdy most nie ma połączenia z PLC, a linia w tym czasie stanie i ruszy, postoju nie zobaczymy
+(most wysyła zmiany, nie historię). Oznaczanie takich luk – E4-03 (`link_status`).
+
+Uruchomienie (LAPTOP):
+```
+git pull
+git checkout etap4/e4-02-stop-event
+docker exec -i linesight-db psql -U linesight < infra\db\30-diag.sql
+python diag\test_stops.py
+docker compose -f infra/docker-compose.yml up -d --build diag
+docker logs linesight-diag
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT t_start::time, t_end::time, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY t_start"
+```
+Test na żywo: w CODESYS `xInjJam := TRUE` → w ciągu 5 s w logu `NOWY postój …, stan 11 (Held), kod PLC 101`;
+`xInjJam := FALSE` → `ZMIANA postój … – <koniec>`.
+
+Wynik: *(uzupełnić po teście)*

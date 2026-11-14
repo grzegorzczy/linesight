@@ -616,6 +616,12 @@ step('LAPTOP', 'Nowa konfiguracja brokera', ['git pull', 'docker compose -f infr
 step('LAPTOP', 'Test: przerwa ingest 10 min', ['docker stop linesight-ingest', 'docker start linesight-ingest', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT count(*) AS wiersze, max(value)-min(value)+1 AS oczekiwane FROM plc_signal WHERE name=\'udiProdProcessed\' AND time > now() - interval \'15 minutes\'"'], 'Między stop a start 10 min. wiersze = oczekiwane → brak dziur.');
 step('LAPTOP', 'Test: restart brokera', ['docker stop linesight-ingest', 'docker restart linesight-mosquitto', 'docker start linesight-ingest'], 'Między stop a restart 2 min; potem zapytanie jak wyżej, okno 5 minutes.');
 
+h1('10w. Postoje: usługa diag (E4-02)');
+p('Postój = wyjście z Execute do powrotu do Execute; tabela stop_event, usługa diag co 5 s (UPSERT, ostatnie 24 h).');
+step('LAPTOP', 'Tabela i testy (raz)', ['docker exec -i linesight-db psql -U linesight < infra\\db\\30-diag.sql', 'python diag\\test_stops.py']);
+step('LAPTOP', 'Start usługi', ['docker compose -f infra/docker-compose.yml up -d --build diag', 'docker logs linesight-diag']);
+step('LAPTOP', 'Lista postojów', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT t_start::time, t_end::time, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY t_start"', 'Czasy w UTC. state: 11 Held (zator), 5 Suspended (brak produktu), 8 Aborting (awaria), 7 Stopping (operator).');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
