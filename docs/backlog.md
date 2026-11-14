@@ -69,11 +69,13 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → `linesight_app.py --clips`: splitmuxsink 15 × 2 s w `/dev/shm`, klip 10 s przed / 5 s po przecięciu
       (`missing_cap`, `fallen`), `ffmpeg -c copy`; nazwa klipu w zdarzeniu (`clip`). Test: klip 17 s,
       przecięcie w 10. s, 30 FPS
-- [ ] **E2-07 – wysyłka zdarzeń** · Jetson → laptop · 2-3 h · zdarzenie (JSON: czas UTC, typ,
+- [x] **E2-07 – wysyłka zdarzeń** · Jetson → laptop · 2-3 h · zdarzenie (JSON: czas UTC, typ,
       klasa, ID obiektu, nazwa klipu) trafia do brokera MQTT; wymaga E3-01
       → **przeniesione do etapu 3** (zaraz po E3-01); zdarzenie ma już pole `clip` (E2-06)
       → 14.11: `linesight_app.py --mqtt <host>`: paho-mqtt 1.6.1, temat `linesight/vision/events` (QoS 1),
       `linesight/vision/status` online/offline (retained + Last Will); nowe pole `t_cross` (chwila przecięcia, UTC)
+      Test 14.11 (kamera na żywo, `--rtsp --clips --mqtt`): zdarzenia `bottle` i `missing_cap` (z polem `clip`)
+      w MQTT Explorer, t − t_cross = 5,0 s, klip z 9 kawałków, 30,0 FPS
 - [x] **E2-08 – dokumentacja i pytania** · · 1-2 h · `docs/etap-2-wideo.md`, README, 5 pytań
       → README (sekcja potoku wideo), ściąga Word (sekcje 10h–10m), pytania z rozmowy w czacie
 
