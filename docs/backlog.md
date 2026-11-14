@@ -100,13 +100,19 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       → 14.11: Symbol Configuration z „Support OPC UA features”, całe `GVL_Line`; `tools/opcua_browse.py` z laptopa:
       `opc.tcp://192.168.0.244:4840`, dostęp anonimowy, 15 zmiennych, NodeId
       `ns=4;s=|var|JUMO ARM Cortex A7 Linux iMX6ULL ARM32.Application.GVL_Line.<nazwa>`
-- [ ] **E3-05 – most OPC UA → MQTT** · laptop, Docker · 0,5 dnia · klient OPC UA w Pythonie
+- [x] **E3-05 – most OPC UA → MQTT** · laptop, Docker · 0,5 dnia · klient OPC UA w Pythonie
       (subskrypcja zmian) publikuje do MQTT; obsługa zerwania połączenia
       → 14.11: `bridge/opcua_mqtt_bridge.py` + usługa `bridge` w compose: subskrypcja 9 zmiennych co 200 ms,
       tematy `linesight/plc/<zmienna>` (QoS 1, retained, JSON t/value/t_src), `linesight/plc/status`,
       ponowne łączenie co 5 s; czas `t` nadaje most (zegar laptopa)
+      Test 14.11: sekwencja stanów 2 → 15 → 4 → 3 → 6 → 11 (historia tematu w MQTT Explorer), wartości zgodne
+      z CODESYS; kabel sterownika wyjęty: status offline, po włożeniu online po ok. 5 s.
+      Zegar sterownika różni się od laptopa o ok. 1,2 s (`t` − `t_src`) – dlatego czas nadaje most
 - [ ] **E3-06 – zapis do TimescaleDB** · laptop, Docker · 0,5 dnia · hypertabele dla sygnałów
       i zdarzeń; zapytanie „sygnały z 30 s przed zdarzeniem” działa
+      → 14.11: `timescale/timescaledb:2.25.2-pg17`, schemat `infra/db/init.sql` (plc_signal w formacie wąskim,
+      vision_event z time = t_cross, link_status), funkcja `signals_before(t, '30 s')`; usługa `ingest`
+      (MQTT → baza, sesja trwała, ON CONFLICT DO NOTHING). Sprawdzone na PostgreSQL 16 bez rozszerzenia
 - [ ] **E3-07 – Grafana** · laptop · 2-3 h · oś czasu stanów, liczniki, detekcje z kamery
 - [ ] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne)* · laptop · · tylko jeśli
       zostanie czas
