@@ -133,10 +133,14 @@ pozycje oznaczone *(opcjonalne)*, nie kryteria w pozostałych.
       Po poprawce: 40/40/39 szt./min, cykl 1,40–1,62 s
 - [~] **E3-08 – Factory I/O jako źródło sygnałów** *(opcjonalne, pominięte 14.11: symulacja w CODESYS wystarcza)* · laptop · · tylko jeśli
       zostanie czas
-- [ ] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
+- [x] **E3-09 – dokumentacja, pytania, demo MVP** · · 2-3 h · `docs/etap-3-plc-dane.md`,
       README, krótkie nagranie działającego MVP
 
 ## Poza MVP (pomysły)
+- [ ] **Mosquitto: kolejka i trwałość** (przed etapem 4, 15 min) · laptop · `max_queued_messages` > 1000 (domyślnie
+      1000 na klienta – przy ok. 120 wiadomościach/min ingest wyłączony na > 8 min gubi dane) i `persistence true`
+      z wolumenem (restart brokera kasuje kolejki, sesje i retained). Test: ingest zatrzymany 10 min, liczba wierszy
+- [ ] Demo MVP (14.11, 3:35 min, lokalnie `2026-11-14 18-46-13.mkv`) – do YouTube i README w etapie 7.
 - [ ] Test zliczania na „taśmie” (pasek papieru przeciągany spoza kadru), scena zgodna z E1-01
       (bez okna, sztuczne światło), prawda oznaczona na nagraniu – rzetelny błąd zliczania na klasę.
 - [ ] Klatki z nagrania E2-04 (światło dzienne, okno w tle, nakrętka pod światło) do retreningu

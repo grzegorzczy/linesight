@@ -599,6 +599,17 @@ step('LAPTOP', 'Użytkownik tylko do odczytu (raz, na istniejącej bazie)', 'doc
 step('LAPTOP', 'Obraz Grafany i start', ['docker pull mirror.gcr.io/grafana/grafana:13.2.4', 'docker tag mirror.gcr.io/grafana/grafana:13.2.4 grafana/grafana:13.2.4', 'docker compose -f infra/docker-compose.yml up -d']);
 step('WWW', 'Dashboard „LineSight – linia”', 'http://localhost:3000', 'admin / linesight. Źródło danych i dashboard z plików w infra/grafana (zmiany w przeglądarce nie zapisują się do repo).');
 
+h1('10u. Pytania z rozmowy – etap 3');
+p('Pełne odpowiedzi: docs/etap-3-plc-dane.md.');
+table([3000, 6638], [
+  ['Pytanie', 'Odpowiedź w skrócie'],
+  ['1. Subskrypcja OPC UA zamiast odpytywania', 'Serwer sam wysyła zmiany: mniej ruchu, mniejsze opóźnienie. Dwie zmiany w 200 ms: krótki impuls może zginąć. Licznik sztuk – nie, bo tylko rośnie: suma przyrostów się zgadza. Krótkie zdarzenia w PLC jako liczniki lub flagi zatrzaskiwane.'],
+  ['2. QoS 1, duplikaty, przerwa ingest / restart brokera', 'Duplikaty: ponowna wysyłka bez PUBACK, retained po każdym połączeniu → UNIQUE + ON CONFLICT DO NOTHING. Ingest leży: sesja trwała, broker kolejkuje – ale domyślnie max 1000 wiadomości (~8 min). Restart Mosquitto przy persistence false: kolejki i retained giną. Poprawki w backlogu.'],
+  ['3. Format wąski – stan o danej chwili', 'Ostatnia zmiana przed chwilą t (ORDER BY time DESC LIMIT 1). Zysk: tylko zmiany, schemat niezależny od sygnałów. Strata: trudniejsze zapytania o wiele sygnałów, brak wiersza ≠ brak danych, jeden typ wartości.'],
+  ['4. Zegary: skok a dociąganie, kto nadaje czas', 'Kolejność przyczyny i skutku zależy od zegarów. Skok: czas może się cofnąć. Dociąganie: czas rośnie, ale korekta trwa. Czas nadaje most (zsynchronizowany kontener), bo zegar PLC różni się o 1,2 s – koszt: do ~300 ms opóźnienia w znaczniku.'],
+  ['5. 30 zamiast 40 sztuk/min', 'Timer kwantowany do zadania 200 ms (1,6 s) + 2 cykle na kasowanie = 2,0 s; PLC raportował czas zadany. Wykrywanie: dwie niezależne miary tej samej wielkości i alarm przy różnicy > 5 %; mierzyć zamiast raportować nastawy.'],
+]);
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [

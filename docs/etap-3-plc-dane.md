@@ -234,3 +234,48 @@ adnotacja; 40/40/39 szt./min po poprawce PLC.
 - **Kamera i PLC bez automatycznego powiązania** – przyczyna nie może być znana z konstrukcji; spójne scenariusze
   wstrzykujemy ręcznie (np. przewrócona butelka, potem `xInjJam`), także przypadki trudne (zator bez wady, wada bez postoju).
 - **Factory I/O (E3-08) pominięte** – nie dodaje sygnałów potrzebnych w etapie 4.
+
+## Pytania z rozmowy technicznej (etap 3)
+
+**1. Subskrypcja OPC UA zamiast odpytywania – co zyskujesz i co z dwiema zmianami w 200 ms?**
+Serwer sam wysyła nową wartość, gdy się zmieni: mniej ruchu (nic nie idzie, gdy nic się nie dzieje), mniejsze
+opóźnienie i każda wiadomość niesie zmianę. Sampling 200 ms znaczy, że serwer sprawdza zmienną co 200 ms – jeśli
+zmieni się dwa razy w tym czasie (np. 0 → 1 → 0), krótki impuls może zginąć. Licznik sztuk tego problemu nie ma, bo
+tylko rośnie: gdy jeden odczyt przepadnie, następny jest o 2 większy, a suma przyrostów dalej się zgadza.
+Wniosek: krótkie zdarzenia w PLC wystawiać jako liczniki albo flagi zatrzaskiwane do potwierdzenia, nie jako impulsy.
+
+**2. QoS 1 – skąd duplikaty, co gdy ingest leży 10 minut, a co gdy zrestartuje się Mosquitto?**
+Duplikaty: (a) gdy zaginie potwierdzenie (PUBACK), nadawca wysyła wiadomość ponownie; (b) wiadomości retained –
+po każdym ponownym połączeniu ingest dostaje jeszcze raz ostatnią wartość każdego tematu. Obsługa: czas nadaje
+źródło, więc duplikat ma ten sam klucz – `UNIQUE (time, name)` + `ON CONFLICT DO NOTHING`.
+Ingest leży 10 minut: sesja trwała (`clean_session=False`, stały `client_id`) – broker trzyma wiadomości QoS 1
+w kolejce i oddaje je po powrocie. **Ograniczenie:** Mosquitto domyślnie kolejkuje do 1000 wiadomości na klienta,
+a most wysyła ok. 120 wiadomości na minutę (licznik, czas cyklu, prędkość co 1,5 s) – po ok. 8 minutach nadmiar
+przepadnie. Poprawka: `max_queued_messages` w `mosquitto.conf` (backlog).
+Restart Mosquitto: `persistence false` – kolejki, sesje i wiadomości retained są w RAM i giną; ingest po ponownym
+połączeniu subskrybuje od nowa i dostaje tylko nowe dane. Poprawka: `persistence true` z wolumenem (backlog).
+
+**3. Format wąski – jak odczytać stan linii o 14:03:27, co zyskujesz, co tracisz?**
+Ostatnia zmiana przed tą chwilą („ostatnia znana wartość”):
+`SELECT value FROM plc_signal WHERE name = 'iStateCurrent' AND time <= '… 14:03:27' ORDER BY time DESC LIMIT 1`.
+Tak działa pierwsza część `signals_before`. Zyski: zapisujemy tylko zmiany (mało danych), nowy sygnał nie zmienia
+schematu, każdy sygnał ma własny czas. Straty: stan wielu sygnałów naraz wymaga „ostatniej wartości” dla każdego
+(trudniejsze zapytania, pivot); brak wiersza nie odróżnia „bez zmian” od „brak danych” (dlatego `link_status`);
+jedna kolumna `DOUBLE PRECISION` dla wszystkich typów – tekstów nie zapiszemy.
+
+**4. Zegary – dlaczego to problem dla diagnostyki, skok a dociąganie, dlaczego czas nadaje most?**
+Diagnostyka opiera się na kolejności: czy butelka przewróciła się przed zatrzymaniem, czy po. Przy zdarzeniach
+trwających sekundy przesunięcie o 1 s zamienia przyczynę ze skutkiem, a okno 30 s łapie nie te dane.
+Skok: zegar przestawiony od razu – czas może się cofnąć (nakładające się znaczniki, ujemne odcinki, kolizje kluczy).
+Dociąganie: zegar przez jakiś czas chodzi minimalnie szybciej lub wolniej – czas zawsze rośnie, ale duża korekta trwa
+długo (u nas nie nadążała za dryfem). Most nadaje czas, bo zegar sterownika nie jest synchronizowany (różnica 1,2 s),
+a kontener mostu tak – jeden zegar mniej do pilnowania. Koszt: do znacznika dochodzi opóźnienie próbkowania i sieci
+(do ok. 200–300 ms). W zakładzie lepiej: NTP na sterowniku i znacznik czasu ze źródła.
+
+**5. 30 zamiast 40 sztuk/min – skąd błąd i jak wykrywać takie rozbieżności automatycznie?**
+Zadanie PLC co 200 ms: timer z czasem 1,5 s kończy się dopiero w pierwszym cyklu po 1,5 s, czyli po 1,6 s; kasowanie
+i ponowny start zabierają dwa kolejne cykle → 2,0 s na sztukę = 30/min. Do tego PLC raportował czas **zadany**,
+a nie zmierzony, więc wykres czasu cyklu był fikcją. Wykrywanie: porównywać dwie niezależne miary tej samej wielkości
+(przyrost licznika na minutę vs 60 000 / czas cyklu; licznik PLC vs zliczenia kamery) i alarmować, gdy różnica
+przekracza np. 5 % przez kilka minut; mierzyć zamiast raportować nastawy; podejrzane rozkłady (stałe wartości,
+skoki co krok zadania) sprawdzać przed trenowaniem modelu.
