@@ -1,7 +1,7 @@
 # LineSight – infrastruktura na laptopie (etap 3).
 # Start:  docker compose -f infra/docker-compose.yml up -d
 # Stop:   docker compose -f infra/docker-compose.yml down
-# Grafana (E3-07) dojdzie do tego samego pliku.
+# Grafana: http://localhost:3000 (admin / hasło z GRAFANA_PASSWORD, domyślnie linesight).
 name: linesight
 
 services:
@@ -37,6 +37,7 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data              # dane przeżywają `docker compose down`
       - ./db/init.sql:/docker-entrypoint-initdb.d/10-linesight.sql:ro   # schemat, tylko przy pustym wolumenie
+      - ./db/20-grafana-ro.sql:/docker-entrypoint-initdb.d/20-grafana-ro.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U linesight -d linesight"]
       interval: 5s
@@ -56,5 +57,23 @@ services:
       MQTT_HOST: mosquitto
       DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
 
+  grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)
+    image: grafana/grafana:13.2.4
+    container_name: linesight-grafana
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-linesight}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/linesight.json
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+
 volumes:
   pgdata:
+  grafana:

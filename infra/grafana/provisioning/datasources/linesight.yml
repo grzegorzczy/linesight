@@ -1,0 +1,17 @@
+# Źródło danych tworzone przy starcie Grafany (provisioning) – nie klikamy go ręcznie w UI.
+apiVersion: 1
+datasources:
+  - name: LineSight DB
+    uid: linesight-db                       # stały identyfikator, używany w pliku dashboardu
+    type: grafana-postgresql-datasource
+    url: db:5432                            # nazwa usługi w sieci compose
+    user: grafana_ro                        # tylko SELECT (infra/db/20-grafana-ro.sql)
+    secureJsonData:
+      password: grafana_ro
+    jsonData:
+      database: linesight
+      sslmode: disable
+      postgresVersion: 1700
+      timescaledb: true                     # edytor zapytań podpowiada time_bucket
+    isDefault: true
+    editable: false
