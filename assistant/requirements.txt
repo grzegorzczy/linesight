@@ -1,0 +1,7 @@
+# E5-03: asystent RAG – laptop (.venv, Python 3.12), później obraz Dockera usługi assistant.
+# Instalacja (w aktywnym .venv, z folderu projektu):  pip install -r assistant/requirements.txt
+# torch jest już w .venv (training/requirements.txt) – sentence-transformers go nie podmieni.
+sentence-transformers==6.3.0   # model embeddingów intfloat/multilingual-e5-small (384 wymiary, PL+EN)
+pgvector==0.5.1                # typ vector dla psycopg (numpy <-> pgvector)
+psycopg[binary]==3.3.9         # ta sama wersja co w diag
+tzdata                         # strefa Europe/Warsaw na Windowsie (zoneinfo nie ma jej w systemie)
