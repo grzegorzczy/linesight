@@ -19,7 +19,7 @@ import time
 
 from context import MATCH_S, find_stop, parse_when, stop_sources
 from kb import TZ, Embedder, connect, search
-from llm import generate
+from llm import LLMUnavailable, generate
 
 K_MANUAL = 4
 K_CASES = 2
@@ -105,7 +105,10 @@ def main():
     ap.add_argument("--json", action="store_true", help="pełny wynik (źródła z treścią) jako JSON")
     a = ap.parse_args()
     emb, conn = Embedder(), connect()
-    r = answer(conn, emb, " ".join(a.question), backend=a.backend)
+    try:
+        r = answer(conn, emb, " ".join(a.question), backend=a.backend)
+    except LLMUnavailable as e:
+        raise SystemExit("Błąd: {}".format(e))
     if a.json:
         print(json.dumps(r, ensure_ascii=False, indent=2, default=str))
         return

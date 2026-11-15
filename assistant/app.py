@@ -13,6 +13,7 @@ from typing import Optional
 from fastapi import FastAPI, HTTPException
 
 from kb import Embedder, connect
+from llm import LLMUnavailable
 from rag import answer
 
 state = {}
@@ -33,7 +34,10 @@ def ask(q: str, stop: Optional[datetime] = None, backend: Optional[str] = None):
     """q – pytanie; stop – t_start postoju (ISO, z linku w Grafanie); backend – ollama | gemini."""
     if backend not in (None, "ollama", "gemini"):
         raise HTTPException(400, "backend: ollama | gemini")
-    return answer(state["conn"], state["emb"], q, stop_t=stop, backend=backend)
+    try:
+        return answer(state["conn"], state["emb"], q, stop_t=stop, backend=backend)
+    except LLMUnavailable as e:
+        raise HTTPException(503, str(e))
 
 
 @app.get("/health")
