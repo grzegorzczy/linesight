@@ -183,6 +183,9 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
 ## Etap 5 – asystent RAG (szac. 3-4 dni)
 Cel: pytanie „dlaczego linia stanęła o 12:03 i co zrobić” dostaje odpowiedź łączącą postój (przyczyna, pewność,
 dowody, klip), sygnały z 30 s wstecz i fragmenty instrukcji, ze źródłami; jakość mierzona automatycznie.
+Decyzje 15.11: LLM za jedną funkcją – Ollama lokalnie (domyślny) i Gemini Flash (darmowy poziom; porównanie
+i sędzia w ewaluacji); instrukcja – szkic Claude z kodu PLC, weryfikuje Grzegorz; język – instrukcja po polsku,
+pytania i odpowiedzi po polsku i angielsku (obowiązkowo).
 Zasada: konkretny postój pobieramy deterministycznie (SQL po czasie), wyszukiwanie wektorowe tylko dla
 instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
 
