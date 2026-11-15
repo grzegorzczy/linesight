@@ -21,12 +21,14 @@ import time
 import psycopg
 from psycopg.types.json import Jsonb
 
-from rules import WINDOW_S, classify
+from rules import WINDOW_S, classify, pick_clip
 from stops import STATE_NAMES, find_stops, merge_stops
 
 DB_DSN = os.environ.get("DB_DSN", "postgresql://linesight:linesight@localhost:5432/linesight")
 POLL_S = float(os.environ.get("POLL_S", "5"))
 HORIZON_H = float(os.environ.get("HORIZON_H", "24"))
+# E4-04: klipy udostępnia Jetson (python3 -m http.server 8080 w ~/linesight_clips)
+CLIP_URL = os.environ.get("CLIP_URL", "http://192.168.0.124:8080/")
 
 SQL_SINCE = """
     SELECT LEAST(now() - make_interval(secs => %s),
@@ -54,7 +56,7 @@ SQL_SIGNALS = "SELECT time, name, value FROM signals_before(%(t)s, make_interval
 # Kamera: od 30 s przed postojem (najwcześniej od końca poprzedniego postoju) do 10 s po
 # (klasa ustalana ok. 5 s po przecięciu linii, czas = t_cross).
 SQL_VISION = """
-    SELECT time, class FROM vision_event
+    SELECT time, class, clip FROM vision_event
      WHERE time > GREATEST(%(t)s - make_interval(secs => %(w)s), %(prev_end)s) AND time <= %(t)s + interval '10 seconds'
      ORDER BY time
 """
@@ -68,15 +70,16 @@ SQL_OFFLINE = """
           AND time > %(t)s - make_interval(secs => %(w)s) AND time <= %(t)s)) x
 """
 SQL_UPSERT = """
-    INSERT INTO stop_event (t_start, t_end, state, stop_reason, cause, confidence, evidence)
-    VALUES (%(t_start)s, %(t_end)s, %(state)s, %(stop_reason)s, %(cause)s, %(confidence)s, %(evidence)s)
+    INSERT INTO stop_event (t_start, t_end, state, stop_reason, cause, confidence, evidence, clip)
+    VALUES (%(t_start)s, %(t_end)s, %(state)s, %(stop_reason)s, %(cause)s, %(confidence)s, %(evidence)s, %(clip)s)
     ON CONFLICT (t_start) DO UPDATE
        SET t_end = EXCLUDED.t_end, state = EXCLUDED.state, stop_reason = EXCLUDED.stop_reason,
-           cause = EXCLUDED.cause, confidence = EXCLUDED.confidence, evidence = EXCLUDED.evidence, updated = now()
+           cause = EXCLUDED.cause, confidence = EXCLUDED.confidence, evidence = EXCLUDED.evidence,
+           clip = EXCLUDED.clip, updated = now()
      WHERE (stop_event.t_end, stop_event.state, stop_event.stop_reason, stop_event.cause,
-            stop_event.confidence, stop_event.evidence)
+            stop_event.confidence, stop_event.evidence, stop_event.clip)
            IS DISTINCT FROM (EXCLUDED.t_end, EXCLUDED.state, EXCLUDED.stop_reason, EXCLUDED.cause,
-                             EXCLUDED.confidence, EXCLUDED.evidence)
+                             EXCLUDED.confidence, EXCLUDED.evidence, EXCLUDED.clip)
     RETURNING (xmax = 0) AS inserted
 """
 # Postoje z zakresu, których już nie ma w wyniku (np. połączone z poprzednim) – usuwamy.
@@ -97,6 +100,9 @@ def diagnose(conn, s, prev_end=None):
     plc_off = conn.execute(SQL_OFFLINE, dict(p, src="plc")).fetchone()[0]
     cam_off = conn.execute(SQL_OFFLINE, dict(p, src="vision")).fetchone()[0]
     s["cause"], s["confidence"], evidence = classify(s, s["t_start"], signals, vision, plc_off, cam_off)
+    picked = pick_clip(vision, s["t_start"], s["cause"])
+    s["clip"] = CLIP_URL + picked[0] if picked else None
+    evidence["clip_at_s"] = picked[1] if picked else None      # klip względem początku postoju
     s["evidence"] = Jsonb(evidence)
     return s
 
@@ -126,7 +132,8 @@ def run_once(conn):
             print("{} postój {} – {}, stany {}, kod PLC {} -> {} ({})".format(
                 "NOWY  " if inserted else "ZMIANA", fmt(s["t_start"]), fmt(s["t_end"]),
                 "+".join("{} {}".format(x, STATE_NAMES.get(x, "?")) for x in s["states"]),
-                s["stop_reason"], s["cause"], s["confidence"]), flush=True)
+                s["stop_reason"], s["cause"], s["confidence"]) + (", klip " + s["clip"] if s["clip"] else ""),
+                  flush=True)
     return len(stops), new, changed
 
 

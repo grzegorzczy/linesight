@@ -181,3 +181,37 @@ reguła poprawna, to czas przełączenia zmiennej w CODESYS (jedna osoba nie prz
 Progu 10 s nie zmieniamy pod test (40 szt./min = sztuka co 1,5 s, 10 s ciszy ≈ 6 brakujących sztuk);
 `sprzeczna` pokrywa test jednostkowy. Ułatwienie na przyszłość: Prepared value + Ctrl+F7 (Write values).
 Obie poprawki sprawdzone lokalnie (11 testów + przypadek „przewrócona butelka w czasie poprzedniego postoju” → `tylko_plc`).
+
+## E4-04 – klip przy postoju (Jetson + laptop)
+
+- **Jetson:** katalog klipów udostępnia wbudowany serwer HTTP Pythona: `cd ~/linesight_clips && python3 -m http.server 8080`
+  (Python 3.6 nie ma jeszcze opcji `--directory`, dodanej w 3.7). Tylko odczyt plików, bez instalacji czegokolwiek;
+  w zakładzie: nginx z hasłem albo wysyłka klipów do magazynu (etap 6).
+- **Jetson, `linesight_app.py`:** ffmpeg z `-movflags +faststart` – indeks pliku MP4 (`moov`) na początku, więc przeglądarka
+  zaczyna odtwarzać od razu, bez pobierania całego pliku (`http.server` nie obsługuje zapytań o zakres bajtów). Dotyczy
+  klipów nagranych po aktualizacji.
+- **Laptop, `diag`:** `pick_clip()` w `rules.py` (3 testy): spośród zdarzeń kamery w oknie postoju z klipem wybiera klasę
+  pasującą do przyczyny (`fallen` przy zatorze), potem zdarzenie najbliższe początkowi postoju (przy remisie wcześniejsze).
+  `stop_event.clip` = `CLIP_URL` + nazwa pliku (`CLIP_URL` w `docker-compose.yml`), `evidence.clip_at_s` = czas klipu
+  względem postoju. Brak klipu (`NULL`) = kamera nie widziała wady – informacja, nie błąd.
+
+Uruchomienie:
+```
+# SSH1 (Jetson): Ctrl+C w działającej aplikacji, potem
+cd ~/linesight && git pull
+cd deepstream && python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203
+# SSH2 (Jetson)
+cd ~/linesight_clips && python3 -m http.server 8080
+# LAPTOP
+git pull
+git checkout etap4/e4-04-clips
+python diag\test_rules.py
+docker compose -f infra/docker-compose.yml up -d --build diag
+```
+Przeglądarka: http://192.168.0.124:8080/ – lista klipów. Test: przewrócona butelka przez linię, po ok. 5 s `xInjJam` TRUE → FALSE;
+po ok. 20 s (klip: 10 s przed i 5 s po zdarzeniu + domknięcie kawałka):
+```
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, 'HH24:MI:SS') AS start_utc, cause, confidence, evidence->'clip_at_s' AS klip_s, clip FROM stop_event WHERE t_start > now() - interval '1 hour' ORDER BY stop_event.t_start"
+```
+
+Wynik: *(uzupełnić po teście)*

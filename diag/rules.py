@@ -4,7 +4,7 @@ Wejście (zebrane przez diag.py z bazy):
 - stop: {"state", "states", "stop_reason"} – pierwszy stan po Execute i kod iStopReason z PLC,
 - signals: [(czas, nazwa, wartość)] z signals_before(t_start, 30 s) – wartość każdej zmiennej na początku okna
   i wszystkie zmiany w oknie,
-- vision: [(czas t_cross, klasa)] zdarzenia z kamery od t_start − 30 s do t_start + 10 s,
+- vision: [(czas t_cross, klasa[, klip])] zdarzenia z kamery od t_start − 30 s do t_start + 10 s,
 - plc_offline: czy most zgłaszał brak połączenia z PLC w oknie,
 - camera_offline: czy Jetson zgłaszał brak połączenia w oknie – wtedy „kamera nic nie widziała” nic nie znaczy.
 Okno kamery zaczyna się najwcześniej na końcu poprzedniego postoju (diag.py): przewrócona butelka, która
@@ -40,7 +40,7 @@ def classify(stop, t_start, signals, vision, plc_offline=False, camera_offline=F
     if "udiProdProcessed" in first:
         pieces = int(last["udiProdProcessed"] - first["udiProdProcessed"])
     # --- dowody z kamery: ile czego i kiedy względem początku postoju (ujemne = przed postojem)
-    rel = [(round(_secs(t - t_start), 1), cls) for t, cls in vision]
+    rel = [(round(_secs(v[0] - t_start), 1), v[1]) for v in vision]
     counts = {}
     for _, cls in rel:
         counts[cls] = counts.get(cls, 0) + 1
@@ -78,3 +78,21 @@ def classify(stop, t_start, signals, vision, plc_offline=False, camera_offline=F
     if fallen and cause != "zator":            # kamera widzi przewróconą butelkę, PLC mówi co innego
         evidence["note"] = "kamera: przewrócona butelka w oknie"
     return cause, "tylko_plc", evidence
+
+
+CLASS_FOR_CAUSE = {"zator": "fallen"}
+
+
+def pick_clip(vision, t_start, cause):
+    """E4-04: klip do postoju. vision: [(czas, klasa, klip lub None)]. Zwraca (klip, sekundy względem postoju) albo None.
+
+    Klipy powstają tylko dla wad (missing_cap, fallen). Pierwszeństwo: klasa pasująca do przyczyny (przewrócona
+    butelka przy zatorze), potem zdarzenie najbliższe początkowi postoju, przy remisie wcześniejsze (przyczyna
+    poprzedza skutek). Brak klipu to informacja (kamera nie widziała wady), nie błąd.
+    """
+    cands = [(_secs(v[0] - t_start), v[1], v[2]) for v in vision if len(v) > 2 and v[2]]
+    if not cands:
+        return None
+    want = CLASS_FOR_CAUSE.get(cause)
+    best = min(cands, key=lambda c: (c[1] != want, abs(c[0]), c[0] > 0))
+    return best[2], round(best[0], 1)
