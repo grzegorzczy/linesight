@@ -733,6 +733,8 @@ img('e4-06-grafana-naped.png', 'E4-06: napęd w Grafanie – zużycie (przerywan
 img('e4-06-baseline.png', 'E4-06: baseline. B1 (EWMA na momencie) alarmuje po zimnych startach; B2 (regresja moment ~ temperatura) nie.');
 img('e4-07-model.png', 'E4-07: B2 vs autoenkoder (skala log.). Test: AE wykrywa przy 17 % / 14 % zużycia, 0 fałszywych alarmów; B2 19 % / 16 %, 0,55/h.');
 img('e4-07-krzywe-uczenia.png', 'E4-07: krzywe uczenia – strata treningu i walidacji, early stopping w 343. epoce (najlepsza 313).');
+img('e4-08-grafana-normalna.png', 'E4-08: kondycja napędu na żywo – praca normalna, kondycja 100 %, wynik / próg 0,03–0,6.');
+img('e4-08-grafana-alarm.png', 'E4-08: xInjWear – wynik przekracza próg przy ok. 15 % zużycia, kondycja 37 %, silnik na czerwono.');
 
 const doc = new Document({
   creator: 'Grzegorz', title: 'LineSight – ściąga',

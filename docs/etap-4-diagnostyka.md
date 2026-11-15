@@ -438,4 +438,15 @@ docker logs --tail 10 linesight-diag
 ```
 Test na żywo: `xInjWear := TRUE` (zużycie narasta przez `tWearRamp` = 10 min) → po ok. 2 min alarm; `xInjWear := FALSE`.
 
-Wynik: *(uzupełnić po teście)*
+Wynik (15.11, ok. 18:10–18:22): w pracy normalnej wynik / próg 0,03–0,6, kondycja 100 %. `xInjWear` TRUE przy rozgrzanym
+silniku (45 °C, `tWearRamp` 10 min): wynik przekroczył próg przy ok. 15 % zużycia, kondycja spadła do 37 %, potem 9 %
+(wynik 7× próg), alarm w logu i na schemacie; po `xInjWear` FALSE kondycja wróciła do 100 % w ok. 1 min (okno 32 sztuk
+musi się „wymienić”). Schemat Canvas wyrenderował się poprawnie.
+
+Poprawki po teście: (1) przez 20 sztuk między przekroczeniem progu a alarmem silnik był już czerwony, a napis „praca
+normalna” – teraz trzy stany: praca normalna / uwaga: wynik powyżej progu / ALARM; (2) na wykresie wynik / próg czerwone
+pole nad progiem myliło się z tłem alarmu – zostaje sama linia progu.
+
+![Grafana: praca normalna](img/e4-08-grafana-normalna.png)
+
+![Grafana: zużycie – kondycja 37 %](img/e4-08-grafana-alarm.png)

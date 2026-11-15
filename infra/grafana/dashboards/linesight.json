@@ -11,7 +11,7 @@
     "to": "now"
   },
   "schemaVersion": 39,
-  "version": 5,
+  "version": 6,
   "editable": true,
   "graphTooltip": 1,
   "annotations": {
@@ -1000,7 +1000,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT (SELECT value FROM plc_signal WHERE name = 'rTorqueMean_Nm' ORDER BY time DESC LIMIT 1) AS \"moment\", (SELECT value FROM plc_signal WHERE name = 'rTorquePeak_Nm' ORDER BY time DESC LIMIT 1) AS \"szczyt\", (SELECT value FROM plc_signal WHERE name = 'rCurrent_A' ORDER BY time DESC LIMIT 1) AS \"prad\", (SELECT value FROM plc_signal WHERE name = 'rMotorTemp_C' ORDER BY time DESC LIMIT 1) AS \"temp\",\n       (SELECT health FROM drive_health ORDER BY time DESC LIMIT 1) AS \"kondycja\",\n       (SELECT CASE WHEN alarm THEN 'ALARM: zużycie napędu' ELSE 'praca normalna' END FROM drive_health ORDER BY time DESC LIMIT 1) AS \"stan\""
+          "rawSql": "SELECT (SELECT value FROM plc_signal WHERE name = 'rTorqueMean_Nm' ORDER BY time DESC LIMIT 1) AS \"moment\", (SELECT value FROM plc_signal WHERE name = 'rTorquePeak_Nm' ORDER BY time DESC LIMIT 1) AS \"szczyt\", (SELECT value FROM plc_signal WHERE name = 'rCurrent_A' ORDER BY time DESC LIMIT 1) AS \"prad\", (SELECT value FROM plc_signal WHERE name = 'rMotorTemp_C' ORDER BY time DESC LIMIT 1) AS \"temp\",\n       (SELECT health FROM drive_health ORDER BY time DESC LIMIT 1) AS \"kondycja\",\n       (SELECT CASE WHEN alarm THEN 'ALARM: zużycie napędu' WHEN ratio > 1 THEN 'uwaga: wynik powyżej progu' ELSE 'praca normalna' END FROM drive_health ORDER BY time DESC LIMIT 1) AS \"stan\""
         }
       ],
       "fieldConfig": {
@@ -1654,7 +1654,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "linesight-db"
       },
-      "description": "Błąd odtworzenia autoenkodera podzielony przez próg (kwantyl 99,9 % pracy normalnej z walidacji). Skala log.: w pracy normalnej 0,01–1, przy zużyciu do kilkuset. Czerwone tło: alarm (20 sztuk nad progiem).",
+      "description": "Błąd odtworzenia autoenkodera podzielony przez próg (kwantyl 99,9 % pracy normalnej z walidacji). Skala log.: w pracy normalnej 0,01–1, przy zużyciu do kilkuset. Czerwona linia: próg; czerwone tło: alarm (20 sztuk nad progiem).",
       "targets": [
         {
           "refId": "A",
@@ -1691,7 +1691,7 @@
               "log": 10
             },
             "thresholdsStyle": {
-              "mode": "line+area"
+              "mode": "line"
             }
           },
           "min": 0.01,
