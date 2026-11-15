@@ -35,7 +35,8 @@ NODE_PREFIX = os.environ.get("OPCUA_NODE_PREFIX",
 SIGNALS = os.environ.get(
     "OPCUA_SIGNALS",
     "iStateCurrent,iStopReason,udiProdProcessed,udiCycleTime_ms,rMachSpeed,"
-    "xInjJam,xInjNoProduct,xInjFault,xInjSlow").split(",")
+    "xInjJam,xInjNoProduct,xInjFault,xInjSlow,"
+    "rTorqueMean_Nm,rTorquePeak_Nm,rCurrent_A,rMotorTemp_C,xInjWear,rSimWear").split(",")   # E4-06: napęd
 MQTT_HOST = os.environ.get("MQTT_HOST", "localhost")
 MQTT_PORT = int(os.environ.get("MQTT_PORT", "1883"))
 MQTT_PREFIX = os.environ.get("MQTT_PREFIX", "linesight/plc")

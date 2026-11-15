@@ -13,9 +13,11 @@ VAR_GLOBAL
     xInjNoProduct : BOOL;   // brak produktu         -> Suspended, iStopReason 201
     xInjFault     : BOOL;   // awaria (np. napęd)    -> Aborted,   iStopReason 301
     xInjSlow      : BOOL;   // degradacja: czas cyklu +40 % (dane do wykrywania anomalii, etap 4)
+    xInjWear      : BOOL;   // E4-06: zużycie napędu (łożysko) narasta przez tWearRamp; FALSE = naprawa
 
     // --- Nastawy ---
     tCycleNominal : TIME := T#1500MS;   // nominalny czas cyklu (1 sztuka)
+    tWearRamp     : TIME := T#20M;      // E4-06: czas narastania zużycia napędu do 100 %
 
     // --- Status (tylko do odczytu dla świata) ---
     iStateCurrent    : INT;     // Status.StateCurrent (numer stanu PackML)
@@ -24,4 +26,11 @@ VAR_GLOBAL
     udiProdProcessed : UDINT;   // Admin.ProdProcessedCount (licznik narastający, nie kasujemy)
     udiCycleTime_ms  : UDINT;   // czas ostatniego cyklu [ms] (symulowany)
     rMachSpeed       : REAL;    // Status.CurMachSpeed [szt./min], 0 poza Execute
+
+    // --- E4-06: napęd taśmy (FB_DriveSim), wartości na sztukę ---
+    rTorqueMean_Nm   : REAL;    // średni moment w cyklu
+    rTorquePeak_Nm   : REAL;    // szczytowy moment w cyklu
+    rCurrent_A       : REAL;    // prąd silnika
+    rMotorTemp_C     : REAL;    // temperatura silnika (0,1 °C)
+    rSimWear         : REAL;    // zużycie 0..1 – prawda symulacji, tylko do oceny modelu (zaokr. 0,01)
 END_VAR

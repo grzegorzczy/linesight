@@ -164,17 +164,19 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       → 15.11: zator z przewróconą butelką → klip −10,5 s, odtwarzany w przeglądarce (`http.server` na Jetsonie)
 - [x] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
       link do klipu), liczba i łączny czas postojów wg przyczyny
-- [ ] **E4-06 – dane czasu cyklu** · CODESYS + laptop · 0,5 dnia · realistyczny czas cyklu w PLC
-      (losowy rozrzut, powolny dryf `xInjDrift` obok skoku `xInjSlow`); sesja 1-2 h; zbiór z bazy
-      z etykietami z sygnałów `xInj*`; podział train/val/test wg czasu, nie losowo; baseline bez ML
-      (próg na średniej kroczącej / z-score) z wynikami
-- [ ] **E4-07 – model anomalii w PyTorch** · laptop · 1 dzień · własna pętla treningowa (Dataset,
-      DataLoader, optymalizator, walidacja, early stopping, zapis najlepszego modelu); autoenkoder okien
-      czasu cyklu uczony tylko na danych normalnych; próg z błędu rekonstrukcji na walidacji; na teście:
-      precision / recall zdarzeń, opóźnienie wykrycia, fałszywe alarmy na godzinę – w tabeli obok baseline;
-      eksport ONNX
-- [ ] **E4-08 – anomalie online** · laptop, Docker · 2-3 h · `diag` liczy wynik modelu (ONNX Runtime,
-      bez PyTorcha w kontenerze) po każdym cyklu; tabela `cycle_anomaly`, panel w Grafanie
+- [ ] **E4-06 – napęd taśmy: symulacja i dane** · CODESYS + laptop · 0,5 dnia · *(zmiana 15.11: zamiast czasu cyklu –
+      kondycja napędu, jak w ogłoszeniu: „trendy parametrów, kondycja napędów na podstawie momentu”)* `FB_DriveSim`:
+      moment średni i szczytowy na sztukę, prąd, temperatura (inercja 10 min), zimny start (+12 % momentu), zużycie
+      `xInjWear` narastające przez `tWearRamp`; most i Grafana; sesja 2-3 h z postojami różnej długości i 3-4 epizodami
+      zużycia; zbiór z bazy, podział wg czasu; baseline bez ML: (1) próg / EWMA na momencie, (2) regresja moment ~ temperatura
+      + EWMA na reszcie – wyniki: opóźnienie wykrycia, fałszywe alarmy/h
+- [ ] **E4-07 – model kondycji napędu w PyTorch** · laptop · 1 dzień · własna pętla treningowa (Dataset, DataLoader,
+      optymalizator, walidacja, early stopping, zapis najlepszego modelu); autoenkoder okien cech (moment średni, szczytowy,
+      prąd, temperatura) uczony na danych normalnych; próg z błędu rekonstrukcji na walidacji; tabela obok obu baseline;
+      eksport ONNX. Uczciwie: jeśli baseline (2) wystarcza, zostaje on, a model jest porównaniem
+- [ ] **E4-08 – kondycja napędu online** · laptop, Docker · 2-3 h · `diag` liczy wynik (ONNX Runtime) po każdej sztuce;
+      tabela `drive_health`; Grafana: schemat napędu (panel Canvas) z bieżącymi parametrami i wskaźnikiem kondycji, trend
+      wyniku z progiem
 - [ ] **E4-09 – dokumentacja i pytania** · · 2 h · `docs/etap-4-diagnostyka.md`, README, ściąga,
       5 pytań technicznych
 

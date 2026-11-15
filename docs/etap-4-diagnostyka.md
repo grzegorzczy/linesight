@@ -252,3 +252,49 @@ Wynik (15.11, zakres 3 h): tabela pokazuje wszystkie postoje dnia z przyczyną, 
 dla porannych zatorów sprzed uruchomienia Jetsona, „kamera: przewrócona butelka w oknie” przy awarii 09:57); klipy klikalne.
 Słupki: zator 6, brak produktu 4, awaria 2; łączny czas: awaria 6,39 min (295 + 89 s), brak produktu 1,30 min, zator 1,11 min –
 mało częste awarie kosztują najwięcej czasu, czyli dokładnie to, co pokazuje analiza Pareto.
+
+## E4-06 – napęd taśmy: symulacja i dane
+
+**Zmiana planu (15.11):** zamiast anomalii czasu cyklu – kondycja napędu. Ogłoszenie wprost: „analiza trendów parametrów
+i ocena kondycji napędów na podstawie momentu obrotowego”. Czas cyklu był złym sygnałem: skok +40 % łapie zwykły próg,
+model niczego by nie wniósł.
+
+### Symulacja w PLC (`plc/src/FB_DriveSim.st`, `F_Gauss.st`)
+
+| Sygnał | Model | Po co |
+|---|---|---|
+| `rTorqueMean_Nm` | 2,0 Nm × (1 + 0,15·zużycie + zimno) + szum 0,06 Nm × (1 + 1,5·zużycie) | główny sygnał kondycji |
+| `rTorquePeak_Nm` | średni × (1,6 + 0,25·zużycie) + szum 0,08 Nm × (1 + 2·zużycie) | zużycie zmienia kształt cyklu (udary), nie tylko średnią |
+| `rCurrent_A` | 0,8 A + 1,2 A/Nm × moment + szum 0,02 A | prąd, który w zakładzie mierzy falownik |
+| `rMotorTemp_C` | dT/dt = (22 °C + 2,25·I² − T) / 600 s, poza Execute I = 0 | inercja cieplna: ok. 45 °C w pracy, stygnie w postoju |
+| `rSimWear` | 0 → 1 liniowo przez `tWearRamp` (20 min) przy `xInjWear`; bez = 0 (naprawa) | **prawda symulacji** – tylko do oceny |
+
+**Zimny start** (zimno = 0,12 × (40 °C − T) / 18 °C, w zakresie 0..0,12): zimny smar zwiększa tarcie, więc po każdym dłuższym
+postoju moment jest wyższy o do 12 %, tyle co średnie zużycie. To celowa pułapka dla prostych metod: symulacja w Pythonie
+(sesja z postojem 15 min) – EWMA na samym momencie była w alarmie przez ok. 1/3 normalnej pracy. Metoda, która zna temperaturę
+(regresja albo model wielu cech), musi odróżnić zimny start od zużycia.
+
+Wartości na sztukę (jak napęd raportujący parametry cyklu), zaokrąglone (moment, prąd 0,001; temperatura 0,1 °C; zużycie 0,01),
+żeby OPC UA nie wysyłał zmian co 10 ms. Dochodzi ok. 3 wiadomości na sztukę + kilka na minutę temperatury.
+
+Grafana: „Napęd taśmy: moment na sztukę” (średni, szczytowy, zużycie przerywaną linią na prawej osi) i „prąd i temperatura”.
+
+### Wgranie (CODESYS, online change)
+1. Application → Add Object → **POU** → `F_Gauss`, typ *Function*, zwracany typ `REAL` → wkleić `plc/src/F_Gauss.st`.
+2. Application → Add Object → **POU** → `FB_DriveSim`, typ *Function Block* → wkleić `plc/src/FB_DriveSim.st`.
+3. `GVL_Line` – dopisać zmienne z `plc/src/GVL_Line.st` (`xInjWear`, `tWearRamp`, blok „napęd taśmy”).
+4. `PLC_PRG` – zmiany z `plc/src/PLC_PRG.st` (`xPiece`, `fbDrive` w deklaracjach; `xPiece := tonCycle.Q;`; blok „napęd taśmy”
+   przed „Status na zewnątrz”).
+5. Build (F11) → 0 błędów; **Symbol Configuration**: nowe zmienne `GVL_Line` zaznaczone (Build odświeża listę).
+6. Online → Login → **Login with online change** (nie pełne pobranie: wartości liczników zostają).
+
+Laptop: most z nowymi zmiennymi i dashboard:
+```
+git pull
+git checkout etap4/e4-06-drive
+docker compose -f infra/docker-compose.yml up -d --build bridge
+docker restart linesight-grafana
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT name, count(*), round(min(value)::numeric,3) AS min, round(max(value)::numeric,3) AS max FROM plc_signal WHERE time > now() - interval '5 minutes' GROUP BY name ORDER BY name"
+```
+
+Wynik: *(uzupełnić po teście)*
