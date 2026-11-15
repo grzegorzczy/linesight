@@ -46,6 +46,10 @@ def pieces(raw, max_gap_s=10.0):
             base[col] = near.fillna(back)
         else:
             base[col] = back
+    # Licznik sztuk rośnie tylko w Execute, więc każda sztuka to praca. Stan służy tylko do kontroli: przed pierwszą
+    # zmianą stanu w eksporcie go nie znamy (most wysyła zmiany, a linia była w Execute już przed oknem eksportu,
+    # 15.11 – bez tego odpadało pierwsze 30 min sesji).
+    base["state"] = base["state"].fillna(6)
     base = base[base["state"] == 6].dropna(subset=FEATURES).reset_index(drop=True)
     # nowy odcinek pracy po przerwie między sztukami (postój) albo skoku licznika (wgranie programu)
     new_seg = (base["t"].diff() > max_gap_s) | (base["piece"].diff() != 1)
