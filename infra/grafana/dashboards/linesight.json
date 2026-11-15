@@ -11,7 +11,7 @@
     "to": "now"
   },
   "schemaVersion": 39,
-  "version": 4,
+  "version": 6,
   "editable": true,
   "graphTooltip": 1,
   "annotations": {
@@ -907,13 +907,886 @@
       }
     },
     {
+      "id": 11,
+      "type": "gauge",
+      "title": "Kondycja napędu",
+      "gridPos": {
+        "x": 0,
+        "y": 44,
+        "w": 5,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "Kondycja z wyniku modelu: 100 % = jak w pracy normalnej (wynik ≤ 0,3 progu), ok. 66 % = na progu, 0 % = wynik ≥ 10 progów. Alarm dopiero po 20 sztukach nad progiem.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, health AS \"kondycja\" FROM drive_health WHERE $__timeFilter(time) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 66
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showThresholdMarkers": true,
+        "showThresholdLabels": false
+      }
+    },
+    {
+      "id": 12,
+      "type": "canvas",
+      "title": "Napęd taśmy – schemat i kondycja",
+      "gridPos": {
+        "x": 5,
+        "y": 44,
+        "w": 11,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "E4-08. Kolor silnika = kondycja napędu z modelu (autoenkoder, ONNX w usłudze diag): zielony ≥ 80 %, pomarańczowy 66–80 %, czerwony < 66 % (wynik powyżej progu). Wartości: ostatnia sztuka.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT (SELECT value FROM plc_signal WHERE name = 'rTorqueMean_Nm' ORDER BY time DESC LIMIT 1) AS \"moment\", (SELECT value FROM plc_signal WHERE name = 'rTorquePeak_Nm' ORDER BY time DESC LIMIT 1) AS \"szczyt\", (SELECT value FROM plc_signal WHERE name = 'rCurrent_A' ORDER BY time DESC LIMIT 1) AS \"prad\", (SELECT value FROM plc_signal WHERE name = 'rMotorTemp_C' ORDER BY time DESC LIMIT 1) AS \"temp\",\n       (SELECT health FROM drive_health ORDER BY time DESC LIMIT 1) AS \"kondycja\",\n       (SELECT CASE WHEN alarm THEN 'ALARM: zużycie napędu' WHEN ratio > 1 THEN 'uwaga: wynik powyżej progu' ELSE 'praca normalna' END FROM drive_health ORDER BY time DESC LIMIT 1) AS \"stan\""
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kondycja"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 66
+                    },
+                    {
+                      "color": "green",
+                      "value": 80
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "moment"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: Nm"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "szczyt"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "suffix: Nm"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "prad"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "amp"
+              },
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temp"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "inlineEditing": false,
+        "showAdvancedTypes": true,
+        "root": {
+          "type": "frame",
+          "name": "Element root",
+          "elements": [
+            {
+              "type": "rectangle",
+              "name": "Silnik",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "SILNIK M1"
+                },
+                "color": {
+                  "fixed": "#000000"
+                },
+                "size": 18,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "field": "kondycja",
+                  "fixed": "#808080"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "width": 1
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 20,
+                "top": 30,
+                "width": 150,
+                "height": 100
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "Kondycja",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "kondycja",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 20,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 20,
+                "top": 135,
+                "width": 150,
+                "height": 30
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "Wał",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 14,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#9e9e9e"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 170,
+                "top": 72,
+                "width": 30,
+                "height": 16
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "Taśma",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "taśma  →  →  →"
+                },
+                "color": {
+                  "fixed": "#bdbdbd"
+                },
+                "size": 13,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "#3d3d3d"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "#9e9e9e"
+                },
+                "width": 1
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 200,
+                "top": 60,
+                "width": 330,
+                "height": 40
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "L1",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "moment średni"
+                },
+                "color": {
+                  "fixed": "#bdbdbd"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 200,
+                "top": 115,
+                "width": 130,
+                "height": 24
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "V1",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "moment",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 16,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 330,
+                "top": 115,
+                "width": 110,
+                "height": 24
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "L2",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "moment szczytowy"
+                },
+                "color": {
+                  "fixed": "#bdbdbd"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 200,
+                "top": 140,
+                "width": 130,
+                "height": 24
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "V2",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "szczyt",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 16,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 330,
+                "top": 140,
+                "width": 110,
+                "height": 24
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "L3",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "prąd"
+                },
+                "color": {
+                  "fixed": "#bdbdbd"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 200,
+                "top": 165,
+                "width": 130,
+                "height": 24
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "V3",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "prad",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 16,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 330,
+                "top": 165,
+                "width": 110,
+                "height": 24
+              }
+            },
+            {
+              "type": "rectangle",
+              "name": "L4",
+              "config": {
+                "text": {
+                  "mode": "fixed",
+                  "fixed": "temperatura"
+                },
+                "color": {
+                  "fixed": "#bdbdbd"
+                },
+                "size": 12,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 200,
+                "top": 190,
+                "width": 130,
+                "height": 24
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "V4",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "temp",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 16,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 330,
+                "top": 190,
+                "width": 110,
+                "height": 24
+              }
+            },
+            {
+              "type": "metric-value",
+              "name": "Stan",
+              "config": {
+                "text": {
+                  "mode": "field",
+                  "field": "stan",
+                  "fixed": ""
+                },
+                "color": {
+                  "fixed": "#ffffff"
+                },
+                "size": 16,
+                "align": "center",
+                "valign": "middle"
+              },
+              "background": {
+                "color": {
+                  "fixed": "transparent"
+                }
+              },
+              "border": {
+                "color": {
+                  "fixed": "transparent"
+                },
+                "width": 0
+              },
+              "constraint": {
+                "horizontal": "left",
+                "vertical": "top"
+              },
+              "placement": {
+                "left": 20,
+                "top": 220,
+                "width": 520,
+                "height": 28
+              }
+            }
+          ],
+          "background": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "border": {
+            "color": {
+              "fixed": "transparent"
+            }
+          },
+          "constraint": {
+            "horizontal": "left",
+            "vertical": "top"
+          },
+          "placement": {
+            "left": 0,
+            "top": 0,
+            "width": 100,
+            "height": 100
+          }
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "Model kondycji: wynik / próg",
+      "gridPos": {
+        "x": 16,
+        "y": 44,
+        "w": 8,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "Błąd odtworzenia autoenkodera podzielony przez próg (kwantyl 99,9 % pracy normalnej z walidacji). Skala log.: w pracy normalnej 0,01–1, przy zużyciu do kilkuset. Czerwona linia: próg; czerwone tło: alarm (20 sztuk nad progiem).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, ratio AS \"wynik / próg\" FROM drive_health WHERE $__timeFilter(time) ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, CASE WHEN alarm THEN 1 ELSE 0 END AS \"alarm\" FROM drive_health WHERE $__timeFilter(time) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "showPoints": "never",
+            "spanNulls": true,
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
+            },
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "min": 0.01,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "alarm"
+            },
+            "properties": [
+              {
+                "id": "custom.scaleDistribution",
+                "value": {
+                  "type": "linear"
+                }
+              },
+              {
+                "id": "custom.axisPlacement",
+                "value": "hidden"
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              },
+              {
+                "id": "custom.drawStyle",
+                "value": "line"
+              },
+              {
+                "id": "custom.lineInterpolation",
+                "value": "stepAfter"
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.thresholdsStyle",
+                "value": {
+                  "mode": "off"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
       "id": 5,
       "type": "table",
       "title": "Zdarzenia z kamery",
       "description": "Klip: ~/linesight_clips na Jetsonie (tylko missing_cap i fallen).",
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 53,
         "w": 24,
         "h": 8
       },

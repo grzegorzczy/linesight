@@ -22,6 +22,12 @@ import psycopg
 from psycopg.types.json import Jsonb
 
 from rules import WINDOW_S, classify, pick_clip
+
+try:                                      # E4-08: kondycja napędu – opcjonalna, gdy brak modelu albo onnxruntime
+    from drive_health import DriveHealth
+except ImportError as e:
+    DriveHealth = None
+    print("Napęd: wyłączony ({})".format(e), flush=True)
 from stops import STATE_NAMES, find_stops, merge_stops
 
 DB_DSN = os.environ.get("DB_DSN", "postgresql://linesight:linesight@localhost:5432/linesight")
@@ -29,6 +35,8 @@ POLL_S = float(os.environ.get("POLL_S", "5"))
 HORIZON_H = float(os.environ.get("HORIZON_H", "24"))
 # E4-04: klipy udostępnia Jetson (python3 -m http.server 8080 w ~/linesight_clips)
 CLIP_URL = os.environ.get("CLIP_URL", "http://192.168.0.124:8080/")
+# E4-08: model kondycji napędu (anomaly/model.py) – katalog models/ podmontowany do kontenera
+DRIVE_MODEL = os.environ.get("DRIVE_MODEL", "models/drive_ae.onnx")
 
 SQL_SINCE = """
     SELECT LEAST(now() - make_interval(secs => %s),
@@ -142,12 +150,24 @@ def main():
     ap.add_argument("--once", action="store_true", help="jeden przebieg i koniec (test, odtworzenie historii)")
     args = ap.parse_args()
     conn = None
+    drive = None
+    if DriveHealth is not None and os.path.exists(DRIVE_MODEL):
+        drive = DriveHealth(DRIVE_MODEL, os.path.splitext(DRIVE_MODEL)[0] + ".json")
+    elif DriveHealth is not None:
+        print("Napęd: brak modelu {} – kondycja napędu wyłączona".format(DRIVE_MODEL), flush=True)
     while True:
         try:
             if conn is None or conn.closed:
                 conn = psycopg.connect(DB_DSN, autocommit=True, connect_timeout=5)
                 print("DB: połączono, horyzont {} h, co {} s".format(HORIZON_H, POLL_S), flush=True)
             n, new, changed = run_once(conn)
+            if drive is not None:
+                try:
+                    drive.run_once(conn)
+                except psycopg.OperationalError:
+                    raise
+                except Exception as e:            # błąd modelu nie może zatrzymać diagnostyki postojów
+                    print("Napęd: błąd ({}: {})".format(type(e).__name__, e), flush=True)
             if args.once:
                 print("Postoje w zakresie: {}, nowe: {}, zmienione: {}".format(n, new, changed))
                 return

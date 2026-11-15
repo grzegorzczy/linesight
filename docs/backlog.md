@@ -174,7 +174,7 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       optymalizator, walidacja, early stopping, zapis najlepszego modelu); autoenkoder okien cech (moment średni, szczytowy,
       prąd, temperatura) uczony na danych normalnych; próg z błędu rekonstrukcji na walidacji; tabela obok obu baseline;
       eksport ONNX. Uczciwie: jeśli baseline (2) wystarcza, zostaje on, a model jest porównaniem
-- [ ] **E4-08 – kondycja napędu online** · laptop, Docker · 2-3 h · `diag` liczy wynik (ONNX Runtime) po każdej sztuce;
+- [x] **E4-08 – kondycja napędu online** · laptop, Docker · 2-3 h · `diag` liczy wynik (ONNX Runtime) po każdej sztuce;
       tabela `drive_health`; Grafana: schemat napędu (panel Canvas) z bieżącymi parametrami i wskaźnikiem kondycji, trend
       wyniku z progiem
 - [ ] **E4-09 – dokumentacja i pytania** · · 2 h · `docs/etap-4-diagnostyka.md`, README, ściąga,

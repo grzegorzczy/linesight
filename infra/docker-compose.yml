@@ -40,6 +40,7 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/10-linesight.sql:ro   # schemat, tylko przy pustym wolumenie
       - ./db/20-grafana-ro.sql:/docker-entrypoint-initdb.d/20-grafana-ro.sql:ro
       - ./db/30-diag.sql:/docker-entrypoint-initdb.d/30-diag.sql:ro
+      - ./db/31-drive-health.sql:/docker-entrypoint-initdb.d/31-drive-health.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U linesight -d linesight"]
       interval: 5s
@@ -59,8 +60,10 @@ services:
       MQTT_HOST: mosquitto
       DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
 
-  diag:   # E4-02: postoje linii (stop_event) z historii stanu PackML
-    build: ../diag
+  diag:   # E4-02: postoje linii (stop_event) z historii stanu PackML; E4-08: kondycja napędu (drive_health)
+    build:
+      context: ..                  # główny folder repo: wspólny kod cech z anomaly/
+      dockerfile: diag/Dockerfile
     container_name: linesight-diag
     restart: unless-stopped
     depends_on:
@@ -69,6 +72,9 @@ services:
     environment:
       DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
       CLIP_URL: http://192.168.0.124:8080/   # E4-04: serwer klipów na Jetsonie
+      DRIVE_MODEL: /models/drive_ae.onnx     # E4-08: z anomaly/model.py (pliki modelu poza repo)
+    volumes:
+      - ../models:/models:ro
 
   grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)
     image: grafana/grafana:13.2.4

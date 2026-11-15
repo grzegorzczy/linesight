@@ -253,6 +253,8 @@ dla porannych zatorów sprzed uruchomienia Jetsona, „kamera: przewrócona bute
 Słupki: zator 6, brak produktu 4, awaria 2; łączny czas: awaria 6,39 min (295 + 89 s), brak produktu 1,30 min, zator 1,11 min –
 mało częste awarie kosztują najwięcej czasu, czyli dokładnie to, co pokazuje analiza Pareto.
 
+![Grafana: postoje i Pareto](img/e4-05-grafana-postoje.png)
+
 ## E4-06 – napęd taśmy: symulacja i dane
 
 **Zmiana planu (15.11):** zamiast anomalii czasu cyklu – kondycja napędu. Ogłoszenie wprost: „analiza trendów parametrów
@@ -278,6 +280,8 @@ Wartości na sztukę (jak napęd raportujący parametry cyklu), zaokrąglone (mo
 żeby OPC UA nie wysyłał zmian co 10 ms. Dochodzi ok. 3 wiadomości na sztukę + kilka na minutę temperatury.
 
 Grafana: „Napęd taśmy: moment na sztukę” (średni, szczytowy, zużycie przerywaną linią na prawej osi) i „prąd i temperatura”.
+
+![Grafana: napęd w czasie 1. epizodu zużycia](img/e4-06-grafana-naped.png)
 
 ### Wgranie (CODESYS, online change)
 1. Application → Add Object → **POU** → `F_Gauss`, typ *Function*, zwracany typ `REAL` → wkleić `plc/src/F_Gauss.st`.
@@ -330,6 +334,8 @@ startu bez zużycia, czyli nie sprawdzała fałszywych alarmów po postoju – g
 
 Na danych z `anomaly/sim.py` (sprawdzenie kodu): B1 – 18 % normalnej pracy testu w alarmie (zimny start), B2 – 0 fałszywych
 alarmów, wykrycie przy 19–24 % zużycia. Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+![Baseline B1 i B2 na sesji 15.11](img/e4-06-baseline.png)
 
 Eksport z bazy i uruchomienie (LAPTOP, po sesji i dokładce):
 ```
@@ -389,9 +395,58 @@ Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 329 parametrów), B2 liczony ob
 „model musiał pobić regresję; pobił nieznacznie i bez fałszywych alarmów, przy zużyciu wyraźniej, przy zimnym starcie
 jest blisko progu – kolejny krok to więcej zimnych startów w treningu”.
 
+![B2 vs autoenkoder](img/e4-07-model.png)
+
+![Krzywe uczenia autoenkodera](img/e4-07-krzywe-uczenia.png)
+
 Uruchomienie (LAPTOP, .venv; torch, jeśli brak: `pip install torch`):
 ```
 python anomaly\model.py data\drive_raw.csv
 start data\model.png
 start data\model_train.png
 ```
+
+## E4-08 – kondycja napędu na żywo (laptop)
+
+- `diag/drive_health.py` w pętli usługi `diag` (co 5 s): surowe sygnały z ostatnich 10 min + ostatnia wartość każdego
+  sprzed okna (most wysyła tylko zmiany; temperatura w ustalonej pracy nie zmienia się minutami) → **te same funkcje co
+  w treningu** (`anomaly/data.pieces`, `anomaly/features.window_features`) → normalizacja i próg z `models/drive_ae.json`
+  → model ONNX (onnxruntime, bez PyTorcha) → tabela `drive_health` (wynik, wynik / próg, alarm po 20 sztukach, kondycja %).
+- `anomaly/features.py`: cechy okna wydzielone z `model.py` – jeden kod dla treningu i produkcji (bez rozjazdu
+  trening/produkcja, ang. *training-serving skew*). Obraz `diag` budowany z głównego folderu (`context: ..`), do kontenera
+  trafiają tylko potrzebne pliki (`.dockerignore` w głównym folderze: lista dozwolonych).
+- Model poza repo i obrazem: `models/` podmontowany tylko do odczytu (`../models:/models:ro`). Nowy model = nowy plik
+  i restart kontenera, bez przebudowy (wersjonowanie modeli w GCP – etap 6). Brak modelu = kondycja wyłączona,
+  postoje działają dalej; błąd modelu nie zatrzymuje diagnostyki postojów.
+- Kondycja [%] dla operatora (`features.health_pct`): skala log. wyniku / progu – 100 % przy ≤ 0,3 progu, ok. 66 % na
+  progu, 0 % przy ≥ 10 progach. Kolory: zielony ≥ 80 %, pomarańczowy 66–80 %, czerwony < 66 %.
+- Grafana: **Kondycja napędu** (wskaźnik), **Napęd taśmy – schemat i kondycja** (panel Canvas: silnik w kolorze kondycji,
+  taśma, bieżący moment średni i szczytowy, prąd, temperatura, stan „praca normalna / ALARM”), **wynik / próg** (log.,
+  linia progu, czerwone tło przy alarmie).
+
+Sprawdzone lokalnie (PostgreSQL 16, dane z sesji 15.11 przesunięte do „teraz”): ostatnie 10 min pracy normalnej –
+359 sztuk, kondycja ≥ 80 %, 0 alarmów; drugi przebieg bez duplikatów; okno z 3. epizodem zużycia – alarm, kondycja 0 %.
+
+Uruchomienie (LAPTOP; `models\drive_ae.onnx` i `.json` z `python anomaly\model.py`):
+```
+git pull
+git checkout etap4/e4-08-drive-online
+docker exec -i linesight-db psql -U linesight < infra\db\31-drive-health.sql
+docker compose -f infra/docker-compose.yml up -d --build diag
+docker restart linesight-grafana
+docker logs --tail 10 linesight-diag
+```
+Test na żywo: `xInjWear := TRUE` (zużycie narasta przez `tWearRamp` = 10 min) → po ok. 2 min alarm; `xInjWear := FALSE`.
+
+Wynik (15.11, ok. 18:10–18:22): w pracy normalnej wynik / próg 0,03–0,6, kondycja 100 %. `xInjWear` TRUE przy rozgrzanym
+silniku (45 °C, `tWearRamp` 10 min): wynik przekroczył próg przy ok. 15 % zużycia, kondycja spadła do 37 %, potem 9 %
+(wynik 7× próg), alarm w logu i na schemacie; po `xInjWear` FALSE kondycja wróciła do 100 % w ok. 1 min (okno 32 sztuk
+musi się „wymienić”). Schemat Canvas wyrenderował się poprawnie.
+
+Poprawki po teście: (1) przez 20 sztuk między przekroczeniem progu a alarmem silnik był już czerwony, a napis „praca
+normalna” – teraz trzy stany: praca normalna / uwaga: wynik powyżej progu / ALARM; (2) na wykresie wynik / próg czerwone
+pole nad progiem myliło się z tłem alarmu – zostaje sama linia progu.
+
+![Grafana: praca normalna](img/e4-08-grafana-normalna.png)
+
+![Grafana: zużycie – kondycja 37 %](img/e4-08-grafana-alarm.png)
