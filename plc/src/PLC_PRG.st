@@ -13,6 +13,8 @@ VAR
     udiSeed   : UDINT := 12345;      // generator pseudolosowy (LCG) do rozrzutu czasu cyklu
     xRun, xRunPrev : BOOL;
     tStart, tNow   : TIME;           // TIME() = czas od startu sterownika; z niego mierzymy rzeczywisty cykl
+    xPiece    : BOOL;                // E4-06: impuls – w tym cyklu zadania skończyła się sztuka
+    fbDrive   : FB_DriveSim;         // E4-06: symulacja napędu taśmy
 END_VAR
 VAR CONSTANT
     T_ACT : TIME := T#1S;            // ile trwa każdy stan przejściowy
@@ -106,6 +108,7 @@ IF xRun AND NOT xRunPrev THEN
 END_IF
 xRunPrev := xRun;
 tonCycle(IN := xRun, PT := tCycle);
+xPiece := tonCycle.Q;
 IF tonCycle.Q THEN
     tNow := TIME();
     GVL_Line.udiProdProcessed := GVL_Line.udiProdProcessed + 1;
@@ -120,6 +123,14 @@ IF tonCycle.Q THEN
     udiSeed := udiSeed * 1103515245 + 12345;
     tCycle := UDINT_TO_TIME(udiBase + (udiSeed / 65536) MOD 201 - 100);
 END_IF
+
+// --- E4-06: napęd taśmy ---
+fbDrive(xRun := xRun, xCycleDone := xPiece, xWear := GVL_Line.xInjWear, tWearRamp := GVL_Line.tWearRamp);
+GVL_Line.rTorqueMean_Nm := fbDrive.rTorqueMean;
+GVL_Line.rTorquePeak_Nm := fbDrive.rTorquePeak;
+GVL_Line.rCurrent_A     := fbDrive.rCurrent;
+GVL_Line.rMotorTemp_C   := fbDrive.rTemp;
+GVL_Line.rSimWear       := DINT_TO_REAL(TRUNC(fbDrive.rWear * 100.0)) / 100.0;
 
 // --- Status na zewnątrz ---
 GVL_Line.iStateCurrent := eState;

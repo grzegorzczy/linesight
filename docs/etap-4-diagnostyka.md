@@ -252,3 +252,146 @@ Wynik (15.11, zakres 3 h): tabela pokazuje wszystkie postoje dnia z przyczyną, 
 dla porannych zatorów sprzed uruchomienia Jetsona, „kamera: przewrócona butelka w oknie” przy awarii 09:57); klipy klikalne.
 Słupki: zator 6, brak produktu 4, awaria 2; łączny czas: awaria 6,39 min (295 + 89 s), brak produktu 1,30 min, zator 1,11 min –
 mało częste awarie kosztują najwięcej czasu, czyli dokładnie to, co pokazuje analiza Pareto.
+
+## E4-06 – napęd taśmy: symulacja i dane
+
+**Zmiana planu (15.11):** zamiast anomalii czasu cyklu – kondycja napędu. Ogłoszenie wprost: „analiza trendów parametrów
+i ocena kondycji napędów na podstawie momentu obrotowego”. Czas cyklu był złym sygnałem: skok +40 % łapie zwykły próg,
+model niczego by nie wniósł.
+
+### Symulacja w PLC (`plc/src/FB_DriveSim.st`, `F_Gauss.st`)
+
+| Sygnał | Model | Po co |
+|---|---|---|
+| `rTorqueMean_Nm` | 2,0 Nm × (1 + 0,15·zużycie + zimno) + szum 0,06 Nm × (1 + 1,5·zużycie) | główny sygnał kondycji |
+| `rTorquePeak_Nm` | średni × (1,6 + 0,25·zużycie) + szum 0,08 Nm × (1 + 2·zużycie) | zużycie zmienia kształt cyklu (udary), nie tylko średnią |
+| `rCurrent_A` | 0,8 A + 1,2 A/Nm × moment + szum 0,02 A | prąd, który w zakładzie mierzy falownik |
+| `rMotorTemp_C` | dT/dt = (22 °C + 2,25·I² − T) / 600 s, poza Execute I = 0 | inercja cieplna: ok. 45 °C w pracy, stygnie w postoju |
+| `rSimWear` | 0 → 1 liniowo przez `tWearRamp` (20 min) przy `xInjWear`; bez = 0 (naprawa) | **prawda symulacji** – tylko do oceny |
+
+**Zimny start** (zimno = 0,12 × (40 °C − T) / 18 °C, w zakresie 0..0,12): zimny smar zwiększa tarcie, więc po każdym dłuższym
+postoju moment jest wyższy o do 12 %, tyle co średnie zużycie. To celowa pułapka dla prostych metod: symulacja w Pythonie
+(sesja z postojem 15 min) – EWMA na samym momencie była w alarmie przez ok. 1/3 normalnej pracy. Metoda, która zna temperaturę
+(regresja albo model wielu cech), musi odróżnić zimny start od zużycia.
+
+Wartości na sztukę (jak napęd raportujący parametry cyklu), zaokrąglone (moment, prąd 0,001; temperatura 0,1 °C; zużycie 0,01),
+żeby OPC UA nie wysyłał zmian co 10 ms. Dochodzi ok. 3 wiadomości na sztukę + kilka na minutę temperatury.
+
+Grafana: „Napęd taśmy: moment na sztukę” (średni, szczytowy, zużycie przerywaną linią na prawej osi) i „prąd i temperatura”.
+
+### Wgranie (CODESYS, online change)
+1. Application → Add Object → **POU** → `F_Gauss`, typ *Function*, zwracany typ `REAL` → wkleić `plc/src/F_Gauss.st`.
+2. Application → Add Object → **POU** → `FB_DriveSim`, typ *Function Block* → wkleić `plc/src/FB_DriveSim.st`.
+3. `GVL_Line` – dopisać zmienne z `plc/src/GVL_Line.st` (`xInjWear`, `tWearRamp`, blok „napęd taśmy”).
+4. `PLC_PRG` – zmiany z `plc/src/PLC_PRG.st` (`xPiece`, `fbDrive` w deklaracjach; `xPiece := tonCycle.Q;`; blok „napęd taśmy”
+   przed „Status na zewnątrz”).
+5. Build (F11) → 0 błędów; **Symbol Configuration**: nowe zmienne `GVL_Line` zaznaczone (Build odświeża listę).
+6. Online → Login → **Login with online change** (nie pełne pobranie: wartości liczników zostają).
+
+Laptop: most z nowymi zmiennymi i dashboard:
+```
+git pull
+git checkout etap4/e4-06-drive
+docker compose -f infra/docker-compose.yml up -d --build bridge
+docker restart linesight-grafana
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT name, count(*), round(min(value)::numeric,3) AS min, round(max(value)::numeric,3) AS max FROM plc_signal WHERE time > now() - interval '5 minutes' GROUP BY name ORDER BY name"
+```
+
+Wynik (15.11): most subskrybuje 15 zmiennych; w pracy (silnik 34–35 °C) moment średni 1,94–2,20 Nm, szczytowy 3,02–3,57 Nm,
+prąd 3,12–3,43 A, ok. 40 wartości na minutę (1 na sztukę). Pułapki: (1) laptop na starej gałęzi – most zbudowany ze starą listą
+zmiennych (log: „subskrypcja 9 zmiennych”); (2) w CODESYS zmienna `s` – `S` i `R` to słowa kluczowe IEC (Set/Reset), stąd `rSum`.
+
+### Sesja danych (`tools/scenario.py`)
+
+Skrypt steruje linią przez OPC UA (zapis komend PackML jako zbocza, `xInjWear`, `tWearRamp` = 10 min) według planu
+(ok. 2 h 50 min): praca, postoje 3/5/15 min (zimne starty), 3 epizody zużycia po 15 min, w tym jeden zaraz po zimnym starcie.
+Dziennik kroków: `data/scenario_<czas>.csv`. Prawdą o zużyciu dla modelu jest `rSimWear` w bazie.
+```
+python tools\scenario.py --dry
+python tools\scenario.py --scale 0.05
+python tools\scenario.py
+```
+`--scale 0.05` – próba mechaniki w ok. 9 min (każdy krok 20× krótszy).
+
+### Zbiór i baseline (`anomaly/`)
+
+| Plik | Co robi |
+|---|---|
+| `anomaly/data.py` | surowe sygnały → jedna sztuka = jeden wiersz (kotwica: licznik sztuk; moment i prąd z tej samej próbki ±0,3 s, inaczej ostatnia znana; temperatura, zużycie, stan – ostatnia znana), odcinki pracy, epizody zużycia, **podział wg czasu**: train = przed 1. epizodem, val = do 2. epizodu, test = reszta |
+| `anomaly/metrics.py` | alarm = wynik nad progiem przez ≥ 20 sztuk (ok. 30 s, jak opóźnienie alarmu w SCADA); próg = kwantyl 99,9 % wyniku w normalnej części walidacji; wykrycie i opóźnienie dla każdego epizodu, zużycie w chwili alarmu, fałszywe alarmy na godzinę pracy normalnej (bez 2 min po naprawie) |
+| `anomaly/baseline.py` | B1: EWMA (λ = 0,05) na momencie; B2: wielomian 2. stopnia moment ~ temperatura (temperatura przycięta do zakresu treningu) + EWMA na reszcie; tabela, `data/baseline.png` |
+| `anomaly/sim.py` | kopia `FB_DriveSim` i scenariusza w Pythonie – **tylko do testów kodu** bez sterownika, nie do treningu |
+
+Dlaczego podział wg czasu, nie losowy: sąsiednie sztuki są prawie identyczne – losowe tasowanie przeniosłoby
+informację z testu do treningu, a model w produkcji i tak widzi tylko przeszłość.
+
+Dokładka `python tools\scenario.py --extra` (postój 15 min + praca 20 min): część testowa bez niej nie miała zimnego
+startu bez zużycia, czyli nie sprawdzała fałszywych alarmów po postoju – głównej pułapki dla B1.
+
+Na danych z `anomaly/sim.py` (sprawdzenie kodu): B1 – 18 % normalnej pracy testu w alarmie (zimny start), B2 – 0 fałszywych
+alarmów, wykrycie przy 19–24 % zużycia. Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+Eksport z bazy i uruchomienie (LAPTOP, po sesji i dokładce):
+```
+docker exec linesight-db psql -U linesight -d linesight -c "\copy (SELECT extract(epoch FROM time) AS t, name, value FROM plc_signal WHERE name IN ('udiProdProcessed','iStateCurrent','rTorqueMean_Nm','rTorquePeak_Nm','rCurrent_A','rMotorTemp_C','rSimWear','xInjWear') AND time > '2026-11-15 11:35:00+00' ORDER BY time) TO STDOUT WITH CSV HEADER" > data\drive_raw.csv
+python anomaly\data.py data\drive_raw.csv
+python anomaly\baseline.py data\drive_raw.csv
+```
+
+Wynik na danych z PLC (sesja 15.11, 12:35–17:03; 8918 sztuk: train 2010, val 1189, test 5719; 3 epizody zużycia):
+
+| Metoda | Część | Wykryte | Opóźnienie [min] | Zużycie przy alarmie | Fałszywe alarmy/h | Normalna praca w alarmie |
+|---|---|---|---|---|---|---|
+| B1 EWMA moment | val | 1/1 | 1,9 | 18 % | 0 | 0 % |
+| B1 EWMA moment | test | 2/2 | 0,5; 1,6 | 5 %; 16 % | 1,10 | **6,6 %** |
+| B2 regresja temp + EWMA | val | 1/1 | 1,4 | 13 % | 0 | 0 % |
+| B2 regresja temp + EWMA | test | 2/2 | 1,9; 1,6 | 19 %; 16 % | 0,55 | 0,2 % |
+
+Wnioski: B1 alarmuje po każdym zimnym starcie (6,6 % normalnej pracy w alarmie), a jego „wykrycie” 2. epizodu po 0,5 min
+to zasługa zimnego startu, nie zużycia. B2 zna temperaturę – wykrywa przy 16–19 % zużycia, 1 fałszywy alarm na ok. 2 h.
+Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+Jakość danych: 7 na ok. 9000 zmian licznika sztuk nie dotarło do bazy (licznik +2 po ok. 3 s, bez postoju) – pojedyncza
+zgubiona wiadomość nie przerywa odcinka pracy (`data.py`); przyczyna (próbkowanie OPC UA czy most) do sprawdzenia.
+Pułapka eksportu: przed pierwszą zmianą stanu w oknie eksportu stan jest nieznany (most wysyła zmiany) – sztuka i tak
+oznacza Execute, inaczej wypadało pierwsze 30 min sesji.
+
+## E4-07 – model kondycji napędu w PyTorch (laptop)
+
+`anomaly/model.py`: autoenkoder **cech okna**, własna pętla treningowa (`Dataset`, `DataLoader`, Adam, MSE, walidacja,
+early stopping z zapisem najlepszych wag), eksport ONNX i parametrów wdrożenia (`models/drive_ae.json`).
+
+- Okno: ostatnie 32 sztuki (ok. 50 s) w obrębie odcinka pracy → 7 cech: średni moment średni i szczytowy, średni prąd,
+  temperatura, odchylenie momentu średniego i szczytowego, średni stosunek szczyt/średni. Normalizacja z treningu.
+- Sieć: 7 → 16 → **2** → 16 → 7 (Tanh), 329 parametrów; uczona tylko na pracy normalnej (z zimnym startem).
+- Wynik = błąd odtworzenia cech okna (MSE); próg i alarm jak w baseline (99,9 % walidacji, 20 sztuk nad progiem).
+
+**Pierwsza wersja nie wyszła:** autoenkoder surowego okna (32 × 4 wartości → 16 → 32 × 4) wykrywał przy 29–30 % zużycia,
+gorzej niż B2. Uczył się głównie odtwarzać szum pojedynczych sztuk, którego nie da się przewidzieć. Uśrednienie w oknie
+usuwa szum. W (16/32) i gardło (2/3) wybrane po wynikach na **walidacji**; test uruchomiony raz, na końcu.
+
+Wynik (te same dane, ziarno 0):
+
+| Metoda | Część | Wykryte | Opóźnienie [min] | Zużycie przy alarmie | Fałszywe alarmy/h |
+|---|---|---|---|---|---|
+| B2 regresja temp + EWMA | val | 1/1 | 1,4 | 13 % | 0 |
+| B2 regresja temp + EWMA | test | 2/2 | 1,9; 1,6 | 19 %; 16 % | 0,55 |
+| AE cech okna | val | 1/1 | 1,6 | 15 % | 0 |
+| AE cech okna | test | 2/2 | 1,8; 1,4 | **17 %; 14 %** | **0** |
+
+Uczciwie: na teście AE wykrywa ok. 2 punkty procentowe zużycia wcześniej i bez fałszywego alarmu, na walidacji B2 jest
+o 2 p.p. lepszy. To 3 epizody – różnica w granicach przypadku. Przewaga AE to **margines przy zużyciu**: wynik rośnie
+do 100–300× progu (oś log. na `data/model.png`), B2 do ok. 15× progu – przy realnym zużyciu alarm jest pewny.
+Słabe miejsce: przy zimnym starcie z dokładki (ok. 255. minuta) wynik AE przez chwilę dotknął progu (ok. 1,3×) –
+alarmu nie było tylko dzięki regule 20 sztuk; w pracy normalnej margines obu metod jest podobny (próg to kwantyl 99,9 %).
+Laptop 15.11 (torch 2.11 + CUDA): te same liczby co w sprawdzeniu (ziarno 0), early stopping w 343. epoce.
+Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 329 parametrów), B2 liczony obok jako kontrola – na rozmowie:
+„model musiał pobić regresję; pobił nieznacznie i bez fałszywych alarmów, przy zużyciu wyraźniej, przy zimnym starcie
+jest blisko progu – kolejny krok to więcej zimnych startów w treningu”.
+
+Uruchomienie (LAPTOP, .venv; torch, jeśli brak: `pip install torch`):
+```
+python anomaly\model.py data\drive_raw.csv
+start data\model.png
+start data\model_train.png
+```

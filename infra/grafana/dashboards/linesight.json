@@ -11,7 +11,7 @@
     "to": "now"
   },
   "schemaVersion": 39,
-  "version": 3,
+  "version": 4,
   "editable": true,
   "graphTooltip": 1,
   "annotations": {
@@ -699,13 +699,221 @@
       }
     },
     {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Napęd taśmy: moment na sztukę",
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "E4-06, FB_DriveSim w PLC. Moment średni i szczytowy w każdym cyklu. Zużycie (przerywana, prawa oś) to prawda symulacji – w zakładzie jej nie ma, służy tylko do oceny modelu.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, value AS \"moment średni\"\nFROM plc_signal\nWHERE name = 'rTorqueMean_Nm' AND $__timeFilter(time)\nORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, value AS \"moment szczytowy\"\nFROM plc_signal\nWHERE name = 'rTorquePeak_Nm' AND $__timeFilter(time)\nORDER BY 1"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, value AS \"zużycie (symulacja)\"\nFROM plc_signal\nWHERE name = 'rSimWear' AND $__timeFilter(time)\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "unit": "none",
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "zużycie (symulacja)"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    10,
+                    10
+                  ]
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "min",
+                "value": 0
+              },
+              {
+                "id": "max",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Napęd taśmy: prąd i temperatura",
+      "gridPos": {
+        "x": 12,
+        "y": 36,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "Prąd na sztukę [A] i temperatura silnika [°C, prawa oś]. Po postoju silnik stygnie, a zimny napęd ma większy moment – zwykły próg myli to ze zużyciem.",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, value AS \"prąd [A]\"\nFROM plc_signal\nWHERE name = 'rCurrent_A' AND $__timeFilter(time)\nORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, value AS \"temperatura [°C]\"\nFROM plc_signal\nWHERE name = 'rMotorTemp_C' AND $__timeFilter(time)\nORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 1,
+            "pointSize": 3,
+            "showPoints": "never",
+            "spanNulls": true
+          },
+          "decimals": 2
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "temperatura [°C]"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "celsius"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
       "id": 5,
       "type": "table",
       "title": "Zdarzenia z kamery",
       "description": "Klip: ~/linesight_clips na Jetsonie (tylko missing_cap i fallen).",
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 44,
         "w": 24,
         "h": 8
       },
