@@ -11,43 +11,8 @@ evidence.sim (prawda symulacji, xInj*): asystent ma wiedzieć tylko to, co wiedz
 import argparse
 import time
 from datetime import timezone
-from zoneinfo import ZoneInfo
 
-from kb import Embedder, connect, manual_chunks, search
-
-TZ = ZoneInfo("Europe/Warsaw")
-STATE = {1: "Clearing", 2: "Stopped", 3: "Starting", 4: "Idle", 5: "Suspended", 6: "Execute", 7: "Stopping",
-         8: "Aborting", 9: "Aborted", 11: "Held", 15: "Resetting"}
-
-
-def case_text(r):
-    """Wiersz stop_event -> opis postoju po polsku (jedno źródło 'stop:<t_start UTC ISO>')."""
-    t_start, t_end, state, reason, cause, conf, ev, clip = r
-    ev = ev or {}
-    plc, vis = ev.get("plc", {}), ev.get("vision", {})
-    states = ", ".join("{} ({})".format(STATE.get(s, "nieznany"), s) for s in plc.get("states", [state]))
-    lines = [
-        "Postój {} czasu lokalnego, trwał {:.0f} s.".format(
-            t_start.astimezone(TZ).strftime("%d.%m.%Y %H:%M:%S"), (t_end - t_start).total_seconds()),
-        "Stany po Execute: {}. Kod iStopReason: {}.".format(states, reason),
-        "Przyczyna: {}, pewność: {}.".format(cause, conf),
-    ]
-    if ev.get("secondary"):
-        lines.append("Kolejne przyczyny w tym postoju: {}.".format(", ".join(ev["secondary"])))
-    lines.append("Sztuk w 30 s przed postojem: {}, ostatni czas cyklu: {} ms.".format(
-        plc.get("pieces_in_window"), plc.get("cycle_ms")))
-    if vis.get("offline_in_window"):
-        lines.append("Kamera była offline w oknie postoju.")
-    else:
-        lines.append("Kamera: obiekty {}, przewrócone butelki w chwilach {} s względem postoju, "
-                     "ostatnia sztuka {} s przed postojem.".format(
-                         ", ".join("{} {}".format(c, n) for c, n in (vis.get("counts") or {}).items()) or "brak",
-                         ", ".join(str(x) for x in vis.get("fallen_at_s") or []) or "brak", vis.get("last_item_s_before")))
-    if ev.get("note"):
-        lines.append("Uwaga: {}.".format(ev["note"]))
-    lines.append("Klip: {}.".format(clip or "brak"))
-    return "\n".join(lines)
-
+from kb import Embedder, case_text, connect, manual_chunks, search
 
 SQL_CASES = """SELECT t_start, t_end, state, stop_reason, cause, confidence, evidence, clip
                  FROM stop_event WHERE t_end IS NOT NULL ORDER BY t_start"""
