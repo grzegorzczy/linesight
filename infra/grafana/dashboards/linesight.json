@@ -11,7 +11,7 @@
     "to": "now"
   },
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "editable": true,
   "graphTooltip": 1,
   "annotations": {
@@ -401,13 +401,311 @@
       }
     },
     {
+      "id": 6,
+      "type": "table",
+      "title": "Postoje – dlaczego linia stanęła",
+      "description": "Tabela stop_event (usługa diag, E4-02 – E4-04). Pewność: potwierdzona = kamera potwierdza kod PLC, tylko_plc = kamera nic nie wnosi lub była wyłączona, sprzeczna = kamera przeczy kodowi PLC. Klip otwiera się z serwera HTTP na Jetsonie (python3 -m http.server 8080 w ~/linesight_clips).",
+      "gridPos": {
+        "x": 0,
+        "y": 19,
+        "w": 24,
+        "h": 9
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT t_start AS \"początek\",\n       round(extract(epoch FROM coalesce(t_end, now()) - t_start))::int AS \"trwa [s]\",\n       (t_end IS NULL) AS \"trwa nadal\",\n       cause AS \"przyczyna\", confidence AS \"pewność\",\n       evidence->'secondary'->>0 AS \"druga przyczyna\",\n       stop_reason AS \"kod PLC\",\n       (evidence->'vision'->'counts')::text AS \"kamera w oknie\",\n       evidence->>'note' AS \"uwaga\",\n       clip AS \"klip\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nORDER BY t_start DESC\nLIMIT 100"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "przyczyna"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "zator": {
+                        "color": "yellow",
+                        "index": 0
+                      },
+                      "brak_produktu": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "awaria": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "operator": {
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "restart_plc": {
+                        "color": "purple",
+                        "index": 4
+                      },
+                      "nieznana": {
+                        "color": "text",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "pewność"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "potwierdzona": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "tylko_plc": {
+                        "color": "text",
+                        "index": 1
+                      },
+                      "sprzeczna": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "trwa nadal"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "true": {
+                        "text": "TAK",
+                        "color": "red",
+                        "index": 0
+                      },
+                      "false": {
+                        "text": "",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "klip"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*/([^/]+)$",
+                      "result": {
+                        "text": "▶ $1",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Otwórz klip",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "początek",
+            "desc": true
+          }
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "type": "barchart",
+      "title": "Liczba postojów wg przyczyny",
+      "description": "Postoje, które zaczęły się lub trwały w wybranym zakresie czasu.",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT cause AS \"przyczyna\", count(*) AS \"postoje\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nGROUP BY cause\nORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "przyczyna",
+        "orientation": "horizontal",
+        "showValue": "always",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "barchart",
+      "title": "Łączny czas postojów wg przyczyny",
+      "description": "Czas postojów przycięty do wybranego zakresu (postój trwający dłużej liczy się tylko w części, która mieści się w zakresie). Analiza Pareto: od czego zacząć poprawę.",
+      "gridPos": {
+        "x": 12,
+        "y": 28,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "table",
+          "rawSql": "SELECT cause AS \"przyczyna\",\n       sum(extract(epoch FROM LEAST(coalesce(t_end, now()), $__timeTo()) - GREATEST(t_start, $__timeFrom()))) AS \"czas\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nGROUP BY cause\nORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "xField": "przyczyna",
+        "orientation": "horizontal",
+        "showValue": "always",
+        "legend": {
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single"
+        }
+      }
+    },
+    {
       "id": 5,
       "type": "table",
       "title": "Zdarzenia z kamery",
       "description": "Klip: ~/linesight_clips na Jetsonie (tylko missing_cap i fallen).",
       "gridPos": {
         "x": 0,
-        "y": 19,
+        "y": 36,
         "w": 24,
         "h": 8
       },

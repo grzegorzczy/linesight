@@ -162,7 +162,7 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
 - [x] **E4-04 – klip przy postoju** · Jetson + laptop · 1-2 h · klip ze zdarzenia kamery w oknie postoju
       dostępny przez HTTP z Jetsona; link w `stop_event`; brak klipu jest informacją, nie błędem
       → 15.11: zator z przewróconą butelką → klip −10,5 s, odtwarzany w przeglądarce (`http.server` na Jetsonie)
-- [ ] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
+- [x] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
       link do klipu), liczba i łączny czas postojów wg przyczyny
 - [ ] **E4-06 – dane czasu cyklu** · CODESYS + laptop · 0,5 dnia · realistyczny czas cyklu w PLC
       (losowy rozrzut, powolny dryf `xInjDrift` obok skoku `xInjSlow`); sesja 1-2 h; zbiór z bazy
