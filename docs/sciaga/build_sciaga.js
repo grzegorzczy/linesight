@@ -2,8 +2,9 @@ const fs = require('fs');
 const {
   Document, Packer, Paragraph, TextRun, HeadingLevel, Table, TableRow, TableCell,
   WidthType, ShadingType, BorderStyle, LevelFormat, AlignmentType, Footer, PageNumber,
-  TableOfContents,
+  TableOfContents, ImageRun,
 } = require('docx');
+const path = require('path');
 
 const FONT = 'Arial';
 const MONO = 'Consolas';
@@ -24,6 +25,15 @@ const children = [];
 
 function h1(t) { children.push(new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(t)] })); }
 function h2(t) { children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun(t)] })); }
+// Obraz z docs/img (wykresy, zrzuty) – szerokość strony, proporcje z nagłówka PNG.
+function img(file, caption) {
+  const data = fs.readFileSync(path.join(__dirname, '..', 'img', file));
+  const w = data.readUInt32BE(16), h = data.readUInt32BE(20);
+  const width = 600, height = Math.round(600 * h / w);
+  children.push(new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({ type: 'png', data, transformation: { width, height } })] }));
+  if (caption) children.push(new Paragraph({ alignment: AlignmentType.CENTER, spacing: { after: 200 }, children: [new TextRun({ text: caption, italics: true, size: 18, color: '555555' })] }));
+}
+
 function p(t, opts = {}) {
   const runs = Array.isArray(t) ? t : [new TextRun({ text: t, ...opts })];
   children.push(new Paragraph({ spacing: { after: 100 }, children: runs }));
@@ -716,6 +726,14 @@ p('RealSense 8086:0b48, RGB = /dev/video0, 640x480 YUYV 30 FPS. Zastąpiona kame
 step('SSH1', 'Ręczna ekspozycja 20 ms', 'v4l2-ctl -d /dev/video0 -c exposure_auto=1 -c exposure_absolute=200 -c gain=64');
 
 // ---------- DOC ----------
+h1('12. Etap 4 – wyniki (wykresy)');
+p('Pełny opis: docs/etap-4-diagnostyka.md. Wykresy generują skrypty z anomaly\\ (data\\*.png), kopie w docs\\img.');
+img('e4-05-grafana-postoje.png', 'E4-05: tabela postojów z przyczyną, pewnością i klipem; Pareto – zatory najczęstsze, awarie najdroższe.');
+img('e4-06-grafana-naped.png', 'E4-06: napęd w Grafanie – zużycie (przerywana) podnosi moment szczytowy i rozrzut, średni mniej; temperatura rośnie.');
+img('e4-06-baseline.png', 'E4-06: baseline. B1 (EWMA na momencie) alarmuje po zimnych startach; B2 (regresja moment ~ temperatura) nie.');
+img('e4-07-model.png', 'E4-07: B2 vs autoenkoder (skala log.). Test: AE wykrywa przy 17 % / 14 % zużycia, 0 fałszywych alarmów; B2 19 % / 16 %, 0,55/h.');
+img('e4-07-krzywe-uczenia.png', 'E4-07: krzywe uczenia – strata treningu i walidacji, early stopping w 343. epoce (najlepsza 313).');
+
 const doc = new Document({
   creator: 'Grzegorz', title: 'LineSight – ściąga',
   styles: {

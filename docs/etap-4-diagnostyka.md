@@ -253,6 +253,8 @@ dla porannych zatorów sprzed uruchomienia Jetsona, „kamera: przewrócona bute
 Słupki: zator 6, brak produktu 4, awaria 2; łączny czas: awaria 6,39 min (295 + 89 s), brak produktu 1,30 min, zator 1,11 min –
 mało częste awarie kosztują najwięcej czasu, czyli dokładnie to, co pokazuje analiza Pareto.
 
+![Grafana: postoje i Pareto](img/e4-05-grafana-postoje.png)
+
 ## E4-06 – napęd taśmy: symulacja i dane
 
 **Zmiana planu (15.11):** zamiast anomalii czasu cyklu – kondycja napędu. Ogłoszenie wprost: „analiza trendów parametrów
@@ -278,6 +280,8 @@ Wartości na sztukę (jak napęd raportujący parametry cyklu), zaokrąglone (mo
 żeby OPC UA nie wysyłał zmian co 10 ms. Dochodzi ok. 3 wiadomości na sztukę + kilka na minutę temperatury.
 
 Grafana: „Napęd taśmy: moment na sztukę” (średni, szczytowy, zużycie przerywaną linią na prawej osi) i „prąd i temperatura”.
+
+![Grafana: napęd w czasie 1. epizodu zużycia](img/e4-06-grafana-naped.png)
 
 ### Wgranie (CODESYS, online change)
 1. Application → Add Object → **POU** → `F_Gauss`, typ *Function*, zwracany typ `REAL` → wkleić `plc/src/F_Gauss.st`.
@@ -330,6 +334,8 @@ startu bez zużycia, czyli nie sprawdzała fałszywych alarmów po postoju – g
 
 Na danych z `anomaly/sim.py` (sprawdzenie kodu): B1 – 18 % normalnej pracy testu w alarmie (zimny start), B2 – 0 fałszywych
 alarmów, wykrycie przy 19–24 % zużycia. Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+![Baseline B1 i B2 na sesji 15.11](img/e4-06-baseline.png)
 
 Eksport z bazy i uruchomienie (LAPTOP, po sesji i dokładce):
 ```
@@ -388,6 +394,10 @@ Laptop 15.11 (torch 2.11 + CUDA): te same liczby co w sprawdzeniu (ziarno 0), ea
 Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 329 parametrów), B2 liczony obok jako kontrola – na rozmowie:
 „model musiał pobić regresję; pobił nieznacznie i bez fałszywych alarmów, przy zużyciu wyraźniej, przy zimnym starcie
 jest blisko progu – kolejny krok to więcej zimnych startów w treningu”.
+
+![B2 vs autoenkoder](img/e4-07-model.png)
+
+![Krzywe uczenia autoenkodera](img/e4-07-krzywe-uczenia.png)
 
 Uruchomienie (LAPTOP, .venv; torch, jeśli brak: `pip install torch`):
 ```
