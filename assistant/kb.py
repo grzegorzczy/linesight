@@ -11,6 +11,9 @@ from zoneinfo import ZoneInfo
 
 DB_DSN = os.environ.get("DB_DSN", "postgresql://linesight:linesight@localhost:5432/linesight")
 MODEL = os.environ.get("EMBED_MODEL", "intfloat/multilingual-e5-small")
+# CPU, nie GPU: 4 GB VRAM zajmuje LLM (qwen3:4b-instruct ok. 3,6 GB); e5-small na CPU liczy pytanie w kilkadziesiąt ms.
+# Na GPU zabierałby ok. 0,5 GB i Ollama przenosiłaby część warstw na CPU (wolniejsza odpowiedź).
+DEVICE = os.environ.get("EMBED_DEVICE", "cpu")
 KB_DIR = Path(__file__).resolve().parent.parent / "docs" / "kb"
 
 
@@ -50,9 +53,9 @@ class Embedder(object):
     def __init__(self, model=MODEL):
         from sentence_transformers import SentenceTransformer   # import tu: chunk_markdown działa bez torcha
         try:                    # model już w cache: bez zapytań do Hugging Face (ostrzeżenia, zerwane połączenia)
-            self.m = SentenceTransformer(model, local_files_only=True)
+            self.m = SentenceTransformer(model, device=DEVICE, local_files_only=True)
         except Exception:       # pierwsze uruchomienie: pobranie (ok. 470 MB)
-            self.m = SentenceTransformer(model)
+            self.m = SentenceTransformer(model, device=DEVICE)
         print("Embeddingi: {} ({} wymiarów, urządzenie {})".format(
             model, self.m.get_embedding_dimension(), self.m.device), flush=True)
 

@@ -7,8 +7,8 @@
 Przebieg:
 1. Pytanie o konkretny postój (godzina w pytaniu, „ostatni postój”, parametr stop z Grafany) -> context.py:
    [P1] postój, [P2] sygnały 30 s, [P3] napęd. Godzina bez postoju -> [P1] mówi wprost, że postoju nie było.
-2. Zawsze: k fragmentów instrukcji z pgvector -> [S1..Sk]. Bez pytania o postój także 2 podobne postoje
-   z historii -> [H1, H2] (pytania typu „czy zatory się powtarzają”).
+2. Zawsze: k fragmentów instrukcji z pgvector -> [S1..Sk]. Pytanie o historię bez konkretnego postoju
+   ("czy zatory się powtarzają") -> także 2 podobne postoje -> [H1, H2].
 3. Prompt: odpowiadaj tylko ze źródeł, po każdym stwierdzeniu [ID], „nie wiem”, gdy źródła nie wystarczają.
 4. Wynik: odpowiedź + lista źródeł z identyfikatorami, odległościami i linkiem do klipu (do UI i do ewaluacji).
 """
@@ -24,7 +24,13 @@ from llm import generate
 K_MANUAL = 4
 K_CASES = 2
 RE_LAST = re.compile(r"ostatni\w*\s+post[oó]j|last\s+stop", re.I)
-RE_PL = re.compile(r"[ąćęłńóśźż]|\b(co|czy|jak|dlaczego|kiedy|ile|postój|linia|linii)\b", re.I)
+# polskie znaki albo częste polskie słowa (także w pytaniach bez ogonków: "jaki jest numer telefonu")
+RE_PL = re.compile(r"[ąćęłńóśźż]|\b(co|czy|jak\w*|jaki\w*|gdzie|kto|kt[oó]r\w*|dlaczego|kiedy|ile|czym|jest|sie|nie|"
+                   r"post[oó]j\w*|lini\w*|zator\w*|naped\w*)\b", re.I)
+# podobne postoje z historii [H] tylko, gdy pytanie jest o historię – inaczej to szum (test 15.11: "restart_plc"
+# doklejony do pytania o alarm napędu)
+RE_HISTORY = re.compile(r"histori|powtarza|wcze[sś]niej|ile razy|jak cz[eę]sto|ostatnio|poprzedni|"
+                        r"history|before|again|how often|previous|recent", re.I)
 
 SYSTEM = {
     "pl": """Jesteś asystentem technika mini linii pakującej LineSight. Odpowiadasz WYŁĄCZNIE na podstawie źródeł
@@ -68,7 +74,7 @@ def gather(conn, emb, question, stop_t=None):
     for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, K_MANUAL, "manual"), 1):
         sources.append({"id": "S{}".format(i), "title": sec, "text": text, "url": None, "source": src,
                         "dist": round(float(dist), 3)})
-    if not any(s["id"] == "P1" for s in sources):
+    if not any(s["id"] == "P1" for s in sources) and RE_HISTORY.search(question):
         for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, K_CASES, "case"), 1):
             sources.append({"id": "H{}".format(i), "title": sec, "text": text, "url": None, "source": src,
                             "dist": round(float(dist), 3)})
