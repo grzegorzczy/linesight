@@ -622,6 +622,19 @@ step('LAPTOP', 'Tabela i testy (raz)', ['docker exec -i linesight-db psql -U lin
 step('LAPTOP', 'Start usługi', ['docker compose -f infra/docker-compose.yml up -d --build diag', 'docker logs linesight-diag']);
 step('LAPTOP', 'Lista postojów', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, \'MM-DD HH24:MI:SS\') AS start_utc, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY stop_event.t_start"', 'Czasy w UTC. state: 11 Held (zator), 5 Suspended (brak produktu), 8 Aborting (awaria), 7 Stopping (operator).');
 
+h1('10x. Przyczyna postoju: reguły (E4-03)');
+p('cause: zator / brak_produktu / awaria / operator / restart_plc. confidence: potwierdzona (kamera potwierdza PLC) / tylko_plc / sprzeczna. xInj* tylko w evidence.sim (do oceny), nie w regułach.');
+step('LAPTOP', 'Kolumna confidence, testy, nowa wersja usługi', ['docker exec -i linesight-db psql -U linesight < infra\\db\\30-diag.sql', 'python diag\\test_rules.py', 'docker compose -f infra/docker-compose.yml up -d --build diag']);
+step('LAPTOP', 'Postoje z przyczyną', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, \'MM-DD HH24:MI:SS\') AS start_utc, round(extract(epoch FROM t_end - t_start)) AS s, cause, confidence, evidence->\'vision\'->\'counts\' AS kamera, evidence->\'sim\' AS sim FROM stop_event ORDER BY stop_event.t_start"');
+table([1000, 3600, 2400, 2638], [
+  ['#', 'Scena', 'CODESYS', 'Oczekiwane'],
+  ['A', 'przewrócona butelka przez linię', 'po 5 s xInjJam TRUE, po 10 s FALSE', 'zator / potwierdzona'],
+  ['B', 'nic', 'xInjJam TRUE → FALSE', 'zator / tylko_plc'],
+  ['C', '≥ 15 s nic nie przesuwać', 'xInjNoProduct TRUE → FALSE', 'brak_produktu / potwierdzona'],
+  ['D', 'przesuwać butelki do końca', 'xInjNoProduct TRUE → FALSE', 'brak_produktu / sprzeczna'],
+  ['E', 'przewrócona butelka', 'xInjFault TRUE → FALSE, Clear, Reset, Start', 'awaria / tylko_plc'],
+]);
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [

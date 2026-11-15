@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""E4-02: usługa diagnostyki – wyznacza postoje linii z bazy i zapisuje je w tabeli stop_event.
+"""E4-02/E4-03: usługa diagnostyki – postoje linii z przyczyną i dowodami, zapis w tabeli stop_event.
 
 Laptop, kontener `diag` z infra/docker-compose.yml (albo ręcznie: python diag/diag.py --once).
 
@@ -19,8 +19,10 @@ import os
 import time
 
 import psycopg
+from psycopg.types.json import Jsonb
 
-from stops import STATE_NAMES, find_stops
+from rules import WINDOW_S, classify
+from stops import STATE_NAMES, find_stops, merge_stops
 
 DB_DSN = os.environ.get("DB_DSN", "postgresql://linesight:linesight@localhost:5432/linesight")
 POLL_S = float(os.environ.get("POLL_S", "5"))
@@ -43,45 +45,88 @@ SQL_CHANGES = """
 """
 # Kod przyczyny z PLC: ostatnia wartość iStopReason najpóźniej 1 s po początku postoju. PLC ustawia kod
 # i stan w tym samym cyklu, ale most nadaje czas każdej zmiennej osobno (różnice rzędu milisekund).
-SQL_UPSERT = """
-    INSERT INTO stop_event (t_start, t_end, state, stop_reason)
-    VALUES (%(t_start)s, %(t_end)s, %(state)s,
-            (SELECT value::int FROM plc_signal
-              WHERE name = 'iStopReason' AND time <= %(t_start)s + interval '1 second'
-                AND time > %(t_start)s - interval '1 day'
-              ORDER BY time DESC LIMIT 1))
-    ON CONFLICT (t_start) DO UPDATE
-       SET t_end = EXCLUDED.t_end, state = EXCLUDED.state, stop_reason = EXCLUDED.stop_reason, updated = now()
-     WHERE (stop_event.t_end, stop_event.state, stop_event.stop_reason)
-           IS DISTINCT FROM (EXCLUDED.t_end, EXCLUDED.state, EXCLUDED.stop_reason)
-    RETURNING (xmax = 0) AS inserted, stop_reason
+SQL_REASON = """
+    SELECT value::int FROM plc_signal
+     WHERE name = 'iStopReason' AND time <= %(t)s + interval '1 second' AND time > %(t)s - interval '1 day'
+     ORDER BY time DESC LIMIT 1
 """
+SQL_SIGNALS = "SELECT time, name, value FROM signals_before(%(t)s, make_interval(secs => %(w)s))"
+# Kamera: od 30 s przed postojem (najwcześniej od końca poprzedniego postoju) do 10 s po
+# (klasa ustalana ok. 5 s po przecięciu linii, czas = t_cross).
+SQL_VISION = """
+    SELECT time, class FROM vision_event
+     WHERE time > GREATEST(%(t)s - make_interval(secs => %(w)s), %(prev_end)s) AND time <= %(t)s + interval '10 seconds'
+     ORDER BY time
+"""
+# Źródło (plc / vision) bez połączenia w oknie (albo przed oknem i nie wróciło) – jego dane są niepełne.
+SQL_OFFLINE = """
+    SELECT coalesce(bool_or(NOT online), false) FROM (
+        (SELECT online FROM link_status WHERE source = %(src)s AND time <= %(t)s - make_interval(secs => %(w)s)
+          ORDER BY time DESC LIMIT 1)
+        UNION ALL
+        (SELECT online FROM link_status WHERE source = %(src)s
+          AND time > %(t)s - make_interval(secs => %(w)s) AND time <= %(t)s)) x
+"""
+SQL_UPSERT = """
+    INSERT INTO stop_event (t_start, t_end, state, stop_reason, cause, confidence, evidence)
+    VALUES (%(t_start)s, %(t_end)s, %(state)s, %(stop_reason)s, %(cause)s, %(confidence)s, %(evidence)s)
+    ON CONFLICT (t_start) DO UPDATE
+       SET t_end = EXCLUDED.t_end, state = EXCLUDED.state, stop_reason = EXCLUDED.stop_reason,
+           cause = EXCLUDED.cause, confidence = EXCLUDED.confidence, evidence = EXCLUDED.evidence, updated = now()
+     WHERE (stop_event.t_end, stop_event.state, stop_event.stop_reason, stop_event.cause,
+            stop_event.confidence, stop_event.evidence)
+           IS DISTINCT FROM (EXCLUDED.t_end, EXCLUDED.state, EXCLUDED.stop_reason, EXCLUDED.cause,
+                             EXCLUDED.confidence, EXCLUDED.evidence)
+    RETURNING (xmax = 0) AS inserted
+"""
+# Postoje z zakresu, których już nie ma w wyniku (np. połączone z poprzednim) – usuwamy.
+SQL_DELETE_STALE = "DELETE FROM stop_event WHERE t_start > %(since)s AND NOT (t_start = ANY(%(keep)s)) RETURNING t_start"
 
 
 def fmt(t):
     return t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC") if t else "trwa"
 
 
+def diagnose(conn, s, prev_end=None):
+    """Uzupełnia postój o kod PLC, przyczynę, pewność i dowody (E4-03). prev_end: koniec poprzedniego postoju."""
+    p = {"t": s["t_start"], "w": WINDOW_S, "prev_end": prev_end or s["t_start"] - datetime.timedelta(days=1)}
+    row = conn.execute(SQL_REASON, p).fetchone()
+    s["stop_reason"] = row[0] if row else None
+    signals = conn.execute(SQL_SIGNALS, p).fetchall()
+    vision = conn.execute(SQL_VISION, p).fetchall()
+    plc_off = conn.execute(SQL_OFFLINE, dict(p, src="plc")).fetchone()[0]
+    cam_off = conn.execute(SQL_OFFLINE, dict(p, src="vision")).fetchone()[0]
+    s["cause"], s["confidence"], evidence = classify(s, s["t_start"], signals, vision, plc_off, cam_off)
+    s["evidence"] = Jsonb(evidence)
+    return s
+
+
 def run_once(conn):
-    """Jeden przebieg: historia stanu -> postoje -> UPSERT. Zwraca (liczba postojów, nowe, zmienione)."""
+    """Jeden przebieg: historia stanu -> postoje -> przyczyny -> UPSERT. Zwraca (postoje, nowe, zmienione)."""
     since = conn.execute(SQL_SINCE, (HORIZON_H * 3600,)).fetchone()[0]
     row = conn.execute(SQL_INITIAL, {"since": since}).fetchone()
     initial = int(row[0]) if row and row[0] is not None else None
     changes = [(t, int(v) if v is not None else None)
                for t, v in conn.execute(SQL_CHANGES, {"since": since})]
-    stops = find_stops(changes, initial)
+    stops, prev_end = [], None
+    for s in merge_stops(find_stops(changes, initial)):
+        stops.append(diagnose(conn, s, prev_end))
+        prev_end = s["t_end"]
     new = changed = 0
     with conn.transaction():
+        for (t_del,) in conn.execute(SQL_DELETE_STALE, {"since": since, "keep": [s["t_start"] for s in stops]}):
+            print("USUNIĘTY postój {} (połączony z poprzednim)".format(fmt(t_del)), flush=True)
         for s in stops:
             res = conn.execute(SQL_UPSERT, s).fetchone()
             if res is None:            # bez zmian
                 continue
-            inserted, reason = res
+            inserted = res[0]
             new += inserted
             changed += not inserted
-            print("{} postój {} – {}, stan {} ({}), kod PLC {}".format(
-                "NOWY  " if inserted else "ZMIANA", fmt(s["t_start"]), fmt(s["t_end"]), s["state"],
-                STATE_NAMES.get(s["state"], "?"), reason), flush=True)
+            print("{} postój {} – {}, stany {}, kod PLC {} -> {} ({})".format(
+                "NOWY  " if inserted else "ZMIANA", fmt(s["t_start"]), fmt(s["t_end"]),
+                "+".join("{} {}".format(x, STATE_NAMES.get(x, "?")) for x in s["states"]),
+                s["stop_reason"], s["cause"], s["confidence"]), flush=True)
     return len(stops), new, changed
 
 

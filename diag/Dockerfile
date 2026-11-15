@@ -2,5 +2,5 @@ FROM mirror.gcr.io/library/python:3.12-slim
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
-COPY stops.py diag.py ./
+COPY stops.py rules.py diag.py ./
 CMD ["python", "-u", "diag.py"]

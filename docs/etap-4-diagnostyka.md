@@ -108,3 +108,76 @@ Wynik (15.11):
   Dla operatora to jeden postój z dwiema przyczynami → w E4-03 łączenie postojów oddzielonych pracą < 2 s.
 - Pułapka w zapytaniu: `ORDER BY t_start` po `t_start::time` sortowało wg aliasu (sama godzina, bez daty) –
   postoje z 15.11 wyszły przed 14.11. Poprawka: `ORDER BY stop_event.t_start` i data w wyniku.
+
+## E4-03 – reguły przyczyny (laptop)
+
+`diag/rules.py` – `classify()`: czysta funkcja, 10 testów w `diag/test_rules.py`. `diag.py` dla każdego postoju zbiera
+z bazy: kod `iStopReason`, `signals_before(t_start, 30 s)`, zdarzenia kamery od −30 s do +10 s (klasa jest ustalana
+ok. 5 s po przecięciu linii) i stan łącza z PLC (`link_status`). Wynik: `cause`, `confidence`, `evidence` (JSON).
+
+| Przyczyna (`cause`) | Skąd | `confidence` |
+|---|---|---|
+| `zator` | kod 101 / stan Held | `potwierdzona`, gdy kamera widziała przewróconą butelkę (`fallen`) w oknie; inaczej `tylko_plc` |
+| `brak_produktu` | kod 201 / Suspended | `potwierdzona`, gdy żadna butelka nie przeszła przez ≥ 10 s przed postojem; `sprzeczna`, gdy przeszła |
+| `awaria` | kod 301, 302 / Aborting | `tylko_plc` (kamera nie widzi awarii napędu) |
+| `operator` | kod 1 / Stopping | `tylko_plc` |
+| `restart_plc` | stan spoza PackML (0 po wgraniu programu) | `tylko_plc` |
+
+Dodatkowo:
+- Łączenie postojów (`merge_stops`): praca krótsza niż 2 s między postojami = jeden postój; druga przyczyna
+  w `evidence.secondary`. Rekord połączonego postoju usługa usuwa (`USUNIĘTY` w logu).
+- Brak połączenia z PLC w oknie → `tylko_plc` (nie ufamy kolejności zdarzeń).
+- Kamera offline w oknie (`link_status`, źródło `vision`) → `tylko_plc` z notatką: brak zdarzeń z wyłączonej kamery
+  nie jest dowodem „braku produktu” *(poprawka po teście 15.11)*.
+- Okno kamery zaczyna się najwcześniej na końcu poprzedniego postoju: przewrócona butelka, która wyjaśniła poprzedni
+  zator, nie potwierdza kolejnego *(poprawka po teście 15.11)*.
+- Zmienne `xInj*` **nie są wejściem reguł** – to „prawda” symulacji, w zakładzie jej nie ma. Trafiają do `evidence.sim`
+  i posłużą do oceny trafności reguł. Użycie ich w regułach dawałoby 100 % trafności z przecieku etykiety.
+- Pewność to zgodność dwóch niezależnych źródeł, nie prawdopodobieństwo. `sprzeczna` jest najcenniejsza: albo czujnik
+  PLC się myli, albo kamera – w obu przypadkach ktoś powinien to obejrzeć.
+
+Sprawdzone lokalnie (PostgreSQL 16): zator z `fallen` 4 s wcześniej → `zator / potwierdzona`, połączony z Suspended
+200 ms później (`secondary: brak_produktu`, stary rekord usunięty); brak produktu z butelką 2 s wcześniej → `sprzeczna`;
+stan 0 → `restart_plc`; drugi przebieg bez zmian.
+
+Uruchomienie (LAPTOP):
+```
+git pull
+git checkout etap4/e4-03-rules
+docker exec -i linesight-db psql -U linesight < infra\db\30-diag.sql
+python diag\test_rules.py
+docker compose -f infra/docker-compose.yml up -d --build diag
+docker logs linesight-diag
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, 'MM-DD HH24:MI:SS') AS start_utc, round(extract(epoch FROM t_end - t_start)) AS s, cause, confidence, evidence->'vision'->'counts' AS kamera, evidence->'sim' AS sim FROM stop_event ORDER BY stop_event.t_start"
+```
+
+Scenariusze na żywo (każdy oddzielony ≥ 30 s pracy, żeby okna się nie nakładały):
+
+| # | Na scenie | W CODESYS | Oczekiwane |
+|---|---|---|---|
+| A | przeciągnąć przewróconą butelkę przez linię | po ok. 5 s `xInjJam` TRUE, po 10 s FALSE | `zator / potwierdzona` |
+| B | nic (albo stojące butelki) | `xInjJam` TRUE → FALSE | `zator / tylko_plc` |
+| C | ≥ 15 s nic nie przesuwać | `xInjNoProduct` TRUE → FALSE | `brak_produktu / potwierdzona` |
+| D | przesuwać butelki do samego końca | `xInjNoProduct` TRUE → FALSE | `brak_produktu / sprzeczna` |
+| E | przeciągnąć przewróconą butelkę | `xInjFault` TRUE → FALSE, Clear, Reset, Start | `awaria / tylko_plc`, w dowodach `fallen` |
+
+Wynik – pierwsza próba (15.11, 08:47–08:57 UTC), przed poprawkami:
+
+| Postój | Scenariusz | Wynik | Ocena |
+|---|---|---|---|
+| 08:47:48 | brak produktu, **kamera wyłączona** | `brak_produktu / potwierdzona` | **błąd reguły**: brak zdarzeń z wyłączonej kamery uznany za dowód |
+| 08:48:13 | awaria | `awaria / tylko_plc` | OK |
+| 08:55:36 | A: przewrócona + zator | `zator / potwierdzona`, `fallen: 1` | OK |
+| 08:55:55 | B: zator bez wady, **19 s po A** | `zator / potwierdzona`, `fallen: 1` | **błąd reguły**: butelka z A w oknie B |
+| 08:56:07 | C: brak produktu, scena pusta | `brak_produktu / potwierdzona` | OK |
+| 08:56:28 | D: brak produktu, butelki płyną | `brak_produktu / potwierdzona`, `bottle: 1` | do wyjaśnienia (czas butelki względem postoju) |
+| 08:57:00 | E: przewrócona + awaria | `awaria / tylko_plc`, `fallen: 1` | OK |
+
+Połączenie postojów z 14.11 zadziałało: 17:01:59 trwa 36 s (zator + brak produktu), rekord Suspended z 17:02:33 usunięty.
+Po poprawkach (ta sama doba przeliczona przez usługę): 08:47:48 → `tylko_plc` (`offline_in_window: true`),
+08:55:55 → `tylko_plc` (puste `counts`), 08:56:28 → `potwierdzona` słusznie (`last_item_s_before: null` – butelka
+przeszła dopiero po postoju). Powtórka D (09:06:07): 6 butelek, ostatnia 15,7 s przed postojem → `potwierdzona` –
+reguła poprawna, to czas przełączenia zmiennej w CODESYS (jedna osoba nie przesunie butelki i nie kliknie naraz).
+Progu 10 s nie zmieniamy pod test (40 szt./min = sztuka co 1,5 s, 10 s ciszy ≈ 6 brakujących sztuk);
+`sprzeczna` pokrywa test jednostkowy. Ułatwienie na przyszłość: Prepared value + Ctrl+F7 (Write values).
+Obie poprawki sprawdzone lokalnie (11 testów + przypadek „przewrócona butelka w czasie poprzedniego postoju” → `tylko_plc`).
