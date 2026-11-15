@@ -6,7 +6,7 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **MVP (stages 1–3) done** · next: Stage 4 – stop diagnostics
+> Status: **stages 0–4 done** · next: Stage 5 – RAG assistant
 
 ## Architecture (target)
 
@@ -28,7 +28,7 @@ Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 | 1 | Dataset, training, ONNX → TensorRT, FP32/FP16/INT8 benchmark | done |
 | 2 | GStreamer/DeepStream pipeline, tracking, counting, RTSP, event clips | done |
 | 3 | CODESYS PackML state machine, OPC UA → MQTT → TimescaleDB, Grafana | done |
-| 4 | Stop diagnostics: rules + cycle-time anomaly detection (PyTorch) | – |
+| 4 | Stop diagnostics (PLC + camera + clip) and drive-health model (PyTorch autoencoder, ONNX) | done |
 | 5 | RAG assistant (pgvector) with evaluation set | – |
 | 6 | GCP: model registry, retraining loop | – |
 | 7 | Demo video, results, final documentation | – |
@@ -113,6 +113,37 @@ All laptop services run from one `infra/docker-compose.yml`: `mosquitto`, `bridg
 
 Details: [docs/etap-3-plc-dane.md](docs/etap-3-plc-dane.md).
 
+### Stop diagnostics and drive health (stage 4)
+
+**Why did the line stop?** A `diag` service turns the PackML state history into stop events (leaving Execute → back
+in Execute; a chain of states is one stop; stops separated by < 2 s of running are merged). Each stop gets a cause from
+the PLC stop code and a **confidence from the camera**: `confirmed` (e.g. a fallen bottle seen 4 s before a jam),
+`plc_only`, or `contradicted` (PLC says "no product", the camera saw bottles). Evidence (signals 30 s before, camera
+counts) is stored as JSON, plus a link to the event clip served by the Jetson. Grafana: stop table and Pareto charts.
+
+| Live test (15.11) | Result |
+|---|---|
+| Jams with / without a fallen bottle, no product, fault | all classified as expected after 2 rule fixes found live (camera offline is missing data, not evidence; a fallen bottle cannot confirm the *next* jam) |
+| Pareto of the day | jams most frequent (6), faults most expensive (6.4 min of 9) |
+
+**Drive health (predictive maintenance).** The PLC simulates the conveyor drive per piece: mean and peak torque,
+current, motor temperature (thermal inertia), bearing wear, and a **cold-start trap** (cold grease = up to +12 % torque,
+as much as medium wear). A script drives the line over OPC UA for a 4.5 h data session (8918 pieces, 3 wear episodes).
+Time-based split; threshold = 99.9 % quantile of normal validation data; alarm after 20 pieces above it.
+
+| Method | Test: wear at alarm | False alarms / h | Normal time in alarm |
+|---|---|---|---|
+| B1 EWMA on torque | 5 %*, 16 % | 1.10 | 6.6 % (every cold start) |
+| B2 regression torque ~ temperature + EWMA | 19 %, 16 % | 0.55 | 0.2 % |
+| **Autoencoder on 7 window features (PyTorch, own training loop)** | **17 %, 14 %** | **0** | **0 %** |
+
+\* the cold start, not the wear. A first autoencoder on raw windows lost to B2 (29–30 %): it learned to reproduce
+per-piece noise. The gain over B2 is small (3 episodes); the real gain is margin – 100–300× the threshold under wear.
+Deployed as ONNX (329 weights) in the `diag` container with onnxruntime; training and serving share one feature file.
+Live: alarm at ~15 % wear, Grafana shows health %, a drive schematic (Canvas) and score / threshold.
+
+Details: [docs/etap-4-diagnostyka.md](docs/etap-4-diagnostyka.md).
+
 ## Repository layout
 
 ```
@@ -125,7 +156,9 @@ linesight/
 ├── plc/        CODESYS sources (PackML state machine)           (stage 3)
 ├── bridge/     laptop, Docker: OPC UA → MQTT bridge             (stage 3)
 ├── ingest/     laptop, Docker: MQTT → TimescaleDB               (stage 3)
-├── tools/      clock offset (SNTP), OPC UA browser              (stage 3)
+├── diag/       laptop, Docker: stop events, cause rules, drive-health inference (stage 4)
+├── anomaly/    laptop: drive dataset, baselines, PyTorch autoencoder, shared features (stage 4)
+├── tools/      clock offset (SNTP), OPC UA browser, data-session scenario (stages 3–4)
 └── infra/      docker-compose, Mosquitto, DB schema, Grafana    (stage 3)
 ```
 
@@ -137,7 +170,8 @@ Folders are added when their first file appears.
 - [Stage 1 – dataset, training, TensorRT engines, benchmark](docs/etap-1-model.md)
 - [Stage 2 – DeepStream, tracking, counting, RTSP, event clips](docs/etap-2-wideo.md)
 - [Stage 3 – PackML, OPC UA, MQTT, TimescaleDB, Grafana](docs/etap-3-plc-dane.md)
-- [MVP backlog](docs/backlog.md)
+- [Stage 4 – stop diagnostics, drive-health model](docs/etap-4-diagnostyka.md)
+- [Backlog](docs/backlog.md)
 
 ## Not in the repository
 
