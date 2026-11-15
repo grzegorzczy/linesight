@@ -218,7 +218,12 @@ Wynik (15.11): zator 09:23:02 UTC → `zator / potwierdzona`, klip `20261115-102
 postoju), odtwarzany w przeglądarce z http://192.168.0.124:8080/. Usługa dopisała też klipy do wcześniejszych postojów:
 08:55:36 zator (−6,7 s), 08:57:00 awaria (+7,1 s – przewrócona butelka po zatrzymaniu, jako dowód, nie przyczyna).
 Postoje bez wady w kadrze (B, C, D) – bez klipu, zgodnie z założeniem.
-Pułapka: serwer `http.server` żyje tylko w otwartym oknie SSH (Ctrl+C / `exit` go zatrzymuje) – trwałe uruchomienie
+Poprawka po teście Grafany: stary klip (bez `faststart`) nie ładował się, a serwer przestawał odpowiadać.
+`python3 -m http.server` w Pythonie 3.6 jest **jednowątkowy** (`ThreadingHTTPServer` jest od 3.7) – przeglądarka, która trzyma
+połączenie z klipem, blokuje wszystkie kolejne zapytania. Zamiast niego `jetson/serve_clips.py` (`ThreadingMixIn`, wątek na
+zapytanie): `python3 ~/linesight/jetson/serve_clips.py`. Stare klipy można przepakować z `faststart` (bez kodowania):
+`for f in ~/linesight_clips/2026111[34]*.mp4 ~/linesight_clips/20261115-09*.mp4; do ffmpeg -loglevel error -y -i "$f" -c copy -movflags +faststart /tmp/x.mp4 && mv /tmp/x.mp4 "$f"; done`.
+Pułapka: serwer żyje tylko w otwartym oknie SSH (Ctrl+C / `exit` go zatrzymuje) – trwałe uruchomienie
 (usługa systemd) w etapie 7, jeśli będzie potrzebne do demo.
 
 ## E4-05 – Grafana: postoje (laptop)
