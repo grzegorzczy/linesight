@@ -45,6 +45,11 @@ def test_offline_nie_potwierdza():
     assert classify(stop(11, 101), T, [], [(T - 4, "fallen")], plc_offline=True)[:2] == ("zator", "tylko_plc")
 
 
+def test_kamera_offline_nie_potwierdza_braku_produktu():
+    c, p, e = classify(stop(5, 201), T, [], [], camera_offline=True)
+    assert (c, p) == ("brak_produktu", "tylko_plc") and e["note"] == "kamera offline w oknie"
+
+
 def test_xinj_tylko_w_sim():
     _, _, e = classify(stop(11, 101), T, sig((-30, "xInjJam", 0.0), (0, "xInjJam", 1.0)), [])
     assert e["sim"] == {"xInjJam": 1.0}

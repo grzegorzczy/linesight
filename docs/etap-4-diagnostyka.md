@@ -127,6 +127,10 @@ Dodatkowo:
 - Łączenie postojów (`merge_stops`): praca krótsza niż 2 s między postojami = jeden postój; druga przyczyna
   w `evidence.secondary`. Rekord połączonego postoju usługa usuwa (`USUNIĘTY` w logu).
 - Brak połączenia z PLC w oknie → `tylko_plc` (nie ufamy kolejności zdarzeń).
+- Kamera offline w oknie (`link_status`, źródło `vision`) → `tylko_plc` z notatką: brak zdarzeń z wyłączonej kamery
+  nie jest dowodem „braku produktu” *(poprawka po teście 15.11)*.
+- Okno kamery zaczyna się najwcześniej na końcu poprzedniego postoju: przewrócona butelka, która wyjaśniła poprzedni
+  zator, nie potwierdza kolejnego *(poprawka po teście 15.11)*.
 - Zmienne `xInj*` **nie są wejściem reguł** – to „prawda” symulacji, w zakładzie jej nie ma. Trafiają do `evidence.sim`
   i posłużą do oceny trafności reguł. Użycie ich w regułach dawałoby 100 % trafności z przecieku etykiety.
 - Pewność to zgodność dwóch niezależnych źródeł, nie prawdopodobieństwo. `sprzeczna` jest najcenniejsza: albo czujnik
@@ -157,4 +161,17 @@ Scenariusze na żywo (każdy oddzielony ≥ 30 s pracy, żeby okna się nie nak�
 | D | przesuwać butelki do samego końca | `xInjNoProduct` TRUE → FALSE | `brak_produktu / sprzeczna` |
 | E | przeciągnąć przewróconą butelkę | `xInjFault` TRUE → FALSE, Clear, Reset, Start | `awaria / tylko_plc`, w dowodach `fallen` |
 
-Wynik: *(uzupełnić po teście)*
+Wynik – pierwsza próba (15.11, 08:47–08:57 UTC), przed poprawkami:
+
+| Postój | Scenariusz | Wynik | Ocena |
+|---|---|---|---|
+| 08:47:48 | brak produktu, **kamera wyłączona** | `brak_produktu / potwierdzona` | **błąd reguły**: brak zdarzeń z wyłączonej kamery uznany za dowód |
+| 08:48:13 | awaria | `awaria / tylko_plc` | OK |
+| 08:55:36 | A: przewrócona + zator | `zator / potwierdzona`, `fallen: 1` | OK |
+| 08:55:55 | B: zator bez wady, **19 s po A** | `zator / potwierdzona`, `fallen: 1` | **błąd reguły**: butelka z A w oknie B |
+| 08:56:07 | C: brak produktu, scena pusta | `brak_produktu / potwierdzona` | OK |
+| 08:56:28 | D: brak produktu, butelki płyną | `brak_produktu / potwierdzona`, `bottle: 1` | do wyjaśnienia (czas butelki względem postoju) |
+| 08:57:00 | E: przewrócona + awaria | `awaria / tylko_plc`, `fallen: 1` | OK |
+
+Połączenie postojów z 14.11 zadziałało: 17:01:59 trwa 36 s (zator + brak produktu), rekord Suspended z 17:02:33 usunięty.
+Obie poprawki sprawdzone lokalnie (11 testów + przypadek „przewrócona butelka w czasie poprzedniego postoju” → `tylko_plc`).

@@ -51,19 +51,20 @@ SQL_REASON = """
      ORDER BY time DESC LIMIT 1
 """
 SQL_SIGNALS = "SELECT time, name, value FROM signals_before(%(t)s, make_interval(secs => %(w)s))"
-# Kamera: od 30 s przed postojem do 10 s po (klasa ustalana ok. 5 s po przecięciu linii, czas = t_cross).
+# Kamera: od 30 s przed postojem (najwcześniej od końca poprzedniego postoju) do 10 s po
+# (klasa ustalana ok. 5 s po przecięciu linii, czas = t_cross).
 SQL_VISION = """
     SELECT time, class FROM vision_event
-     WHERE time > %(t)s - make_interval(secs => %(w)s) AND time <= %(t)s + interval '10 seconds'
+     WHERE time > GREATEST(%(t)s - make_interval(secs => %(w)s), %(prev_end)s) AND time <= %(t)s + interval '10 seconds'
      ORDER BY time
 """
-# Most bez połączenia z PLC w oknie (albo przed oknem i nie wrócił) – kolejność zdarzeń niepewna.
+# Źródło (plc / vision) bez połączenia w oknie (albo przed oknem i nie wróciło) – jego dane są niepełne.
 SQL_OFFLINE = """
     SELECT coalesce(bool_or(NOT online), false) FROM (
-        (SELECT online FROM link_status WHERE source = 'plc' AND time <= %(t)s - make_interval(secs => %(w)s)
+        (SELECT online FROM link_status WHERE source = %(src)s AND time <= %(t)s - make_interval(secs => %(w)s)
           ORDER BY time DESC LIMIT 1)
         UNION ALL
-        (SELECT online FROM link_status WHERE source = 'plc'
+        (SELECT online FROM link_status WHERE source = %(src)s
           AND time > %(t)s - make_interval(secs => %(w)s) AND time <= %(t)s)) x
 """
 SQL_UPSERT = """
@@ -86,15 +87,16 @@ def fmt(t):
     return t.astimezone(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC") if t else "trwa"
 
 
-def diagnose(conn, s):
-    """Uzupełnia postój o kod PLC, przyczynę, pewność i dowody (E4-03)."""
-    p = {"t": s["t_start"], "w": WINDOW_S}
+def diagnose(conn, s, prev_end=None):
+    """Uzupełnia postój o kod PLC, przyczynę, pewność i dowody (E4-03). prev_end: koniec poprzedniego postoju."""
+    p = {"t": s["t_start"], "w": WINDOW_S, "prev_end": prev_end or s["t_start"] - datetime.timedelta(days=1)}
     row = conn.execute(SQL_REASON, p).fetchone()
     s["stop_reason"] = row[0] if row else None
     signals = conn.execute(SQL_SIGNALS, p).fetchall()
     vision = conn.execute(SQL_VISION, p).fetchall()
-    offline = conn.execute(SQL_OFFLINE, p).fetchone()[0]
-    s["cause"], s["confidence"], evidence = classify(s, s["t_start"], signals, vision, offline)
+    plc_off = conn.execute(SQL_OFFLINE, dict(p, src="plc")).fetchone()[0]
+    cam_off = conn.execute(SQL_OFFLINE, dict(p, src="vision")).fetchone()[0]
+    s["cause"], s["confidence"], evidence = classify(s, s["t_start"], signals, vision, plc_off, cam_off)
     s["evidence"] = Jsonb(evidence)
     return s
 
@@ -106,7 +108,10 @@ def run_once(conn):
     initial = int(row[0]) if row and row[0] is not None else None
     changes = [(t, int(v) if v is not None else None)
                for t, v in conn.execute(SQL_CHANGES, {"since": since})]
-    stops = [diagnose(conn, s) for s in merge_stops(find_stops(changes, initial))]
+    stops, prev_end = [], None
+    for s in merge_stops(find_stops(changes, initial)):
+        stops.append(diagnose(conn, s, prev_end))
+        prev_end = s["t_end"]
     new = changed = 0
     with conn.transaction():
         for (t_del,) in conn.execute(SQL_DELETE_STALE, {"since": since, "keep": [s["t_start"] for s in stops]}):

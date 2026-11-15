@@ -5,7 +5,10 @@ Wejście (zebrane przez diag.py z bazy):
 - signals: [(czas, nazwa, wartość)] z signals_before(t_start, 30 s) – wartość każdej zmiennej na początku okna
   i wszystkie zmiany w oknie,
 - vision: [(czas t_cross, klasa)] zdarzenia z kamery od t_start − 30 s do t_start + 10 s,
-- plc_offline: czy most zgłaszał brak połączenia z PLC w oknie.
+- plc_offline: czy most zgłaszał brak połączenia z PLC w oknie,
+- camera_offline: czy Jetson zgłaszał brak połączenia w oknie – wtedy „kamera nic nie widziała” nic nie znaczy.
+Okno kamery zaczyna się najwcześniej na końcu poprzedniego postoju (diag.py): przewrócona butelka, która
+wyjaśniła poprzedni zator, nie może potwierdzić kolejnego (test 15.11, scenariusz B 19 s po A).
 
 Wyjście: (przyczyna, pewność, dowody). Pewność mówi, czy kamera potwierdza kod PLC:
 - "potwierdzona"  – kamera widziała to, co PLC zgłasza (np. przewróconą butelkę przed zatorem),
@@ -26,7 +29,7 @@ def _secs(d):
     return d.total_seconds() if hasattr(d, "total_seconds") else float(d)
 
 
-def classify(stop, t_start, signals, vision, plc_offline=False):
+def classify(stop, t_start, signals, vision, plc_offline=False, camera_offline=False):
     """Zwraca (przyczyna, pewność, dowody: dict gotowy do JSON)."""
     # --- dowody z PLC: przebieg sygnałów w oknie
     first, last = {}, {}
@@ -48,7 +51,8 @@ def classify(stop, t_start, signals, vision, plc_offline=False):
         "plc": {"states": stop.get("states", [stop["state"]]), "stop_reason": stop["stop_reason"],
                 "pieces_in_window": pieces, "cycle_ms": last.get("udiCycleTime_ms"),
                 "offline_in_window": plc_offline},
-        "vision": {"counts": counts, "fallen_at_s": fallen, "last_item_s_before": last_item_s},
+        "vision": {"counts": counts, "fallen_at_s": fallen, "last_item_s_before": last_item_s,
+                   "offline_in_window": camera_offline},
         "window_s": WINDOW_S,
         "sim": {k: v for k, v in last.items() if k.startswith("xInj") and v},   # tylko do oceny
     }
@@ -61,6 +65,9 @@ def classify(stop, t_start, signals, vision, plc_offline=False):
         evidence["secondary"] = [CAUSE_BY_STATE.get(s, "nieznana") for s in evidence["plc"]["states"][1:]]
 
     if plc_offline:                            # luka w danych z PLC: nie ufamy kolejności zdarzeń
+        return cause, "tylko_plc", evidence
+    if camera_offline:                         # brak zdarzeń z kamery nie jest dowodem (test 15.11, 08:47)
+        evidence["note"] = "kamera offline w oknie"
         return cause, "tylko_plc", evidence
     if cause == "zator":
         return cause, ("potwierdzona" if fallen else "tylko_plc"), evidence
