@@ -34,9 +34,9 @@ from torch.utils.data import DataLoader, Dataset
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from baseline import b1_score, b2_score, plot  # noqa: E402
 from data import FEATURES, load  # noqa: E402
+from features import W, WIN_FEATURES, window_features  # noqa: E402
 from metrics import HOLD, evaluate, normal_mask, table, threshold  # noqa: E402
 
-W = 32
 LATENT = 2
 EPOCHS = 500
 PATIENCE = 30
@@ -45,19 +45,6 @@ LR = 1e-3
 SEED = 0
 WIN_FEATURES = ["torque_mean_avg", "torque_peak_avg", "current_avg", "temp", "torque_mean_std",
                 "torque_peak_std", "peak_to_mean"]
-
-
-def window_features(x, seg, w=W):
-    """Cechy okna w sztuk kończącego się na każdej sztuce (w obrębie odcinka pracy); NaN, gdy okno niepełne.
-    x: kolumny jak FEATURES (moment średni, szczytowy, prąd, temperatura)."""
-    out = np.full((len(x), len(WIN_FEATURES)), np.nan, dtype=np.float32)
-    for s in np.unique(seg):
-        idx = np.flatnonzero(seg == s)
-        for k in range(w - 1, len(idx)):
-            win = x[idx[k - w + 1:k + 1]]
-            out[idx[k]] = [win[:, 0].mean(), win[:, 1].mean(), win[:, 2].mean(), win[-1, 3],
-                           win[:, 0].std(), win[:, 1].std(), (win[:, 1] / win[:, 0]).mean()]
-    return out
 
 
 class WindowDataset(Dataset):

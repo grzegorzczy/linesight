@@ -659,6 +659,11 @@ h1('10zb. Model kondycji napędu – PyTorch (E4-07)');
 p('Autoenkoder 7 cech okna 32 sztuk (7 -> 16 -> 2 -> 16 -> 7), własna pętla treningowa, early stopping, eksport ONNX. Wynik obok B1 i B2.');
 step('LAPTOP', 'Trening i porównanie', ['pip install torch', 'python anomaly\\model.py data\\drive_raw.csv', 'start data\\model.png', 'start data\\model_train.png'], 'pip install torch tylko, jeśli brak. Wynik: data\\model_results.csv, models\\drive_ae.onnx, models\\drive_ae.json.');
 
+h1('10zc. Kondycja napędu na żywo (E4-08)');
+p('Usługa diag liczy po każdej sztuce wynik modelu (ONNX Runtime) i zapisuje do drive_health. Grafana: kondycja %, schemat napędu (Canvas), wynik / próg.');
+step('LAPTOP', 'Tabela, nowa wersja diag, dashboard', ['docker exec -i linesight-db psql -U linesight < infra\\db\\31-drive-health.sql', 'docker compose -f infra/docker-compose.yml up -d --build diag', 'docker restart linesight-grafana', 'docker logs --tail 10 linesight-diag'], 'W logu: Napęd: model … i co 5 s Napęd: +N sztuk, kondycja … %. Model: models\\drive_ae.onnx + .json z anomaly\\model.py.');
+step('PLC', 'Test na żywo', 'xInjWear := TRUE … po ok. 2 min ALARM … xInjWear := FALSE', 'Zużycie narasta przez tWearRamp (10 min po sesji danych).');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [

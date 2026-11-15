@@ -1,0 +1,6 @@
+# Kontekst budowania z głównego folderu (usługa diag, E4-08): wysyłamy do Dockera tylko to, co potrzebne,
+# a nie .venv, dane, modele i nagrania (gigabajty). Pozostałe obrazy budują się z własnych folderów.
+*
+!diag/
+!anomaly/data.py
+!anomaly/features.py

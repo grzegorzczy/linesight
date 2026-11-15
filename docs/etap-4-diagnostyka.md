@@ -395,3 +395,37 @@ python anomaly\model.py data\drive_raw.csv
 start data\model.png
 start data\model_train.png
 ```
+
+## E4-08 – kondycja napędu na żywo (laptop)
+
+- `diag/drive_health.py` w pętli usługi `diag` (co 5 s): surowe sygnały z ostatnich 10 min + ostatnia wartość każdego
+  sprzed okna (most wysyła tylko zmiany; temperatura w ustalonej pracy nie zmienia się minutami) → **te same funkcje co
+  w treningu** (`anomaly/data.pieces`, `anomaly/features.window_features`) → normalizacja i próg z `models/drive_ae.json`
+  → model ONNX (onnxruntime, bez PyTorcha) → tabela `drive_health` (wynik, wynik / próg, alarm po 20 sztukach, kondycja %).
+- `anomaly/features.py`: cechy okna wydzielone z `model.py` – jeden kod dla treningu i produkcji (bez rozjazdu
+  trening/produkcja, ang. *training-serving skew*). Obraz `diag` budowany z głównego folderu (`context: ..`), do kontenera
+  trafiają tylko potrzebne pliki (`.dockerignore` w głównym folderze: lista dozwolonych).
+- Model poza repo i obrazem: `models/` podmontowany tylko do odczytu (`../models:/models:ro`). Nowy model = nowy plik
+  i restart kontenera, bez przebudowy (wersjonowanie modeli w GCP – etap 6). Brak modelu = kondycja wyłączona,
+  postoje działają dalej; błąd modelu nie zatrzymuje diagnostyki postojów.
+- Kondycja [%] dla operatora (`features.health_pct`): skala log. wyniku / progu – 100 % przy ≤ 0,3 progu, ok. 66 % na
+  progu, 0 % przy ≥ 10 progach. Kolory: zielony ≥ 80 %, pomarańczowy 66–80 %, czerwony < 66 %.
+- Grafana: **Kondycja napędu** (wskaźnik), **Napęd taśmy – schemat i kondycja** (panel Canvas: silnik w kolorze kondycji,
+  taśma, bieżący moment średni i szczytowy, prąd, temperatura, stan „praca normalna / ALARM”), **wynik / próg** (log.,
+  linia progu, czerwone tło przy alarmie).
+
+Sprawdzone lokalnie (PostgreSQL 16, dane z sesji 15.11 przesunięte do „teraz”): ostatnie 10 min pracy normalnej –
+359 sztuk, kondycja ≥ 80 %, 0 alarmów; drugi przebieg bez duplikatów; okno z 3. epizodem zużycia – alarm, kondycja 0 %.
+
+Uruchomienie (LAPTOP; `models\drive_ae.onnx` i `.json` z `python anomaly\model.py`):
+```
+git pull
+git checkout etap4/e4-08-drive-online
+docker exec -i linesight-db psql -U linesight < infra\db\31-drive-health.sql
+docker compose -f infra/docker-compose.yml up -d --build diag
+docker restart linesight-grafana
+docker logs --tail 10 linesight-diag
+```
+Test na żywo: `xInjWear := TRUE` (zużycie narasta przez `tWearRamp` = 10 min) → po ok. 2 min alarm; `xInjWear := FALSE`.
+
+Wynik: *(uzupełnić po teście)*
