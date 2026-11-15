@@ -641,6 +641,10 @@ step('SSH2', 'Serwer klipów HTTP', 'cd ~/linesight_clips && python3 -m http.ser
 step('LAPTOP', 'Nowa wersja diag', ['python diag\\test_rules.py', 'docker compose -f infra/docker-compose.yml up -d --build diag']);
 step('LAPTOP', 'Postoje z klipami', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, \'HH24:MI:SS\') AS start_utc, cause, confidence, evidence->\'clip_at_s\' AS klip_s, clip FROM stop_event WHERE t_start > now() - interval \'1 hour\' ORDER BY stop_event.t_start"');
 
+h1('10z. Grafana: postoje (E4-05)');
+step('LAPTOP', 'Nowe panele', ['git pull', 'docker restart linesight-grafana']);
+step('WWW', 'Dashboard', 'http://localhost:3000', 'Tabela „Postoje – dlaczego linia stanęła”: przyczyna, pewność, kamera, klip (link). Słupki: liczba i łączny czas postojów wg przyczyny (Pareto). Zakres np. Last 3 hours.');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [

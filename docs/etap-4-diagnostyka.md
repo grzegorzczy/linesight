@@ -220,3 +220,27 @@ postoju), odtwarzany w przeglądarce z http://192.168.0.124:8080/. Usługa dopis
 Postoje bez wady w kadrze (B, C, D) – bez klipu, zgodnie z założeniem.
 Pułapka: serwer `http.server` żyje tylko w otwartym oknie SSH (Ctrl+C / `exit` go zatrzymuje) – trwałe uruchomienie
 (usługa systemd) w etapie 7, jeśli będzie potrzebne do demo.
+
+## E4-05 – Grafana: postoje (laptop)
+
+Dashboard „LineSight – linia” (`infra/grafana/dashboards/linesight.json`), nowe panele pod wykresami sztuk i czasu cyklu:
+
+| Panel | Dane |
+|---|---|
+| **Postoje – dlaczego linia stanęła** (tabela) | `stop_event` z zakresu czasu: początek, czas trwania, „trwa nadal”, przyczyna (kolor), pewność (tło: zielone potwierdzona, czerwone sprzeczna), druga przyczyna, kod PLC, co kamera widziała w oknie, uwaga, **klip** – nazwa pliku jako link do serwera HTTP na Jetsonie |
+| **Liczba postojów wg przyczyny** (słupki) | `count(*)` wg `cause` |
+| **Łączny czas postojów wg przyczyny** (słupki) | suma czasu postojów **przycięta do zakresu** (`LEAST`/`GREATEST`) – postój dłuższy niż zakres liczy się tylko w części, która się w nim mieści; to analiza Pareto: od której przyczyny zacząć poprawę |
+
+Postój „należy” do zakresu, gdy na niego zachodzi (`t_start <= koniec zakresu AND koniec postoju >= początek zakresu`),
+a nie tylko gdy w nim się zaczął – inaczej postój trwający od wczoraj zniknąłby z widoku. Link do klipu: mapowanie wartości
+typu regex skraca URL do nazwy pliku, a łącze danych (`${__value.raw}`) otwiera pełny adres w nowej karcie.
+
+Uruchomienie (LAPTOP): Grafana czyta pliki dashboardów co kilkanaście sekund; restart przyspiesza.
+```
+git pull
+git checkout etap4/e4-05-grafana
+docker restart linesight-grafana
+```
+http://localhost:3000, zakres „Last 3 hours” (postoje z porannych testów).
+
+Wynik: *(uzupełnić po teście)*
