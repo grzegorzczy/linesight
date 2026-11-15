@@ -189,13 +189,15 @@ pytania i odpowiedzi po polsku i angielsku (obowiązkowo).
 Zasada: konkretny postój pobieramy deterministycznie (SQL po czasie), wyszukiwanie wektorowe tylko dla
 instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
 
-- [ ] **E5-01 – pgvector w bazie** · laptop · 0,5 h · `CREATE EXTENSION vector`, tabela `kb_chunk` (`infra/db/40-kb.sql`)
+- [x] **E5-01 – pgvector w bazie** · laptop · 0,5 h · `CREATE EXTENSION vector`, tabela `kb_chunk` (`infra/db/40-kb.sql`)
       *(15.11: pgvector 0.8.1 jest już w obrazie timescaledb 2.25.2-pg17 – bez własnego obrazu)*
-- [ ] **E5-02 – baza wiedzy** · repo · 0,5 dnia · `docs/kb/*.md`: stany PackML, kody 1/101/201/301/302,
+- [x] **E5-02 – baza wiedzy** · repo · 0,5 dnia · `docs/kb/*.md`: stany PackML, kody 1/101/201/301/302,
       procedury usuwania, kondycja napędu; zgodna z kodem PLC, zweryfikowana przez Grzegorza
-- [ ] **E5-03 – indeksowanie** · laptop · 0,5 dnia · podział na fragmenty wg nagłówków, embeddingi
+- [x] **E5-03 – indeksowanie** · laptop · 0,5 dnia · podział na fragmenty wg nagłówków, embeddingi
       `multilingual-e5-small`, zapis do `kb_chunk`; zamknięte postoje jako przypadki (`kind='case'`);
       zapytanie testowe zwraca właściwy fragment
+      *(15.11: 33 fragmenty + 27 postojów; 4/4 zapytania z właściwym źródłem w top-2, w tym pytanie EN → polska
+      sekcja; odległości tylko 0,11–0,18 – progu „nie wiem” nie opieramy na odległości)*
 - [ ] **E5-04 – kontekst postoju** · laptop · 0,5 dnia · SQL: `stop_event` + sygnały 30 s wstecz + `drive_health`
       → tekst kontekstu z identyfikatorami źródeł
 - [ ] **E5-05 – usługa assistant** · laptop, Docker · 0,5 dnia · FastAPI `/ask`; odpowiedź z cytatami [S1]…,

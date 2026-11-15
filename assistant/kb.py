@@ -7,6 +7,7 @@ Wektory są normalizowane (długość 1), więc odległość kosinusowa pgvector
 """
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 DB_DSN = os.environ.get("DB_DSN", "postgresql://linesight:linesight@localhost:5432/linesight")
 MODEL = os.environ.get("EMBED_MODEL", "intfloat/multilingual-e5-small")
@@ -48,9 +49,12 @@ def manual_chunks():
 class Embedder(object):
     def __init__(self, model=MODEL):
         from sentence_transformers import SentenceTransformer   # import tu: chunk_markdown działa bez torcha
-        self.m = SentenceTransformer(model)
+        try:                    # model już w cache: bez zapytań do Hugging Face (ostrzeżenia, zerwane połączenia)
+            self.m = SentenceTransformer(model, local_files_only=True)
+        except Exception:       # pierwsze uruchomienie: pobranie (ok. 470 MB)
+            self.m = SentenceTransformer(model)
         print("Embeddingi: {} ({} wymiarów, urządzenie {})".format(
-            model, self.m.get_sentence_embedding_dimension(), self.m.device), flush=True)
+            model, self.m.get_embedding_dimension(), self.m.device), flush=True)
 
     def passages(self, texts):
         return self.m.encode(["passage: " + t for t in texts], normalize_embeddings=True, batch_size=16)
@@ -79,3 +83,37 @@ def connect():
     conn = psycopg.connect(DB_DSN, autocommit=True)
     register_vector(conn)       # numpy.ndarray <-> typ vector
     return conn
+
+
+TZ = ZoneInfo("Europe/Warsaw")
+STATE = {1: "Clearing", 2: "Stopped", 3: "Starting", 4: "Idle", 5: "Suspended", 6: "Execute", 7: "Stopping",
+         8: "Aborting", 9: "Aborted", 11: "Held", 15: "Resetting"}
+
+
+def case_text(r):
+    """Wiersz stop_event -> opis postoju po polsku (jedno źródło 'stop:<t_start UTC ISO>')."""
+    t_start, t_end, state, reason, cause, conf, ev, clip = r
+    ev = ev or {}
+    plc, vis = ev.get("plc", {}), ev.get("vision", {})
+    states = ", ".join("{} ({})".format(STATE.get(s, "nieznany"), s) for s in plc.get("states", [state]))
+    lines = [
+        "Postój {} czasu lokalnego, trwał {:.0f} s.".format(
+            t_start.astimezone(TZ).strftime("%d.%m.%Y %H:%M:%S"), (t_end - t_start).total_seconds()),
+        "Stany po Execute: {}. Kod iStopReason: {}.".format(states, reason),
+        "Przyczyna: {}, pewność: {}.".format(cause, conf),
+    ]
+    if ev.get("secondary"):
+        lines.append("Kolejne przyczyny w tym postoju: {}.".format(", ".join(ev["secondary"])))
+    lines.append("Sztuk w 30 s przed postojem: {}, ostatni czas cyklu: {} ms.".format(
+        plc.get("pieces_in_window"), plc.get("cycle_ms")))
+    if vis.get("offline_in_window"):
+        lines.append("Kamera była offline w oknie postoju.")
+    else:
+        lines.append("Kamera: obiekty {}, przewrócone butelki w chwilach {} s względem postoju, "
+                     "ostatnia sztuka {} s przed postojem.".format(
+                         ", ".join("{} {}".format(c, n) for c, n in (vis.get("counts") or {}).items()) or "brak",
+                         ", ".join(str(x) for x in vis.get("fallen_at_s") or []) or "brak", vis.get("last_item_s_before")))
+    if ev.get("note"):
+        lines.append("Uwaga: {}.".format(ev["note"]))
+    lines.append("Klip: {}.".format(clip or "brak"))
+    return "\n".join(lines)
