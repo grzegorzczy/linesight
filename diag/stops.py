@@ -28,3 +28,25 @@ def find_stops(changes, initial=None):
             current = None
         prev = state
     return stops
+
+
+def merge_stops(stops, min_run_s=2.0):
+    """Łączy postoje, między którymi linia pracowała krócej niż min_run_s sekund.
+
+    Przykład z 14.11: Held do 17:02:33.131, Suspended od 17:02:33.328 – jeden cykl zadania (200 ms) w Execute.
+    Dla operatora to jeden postój z dwiema przyczynami. Wynik ma pole "states": wszystkie pierwsze stany po kolei.
+    Czasy muszą obsługiwać odejmowanie (datetime albo liczby); różnica datetime -> timedelta.
+    """
+    merged = []
+    for s in stops:
+        s = dict(s, states=[s["state"]])
+        prev = merged[-1] if merged else None
+        if prev is not None and prev["t_end"] is not None:
+            gap = s["t_start"] - prev["t_end"]
+            gap = gap.total_seconds() if hasattr(gap, "total_seconds") else gap
+            if gap < min_run_s:
+                prev["t_end"] = s["t_end"]
+                prev["states"].append(s["state"])
+                continue
+        merged.append(s)
+    return merged

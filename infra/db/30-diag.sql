@@ -11,4 +11,6 @@ CREATE TABLE IF NOT EXISTS stop_event (
     clip        TEXT,                      -- E4-04: link do klipu
     updated     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- E4-03: pewność przyczyny – czy kamera potwierdza kod PLC (potwierdzona / tylko_plc / sprzeczna).
+ALTER TABLE stop_event ADD COLUMN IF NOT EXISTS confidence TEXT;
 GRANT SELECT ON stop_event TO grafana_ro;
