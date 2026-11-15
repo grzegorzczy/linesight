@@ -5,3 +5,6 @@ sentence-transformers==6.3.0   # model embeddingów intfloat/multilingual-e5-sma
 pgvector==0.5.1                # typ vector dla psycopg (numpy <-> pgvector)
 psycopg[binary]==3.3.9         # ta sama wersja co w diag
 tzdata                         # strefa Europe/Warsaw na Windowsie (zoneinfo nie ma jej w systemie)
+requests==2.34.2               # E5-05: HTTP do Ollamy i Gemini (bez SDK – jeden format wywołania, łatwa podmiana)
+fastapi==0.163.1               # E5-05: usługa /ask
+uvicorn==0.54.0                # serwer ASGI dla FastAPI

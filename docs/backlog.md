@@ -198,7 +198,7 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       zapytanie testowe zwraca właściwy fragment
       *(15.11: 33 fragmenty + 27 postojów; 4/4 zapytania z właściwym źródłem w top-2, w tym pytanie EN → polska
       sekcja; odległości tylko 0,11–0,18 – progu „nie wiem” nie opieramy na odległości)*
-- [ ] **E5-04 – kontekst postoju** · laptop · 0,5 dnia · SQL: `stop_event` + sygnały 30 s wstecz + `drive_health`
+- [x] **E5-04 – kontekst postoju** · laptop · 0,5 dnia · SQL: `stop_event` + sygnały 30 s wstecz + `drive_health`
       → tekst kontekstu z identyfikatorami źródeł
 - [ ] **E5-05 – usługa assistant** · laptop, Docker · 0,5 dnia · FastAPI `/ask`; odpowiedź z cytatami [S1]…,
       link do klipu, „nie wiem”, gdy kontekst nie wystarcza
