@@ -450,3 +450,55 @@ pole nad progiem myliło się z tłem alarmu – zostaje sama linia progu.
 ![Grafana: praca normalna](img/e4-08-grafana-normalna.png)
 
 ![Grafana: zużycie – kondycja 37 %](img/e4-08-grafana-alarm.png)
+
+## Pytania z rozmowy technicznej (etap 4)
+
+**1. Przyczyna postoju: dlaczego kod PLC + kamera jako potwierdzenie, a nie sam kod PLC?**
+Kod PLC to to, co maszyna mówi o sobie – czujnik może się mylić (zabrudzona fotokomórka zgłasza „brak produktu”, choć
+butelki jadą). Kamera to drugie, niezależne źródło: zgodność = `potwierdzona`, sprzeczność = `sprzeczna` (najcenniejszy
+przypadek – ktoś powinien to obejrzeć). Dwie pułapki znalezione na żywo: brak zdarzeń z wyłączonej kamery to brak danych,
+nie dowód (stąd `kamera offline` → `tylko_plc`), a przewrócona butelka, która wyjaśniła poprzedni zator, nie może
+potwierdzić następnego (okno od końca poprzedniego postoju). `xInj*` nie są wejściem reguł – to prawda symulacji, w
+zakładzie jej nie ma; użyte w regułach dałyby 100 % trafności z przecieku.
+
+**2. Dlaczego `diag` odpytuje bazę co 5 s i liczy wszystko od nowa, zamiast reagować na wiadomość MQTT o zmianie stanu?**
+Dane z przerwy przychodzą z opóźnieniem i nie po kolei (kolejka brokera, E4-01), kamera ustala klasę ok. 5 s po przecięciu
+linii. Przeliczanie z historii i zapis UPSERT-em (`ON CONFLICT DO UPDATE`) jest idempotentne: spóźnione dane same poprawiają
+wynik, restart usługi niczego nie gubi i nie dubluje, pierwszy przebieg odtwarza wczorajsze postoje bez osobnego skryptu.
+Koszt: do 5 s opóźnienia i powtarzane zapytania – przy kilkudziesięciu postojach na dobę bez znaczenia. Przy tysiącach
+zdarzeń na sekundę: przetwarzanie strumieniowe z „watermarkiem” (ile czekać na spóźnione dane).
+
+**3. Jak dzielisz dane do modelu kondycji napędu i jak wybierasz próg?**
+Wg czasu, nie losowo: train = przed 1. epizodem zużycia (tylko praca normalna, z zimnym startem), val = do 2. epizodu,
+test = reszta (epizody 2–3, ok. 2 h pracy normalnej, zimny start bez zużycia). Losowo tasowane sąsiednie sztuki są prawie
+identyczne – test „przeciekłby” do treningu, a model w produkcji i tak widzi tylko przeszłość. Normalizacja z samego
+treningu. Próg = kwantyl 99,9 % wyniku w normalnej części walidacji, bez zaglądania w epizody; alarm po 20 sztukach nad
+progiem (jak opóźnienie alarmu w SCADA). Konfigurację (okno, gardło) wybierałem na walidacji, test uruchomiony raz.
+Słabość: 3 epizody – różnice rzędu 2 p.p. zużycia są w granicach przypadku; uczciwie mówię to wprost.
+
+**4. Po co autoenkoder, skoro regresja moment ~ temperatura (B2) działa? Dlaczego pierwsza wersja przegrała?**
+Baseline najpierw: B1 (EWMA na momencie) alarmuje po każdym zimnym starcie (6,6 % normalnej pracy w alarmie), B2 zna
+temperaturę i wykrywa przy 16–19 % zużycia. AE na 7 cechach okna (średnie, rozrzut, stosunek szczyt/średni, temperatura)
+widzi też kształt cyklu: na teście 14–17 %, 0 fałszywych alarmów, przy zużyciu wynik 100–300× progu (B2 ok. 15×).
+Na walidacji B2 był o 2 p.p. lepszy – przewaga mała. Pierwsza wersja (AE surowego okna 32 × 4) wykrywała dopiero przy
+29–30 %: uczyła się odtwarzać szum pojedynczych sztuk, którego nie da się przewidzieć; uśrednienie w oknie usuwa szum.
+Gdyby AE nie pobił B2 – wdrażam B2 (prostszy, tłumaczalny); firma pisze, że tak wybiera.
+
+**5. Jak wdrożyłeś model i co może się zepsuć w produkcji?**
+ONNX (329 wag) w usłudze `diag` przez onnxruntime – bez PyTorcha w kontenerze. Cechy liczy ten sam plik co w treningu
+(`anomaly/features.py`), żeby nie było rozjazdu trening/produkcja (np. inne odchylenie standardowe = model dostaje dane,
+których nie widział). Model i próg poza obrazem (`models/` tylko do odczytu) – nowa wersja bez przebudowy (rejestr w GCP,
+etap 6). Ryzyka: (a) dryf – nowy format butelki zmienia moment, a model uzna to za zużycie: potrzebna informacja
+o formacie z PLC jako cecha albo osobny model / retrening; (b) mało zimnych startów w treningu – przy zimnym starcie wynik
+dotknął progu; (c) zgubione wiadomości (7 na 9000) – licznik sztuk to wykrywa; (d) monitoring samego modelu: rozkład
+wyniku w pracy normalnej w czasie (jeśli rośnie bez alarmów serwisowych – degradacja modelu, plan retreningu).
+
+## Podsumowanie etapu 4 (15.11)
+
+- **Diagnostyka postojów:** `stop_event` (postój = wyjście z Execute do powrotu, łańcuch stanów jako jeden postój,
+  łączenie postojów < 2 s), przyczyna z kodu PLC, pewność z kamery, dowody w JSON, link do klipu z Jetsona, Grafana:
+  tabela postojów i Pareto (zatory najczęstsze, awarie najdroższe).
+- **Kondycja napędu:** symulacja w PLC (moment, prąd, temperatura, zimny start, zużycie), sesja danych przez OPC UA
+  (8918 sztuk, 3 epizody), baseline B1/B2, autoenkoder PyTorch z własną pętlą, ONNX w `diag`, Grafana: kondycja %,
+  schemat napędu (Canvas), wynik / próg. Test na żywo: alarm przy ok. 15 % zużycia.
+- **Infrastruktura:** Mosquitto z trwałością i kolejką 100 000.
