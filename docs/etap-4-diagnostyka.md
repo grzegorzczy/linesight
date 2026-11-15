@@ -93,9 +93,18 @@ docker exec -i linesight-db psql -U linesight < infra\db\30-diag.sql
 python diag\test_stops.py
 docker compose -f infra/docker-compose.yml up -d --build diag
 docker logs linesight-diag
-docker exec linesight-db psql -U linesight -d linesight -c "SELECT t_start::time, t_end::time, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY t_start"
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, 'MM-DD HH24:MI:SS') AS start_utc, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY stop_event.t_start"
 ```
 Test na żywo: w CODESYS `xInjJam := TRUE` → w ciągu 5 s w logu `NOWY postój …, stan 11 (Held), kod PLC 101`;
 `xInjJam := FALSE` → `ZMIANA postój … – <koniec>`.
 
-Wynik: *(uzupełnić po teście)*
+Wynik (15.11):
+- `8 testów zaliczonych`; pierwszy przebieg odtworzył 5 postojów z 14.11 (16:25–17:49 UTC).
+- Test na żywo, 3 × `xInjJam`: postoje 12, 16 i 13 s, stan 11 (Held), kod 101; wiersz pojawia się w ciągu 5 s
+  jako „trwa”, w następnym przebiegu po powrocie do Execute dostaje koniec.
+- Stan **0** (14.11 17:08:47–17:14:14, 327 s, kod 0): wgrywanie poprawionego programu – po pobraniu zmienne startują
+  od 0. Linia naprawdę nie pracowała, więc postój zostaje; przyczyna „restart PLC / brak danych” w E4-03.
+- Held do 17:02:33.131, Suspended od 17:02:33.328: między postojami jeden cykl zadania (200 ms) w Execute.
+  Dla operatora to jeden postój z dwiema przyczynami → w E4-03 łączenie postojów oddzielonych pracą < 2 s.
+- Pułapka w zapytaniu: `ORDER BY t_start` po `t_start::time` sortowało wg aliasu (sama godzina, bez daty) –
+  postoje z 15.11 wyszły przed 14.11. Poprawka: `ORDER BY stop_event.t_start` i data w wyniku.

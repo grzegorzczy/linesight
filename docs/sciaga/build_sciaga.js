@@ -620,7 +620,7 @@ h1('10w. Postoje: usługa diag (E4-02)');
 p('Postój = wyjście z Execute do powrotu do Execute; tabela stop_event, usługa diag co 5 s (UPSERT, ostatnie 24 h).');
 step('LAPTOP', 'Tabela i testy (raz)', ['docker exec -i linesight-db psql -U linesight < infra\\db\\30-diag.sql', 'python diag\\test_stops.py']);
 step('LAPTOP', 'Start usługi', ['docker compose -f infra/docker-compose.yml up -d --build diag', 'docker logs linesight-diag']);
-step('LAPTOP', 'Lista postojów', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT t_start::time, t_end::time, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY t_start"', 'Czasy w UTC. state: 11 Held (zator), 5 Suspended (brak produktu), 8 Aborting (awaria), 7 Stopping (operator).');
+step('LAPTOP', 'Lista postojów', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, \'MM-DD HH24:MI:SS\') AS start_utc, round(extract(epoch FROM t_end - t_start)) AS s, state, stop_reason FROM stop_event ORDER BY stop_event.t_start"', 'Czasy w UTC. state: 11 Held (zator), 5 Suspended (brak produktu), 8 Aborting (awaria), 7 Stopping (operator).');
 
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
