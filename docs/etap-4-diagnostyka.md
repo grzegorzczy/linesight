@@ -243,4 +243,7 @@ docker restart linesight-grafana
 ```
 http://localhost:3000, zakres „Last 3 hours” (postoje z porannych testów).
 
-Wynik: *(uzupełnić po teście)*
+Wynik (15.11, zakres 3 h): tabela pokazuje wszystkie postoje dnia z przyczyną, pewnością i uwagami („kamera offline w oknie”
+dla porannych zatorów sprzed uruchomienia Jetsona, „kamera: przewrócona butelka w oknie” przy awarii 09:57); klipy klikalne.
+Słupki: zator 6, brak produktu 4, awaria 2; łączny czas: awaria 6,39 min (295 + 89 s), brak produktu 1,30 min, zator 1,11 min –
+mało częste awarie kosztują najwięcej czasu, czyli dokładnie to, co pokazuje analiza Pareto.
