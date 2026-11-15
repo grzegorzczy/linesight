@@ -174,4 +174,10 @@ Wynik – pierwsza próba (15.11, 08:47–08:57 UTC), przed poprawkami:
 | 08:57:00 | E: przewrócona + awaria | `awaria / tylko_plc`, `fallen: 1` | OK |
 
 Połączenie postojów z 14.11 zadziałało: 17:01:59 trwa 36 s (zator + brak produktu), rekord Suspended z 17:02:33 usunięty.
+Po poprawkach (ta sama doba przeliczona przez usługę): 08:47:48 → `tylko_plc` (`offline_in_window: true`),
+08:55:55 → `tylko_plc` (puste `counts`), 08:56:28 → `potwierdzona` słusznie (`last_item_s_before: null` – butelka
+przeszła dopiero po postoju). Powtórka D (09:06:07): 6 butelek, ostatnia 15,7 s przed postojem → `potwierdzona` –
+reguła poprawna, to czas przełączenia zmiennej w CODESYS (jedna osoba nie przesunie butelki i nie kliknie naraz).
+Progu 10 s nie zmieniamy pod test (40 szt./min = sztuka co 1,5 s, 10 s ciszy ≈ 6 brakujących sztuk);
+`sprzeczna` pokrywa test jednostkowy. Ułatwienie na przyszłość: Prepared value + Ctrl+F7 (Write values).
 Obie poprawki sprawdzone lokalnie (11 testów + przypadek „przewrócona butelka w czasie poprzedniego postoju” → `tylko_plc`).

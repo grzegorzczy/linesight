@@ -152,11 +152,13 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       = koniec; tabela `stop_event` (początek, koniec, czas trwania, stan, `iStopReason`); logika jako czysta
       funkcja z testami, uruchamiana także wstecz na danych z bazy (odtworzenie postojów z 14.11)
       → 15.11: 5 postojów z 14.11 odtworzonych, 3 zatory na żywo (12/16/13 s); stan 0 = wgranie programu
-- [ ] **E4-03 – reguły przyczyny** · laptop · 0,5 dnia · przyczyna (zator / brak produktu / awaria /
+- [x] **E4-03 – reguły przyczyny** · laptop · 0,5 dnia · przyczyna (zator / brak produktu / awaria /
       zatrzymanie operatora / nieznana) z dowodami: kod PLC, sygnały z `signals_before(t, '30 s')`,
       zdarzenia kamery w oknie; zgodność PLC–kamera (np. „PLC: zator, kamera: przewrócona butelka 4 s
       wcześniej” vs „PLC: zator, kamera nic nie widziała”); test na scenariuszach wstrzykniętych ręcznie,
       także trudnych (zator bez wady, wada bez postoju)
+      → 15.11: A, B, C, E i awaria zgodne; 2 błędy reguł znalezione na żywo i poprawione (kamera offline,
+      dowód z poprzedniego postoju); D „sprzeczna” tylko w teście (opóźnienie ręcznego przełączenia)
 - [ ] **E4-04 – klip przy postoju** · Jetson + laptop · 1-2 h · klip ze zdarzenia kamery w oknie postoju
       dostępny przez HTTP z Jetsona; link w `stop_event`; brak klipu jest informacją, nie błędem
 - [ ] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
