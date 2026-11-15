@@ -8,12 +8,12 @@ VAR_IN_OUT
 END_VAR
 VAR
     i : INT;
-    s : REAL;                        // zmienne funkcji startują od 0 przy każdym wywołaniu
+    rSum : REAL;                     // zmienne funkcji startują od 0 przy każdym wywołaniu; nie „s”: S i R to słowa kluczowe IEC (Set/Reset)
 END_VAR
 
 // --- część implementacji ---
 FOR i := 1 TO 4 DO
     udiSeed := udiSeed * 1103515245 + 12345;
-    s := s + UDINT_TO_REAL((udiSeed / 65536) MOD 32768) / 32768.0;
+    rSum := rSum + UDINT_TO_REAL((udiSeed / 65536) MOD 32768) / 32768.0;
 END_FOR
-F_Gauss := (s - 2.0) * 1.7320508;    // suma 4 x U(0,1): średnia 2, wariancja 4/12 -> skalowanie do odchylenia 1
+F_Gauss := (rSum - 2.0) * 1.7320508;    // suma 4 x U(0,1): średnia 2, wariancja 4/12 -> skalowanie do odchylenia 1
