@@ -39,6 +39,7 @@ services:
       - pgdata:/var/lib/postgresql/data              # dane przeżywają `docker compose down`
       - ./db/init.sql:/docker-entrypoint-initdb.d/10-linesight.sql:ro   # schemat, tylko przy pustym wolumenie
       - ./db/20-grafana-ro.sql:/docker-entrypoint-initdb.d/20-grafana-ro.sql:ro
+      - ./db/30-diag.sql:/docker-entrypoint-initdb.d/30-diag.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U linesight -d linesight"]
       interval: 5s
@@ -56,6 +57,16 @@ services:
         condition: service_healthy
     environment:
       MQTT_HOST: mosquitto
+      DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
+
+  diag:   # E4-02: postoje linii (stop_event) z historii stanu PackML
+    build: ../diag
+    container_name: linesight-diag
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
       DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
 
   grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)

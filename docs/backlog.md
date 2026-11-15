@@ -147,10 +147,11 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       Test: ingest zatrzymany 10 min → licznik `udiProdProcessed` w bazie bez dziur; restart brokera przy
       zatrzymanym ingest → po starcie ingest dane z przerwy są w bazie
       → 14.11: przerwa 12 min (≈ 1400 wiad.) 1189/1189 bez dziur; restart brokera 595/595
-- [ ] **E4-02 – zdarzenie postoju** · laptop, Docker · 0,5 dnia · nowa usługa `diag` (Python):
+- [x] **E4-02 – zdarzenie postoju** · laptop, Docker · 0,5 dnia · nowa usługa `diag` (Python):
       wyjście z `Execute` (Held / Suspended / Aborting / Stopping) = początek postoju, powrót do `Execute`
       = koniec; tabela `stop_event` (początek, koniec, czas trwania, stan, `iStopReason`); logika jako czysta
       funkcja z testami, uruchamiana także wstecz na danych z bazy (odtworzenie postojów z 14.11)
+      → 15.11: 5 postojów z 14.11 odtworzonych, 3 zatory na żywo (12/16/13 s); stan 0 = wgranie programu
 - [ ] **E4-03 – reguły przyczyny** · laptop · 0,5 dnia · przyczyna (zator / brak produktu / awaria /
       zatrzymanie operatora / nieznana) z dowodami: kod PLC, sygnały z `signals_before(t, '30 s')`,
       zdarzenia kamery w oknie; zgodność PLC–kamera (np. „PLC: zator, kamera: przewrócona butelka 4 s
