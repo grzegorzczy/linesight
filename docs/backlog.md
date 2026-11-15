@@ -159,8 +159,9 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       także trudnych (zator bez wady, wada bez postoju)
       → 15.11: A, B, C, E i awaria zgodne; 2 błędy reguł znalezione na żywo i poprawione (kamera offline,
       dowód z poprzedniego postoju); D „sprzeczna” tylko w teście (opóźnienie ręcznego przełączenia)
-- [ ] **E4-04 – klip przy postoju** · Jetson + laptop · 1-2 h · klip ze zdarzenia kamery w oknie postoju
+- [x] **E4-04 – klip przy postoju** · Jetson + laptop · 1-2 h · klip ze zdarzenia kamery w oknie postoju
       dostępny przez HTTP z Jetsona; link w `stop_event`; brak klipu jest informacją, nie błędem
+      → 15.11: zator z przewróconą butelką → klip −10,5 s, odtwarzany w przeglądarce (`http.server` na Jetsonie)
 - [ ] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
       link do klipu), liczba i łączny czas postojów wg przyczyny
 - [ ] **E4-06 – dane czasu cyklu** · CODESYS + laptop · 0,5 dnia · realistyczny czas cyklu w PLC
