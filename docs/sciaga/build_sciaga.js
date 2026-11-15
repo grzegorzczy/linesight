@@ -649,6 +649,7 @@ h1('10za. Napęd taśmy: symulacja (E4-06)');
 p('CODESYS: nowe POU F_Gauss (Function, REAL) i FB_DriveSim (Function Block) z plc/src; dopisać GVL_Line i PLC_PRG; Build; Symbol Configuration; Login with online change.');
 step('LAPTOP', 'Most z nowymi zmiennymi i dashboard', ['git pull', 'git checkout etap4/e4-06-drive', 'docker compose -f infra/docker-compose.yml up -d --build bridge', 'docker restart linesight-grafana']);
 step('LAPTOP', 'Kontrola sygnałów (5 min)', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT name, count(*), round(min(value)::numeric,3) AS min, round(max(value)::numeric,3) AS max FROM plc_signal WHERE time > now() - interval \'5 minutes\' GROUP BY name ORDER BY name"', 'W pracy: moment ok. 2,0 Nm (zimny do 2,24), szczyt ok. 3,2, prąd ok. 3,2 A, temperatura rośnie do ok. 45 °C (10 min). xInjWear TRUE: zużycie rośnie do 1 w 20 min.');
+step('LAPTOP', 'Sesja danych napędu (scenariusz przez OPC UA)', ['python tools\\scenario.py --dry', 'python tools\\scenario.py --scale 0.05', 'python tools\\scenario.py'], 'Próba ok. 9 min, pełna sesja ok. 2 h 50 min. Okno zostawić otwarte. Dziennik: data\\scenario_<czas>.csv.');
 
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');

@@ -297,4 +297,18 @@ docker restart linesight-grafana
 docker exec linesight-db psql -U linesight -d linesight -c "SELECT name, count(*), round(min(value)::numeric,3) AS min, round(max(value)::numeric,3) AS max FROM plc_signal WHERE time > now() - interval '5 minutes' GROUP BY name ORDER BY name"
 ```
 
-Wynik: *(uzupełnić po teście)*
+Wynik (15.11): most subskrybuje 15 zmiennych; w pracy (silnik 34–35 °C) moment średni 1,94–2,20 Nm, szczytowy 3,02–3,57 Nm,
+prąd 3,12–3,43 A, ok. 40 wartości na minutę (1 na sztukę). Pułapki: (1) laptop na starej gałęzi – most zbudowany ze starą listą
+zmiennych (log: „subskrypcja 9 zmiennych”); (2) w CODESYS zmienna `s` – `S` i `R` to słowa kluczowe IEC (Set/Reset), stąd `rSum`.
+
+### Sesja danych (`tools/scenario.py`)
+
+Skrypt steruje linią przez OPC UA (zapis komend PackML jako zbocza, `xInjWear`, `tWearRamp` = 10 min) według planu
+(ok. 2 h 50 min): praca, postoje 3/5/15 min (zimne starty), 3 epizody zużycia po 15 min, w tym jeden zaraz po zimnym starcie.
+Dziennik kroków: `data/scenario_<czas>.csv`. Prawdą o zużyciu dla modelu jest `rSimWear` w bazie.
+```
+python tools\scenario.py --dry
+python tools\scenario.py --scale 0.05
+python tools\scenario.py
+```
+`--scale 0.05` – próba mechaniki w ok. 9 min (każdy krok 20× krótszy).
