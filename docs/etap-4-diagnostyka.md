@@ -338,4 +338,56 @@ python anomaly\data.py data\drive_raw.csv
 python anomaly\baseline.py data\drive_raw.csv
 ```
 
-Wynik na danych z PLC: *(uzupełnić)*
+Wynik na danych z PLC (sesja 15.11, 12:35–17:03; 8918 sztuk: train 2010, val 1189, test 5719; 3 epizody zużycia):
+
+| Metoda | Część | Wykryte | Opóźnienie [min] | Zużycie przy alarmie | Fałszywe alarmy/h | Normalna praca w alarmie |
+|---|---|---|---|---|---|---|
+| B1 EWMA moment | val | 1/1 | 1,9 | 18 % | 0 | 0 % |
+| B1 EWMA moment | test | 2/2 | 0,5; 1,6 | 5 %; 16 % | 1,10 | **6,6 %** |
+| B2 regresja temp + EWMA | val | 1/1 | 1,4 | 13 % | 0 | 0 % |
+| B2 regresja temp + EWMA | test | 2/2 | 1,9; 1,6 | 19 %; 16 % | 0,55 | 0,2 % |
+
+Wnioski: B1 alarmuje po każdym zimnym starcie (6,6 % normalnej pracy w alarmie), a jego „wykrycie” 2. epizodu po 0,5 min
+to zasługa zimnego startu, nie zużycia. B2 zna temperaturę – wykrywa przy 16–19 % zużycia, 1 fałszywy alarm na ok. 2 h.
+Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+Jakość danych: 7 na ok. 9000 zmian licznika sztuk nie dotarło do bazy (licznik +2 po ok. 3 s, bez postoju) – pojedyncza
+zgubiona wiadomość nie przerywa odcinka pracy (`data.py`); przyczyna (próbkowanie OPC UA czy most) do sprawdzenia.
+Pułapka eksportu: przed pierwszą zmianą stanu w oknie eksportu stan jest nieznany (most wysyła zmiany) – sztuka i tak
+oznacza Execute, inaczej wypadało pierwsze 30 min sesji.
+
+## E4-07 – model kondycji napędu w PyTorch (laptop)
+
+`anomaly/model.py`: autoenkoder **cech okna**, własna pętla treningowa (`Dataset`, `DataLoader`, Adam, MSE, walidacja,
+early stopping z zapisem najlepszych wag), eksport ONNX i parametrów wdrożenia (`models/drive_ae.json`).
+
+- Okno: ostatnie 32 sztuki (ok. 50 s) w obrębie odcinka pracy → 7 cech: średni moment średni i szczytowy, średni prąd,
+  temperatura, odchylenie momentu średniego i szczytowego, średni stosunek szczyt/średni. Normalizacja z treningu.
+- Sieć: 7 → 16 → **2** → 16 → 7 (Tanh), 417 parametrów; uczona tylko na pracy normalnej (z zimnym startem).
+- Wynik = błąd odtworzenia cech okna (MSE); próg i alarm jak w baseline (99,9 % walidacji, 20 sztuk nad progiem).
+
+**Pierwsza wersja nie wyszła:** autoenkoder surowego okna (32 × 4 wartości → 16 → 32 × 4) wykrywał przy 29–30 % zużycia,
+gorzej niż B2. Uczył się głównie odtwarzać szum pojedynczych sztuk, którego nie da się przewidzieć. Uśrednienie w oknie
+usuwa szum. W (16/32) i gardło (2/3) wybrane po wynikach na **walidacji**; test uruchomiony raz, na końcu.
+
+Wynik (te same dane, ziarno 0):
+
+| Metoda | Część | Wykryte | Opóźnienie [min] | Zużycie przy alarmie | Fałszywe alarmy/h |
+|---|---|---|---|---|---|
+| B2 regresja temp + EWMA | val | 1/1 | 1,4 | 13 % | 0 |
+| B2 regresja temp + EWMA | test | 2/2 | 1,9; 1,6 | 19 %; 16 % | 0,55 |
+| AE cech okna | val | 1/1 | 1,6 | 15 % | 0 |
+| AE cech okna | test | 2/2 | 1,8; 1,4 | **17 %; 14 %** | **0** |
+
+Uczciwie: na teście AE wykrywa ok. 2 punkty procentowe zużycia wcześniej i bez fałszywego alarmu, na walidacji B2 jest
+o 2 p.p. lepszy. To 3 epizody – różnica w granicach przypadku. Realna przewaga AE to **margines**: błąd odtworzenia
+w pracy normalnej ok. 0,2–0,9, przy pełnym zużyciu kilkaset (oś log. na `data/model.png`), B2 – od ok. 0,3 do 6.
+Większy margines = mniej czułości na wybór progu. Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 417 parametrów),
+B2 liczony obok jako kontrola – na rozmowie: „model musiał pobić regresję; pobił nieznacznie, ale ma 100× większy margines”.
+
+Uruchomienie (LAPTOP, .venv; torch, jeśli brak: `pip install torch`):
+```
+python anomaly\model.py data\drive_raw.csv
+start data\model.png
+start data\model_train.png
+```

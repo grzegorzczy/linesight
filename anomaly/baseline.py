@@ -66,6 +66,8 @@ def plot(df, eps, scores, path):
     for (name, s, thr), a in zip(scores, ax[1:]):
         a.plot(t, s, lw=0.8, label=name)
         a.axhline(thr, color="red", ls="--", lw=1, label="próg")
+        if name.startswith("AE"):            # błąd odtworzenia: od ok. 0,2 w pracy normalnej do kilkuset przy zużyciu
+            a.set_yscale("log")
         a.legend(loc="upper left")
     for a in ax:
         for e0, e1 in eps:

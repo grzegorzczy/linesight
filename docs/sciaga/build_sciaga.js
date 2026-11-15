@@ -655,6 +655,10 @@ step('LAPTOP', 'Dokładka po sesji: zimny start bez zużycia', 'python tools\\sc
 step('LAPTOP', 'Eksport danych napędu z bazy', 'docker exec linesight-db psql -U linesight -d linesight -c "\\copy (SELECT extract(epoch FROM time) AS t, name, value FROM plc_signal WHERE name IN (\'udiProdProcessed\',\'iStateCurrent\',\'rTorqueMean_Nm\',\'rTorquePeak_Nm\',\'rCurrent_A\',\'rMotorTemp_C\',\'rSimWear\',\'xInjWear\') AND time > \'2026-11-15 11:35:00+00\' ORDER BY time) TO STDOUT WITH CSV HEADER" > data\\drive_raw.csv');
 step('LAPTOP', 'Zbiór i baseline', ['python anomaly\\data.py data\\drive_raw.csv', 'python anomaly\\baseline.py data\\drive_raw.csv'], 'Wynik: tabela w konsoli, data\\baseline_results.csv, data\\baseline.png. B1 EWMA na momencie, B2 regresja moment ~ temperatura + EWMA.');
 
+h1('10zb. Model kondycji napędu – PyTorch (E4-07)');
+p('Autoenkoder 7 cech okna 32 sztuk (7 -> 16 -> 2 -> 16 -> 7), własna pętla treningowa, early stopping, eksport ONNX. Wynik obok B1 i B2.');
+step('LAPTOP', 'Trening i porównanie', ['pip install torch', 'python anomaly\\model.py data\\drive_raw.csv', 'start data\\model.png', 'start data\\model_train.png'], 'pip install torch tylko, jeśli brak. Wynik: data\\model_results.csv, models\\drive_ae.onnx, models\\drive_ae.json.');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [

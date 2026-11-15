@@ -164,7 +164,7 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       → 15.11: zator z przewróconą butelką → klip −10,5 s, odtwarzany w przeglądarce (`http.server` na Jetsonie)
 - [x] **E4-05 – Grafana: postoje** · laptop · 2 h · tabela postojów (czas, trwanie, przyczyna, dowody,
       link do klipu), liczba i łączny czas postojów wg przyczyny
-- [ ] **E4-06 – napęd taśmy: symulacja i dane** · CODESYS + laptop · 0,5 dnia · *(zmiana 15.11: zamiast czasu cyklu –
+- [x] **E4-06 – napęd taśmy: symulacja i dane** · CODESYS + laptop · 0,5 dnia · *(zmiana 15.11: zamiast czasu cyklu –
       kondycja napędu, jak w ogłoszeniu: „trendy parametrów, kondycja napędów na podstawie momentu”)* `FB_DriveSim`:
       moment średni i szczytowy na sztukę, prąd, temperatura (inercja 10 min), zimny start (+12 % momentu), zużycie
       `xInjWear` narastające przez `tWearRamp`; most i Grafana; sesja 2-3 h z postojami różnej długości i 3-4 epizodami

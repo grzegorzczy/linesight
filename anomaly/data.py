@@ -51,8 +51,10 @@ def pieces(raw, max_gap_s=10.0):
     # 15.11 – bez tego odpadało pierwsze 30 min sesji).
     base["state"] = base["state"].fillna(6)
     base = base[base["state"] == 6].dropna(subset=FEATURES).reset_index(drop=True)
-    # nowy odcinek pracy po przerwie między sztukami (postój) albo skoku licznika (wgranie programu)
-    new_seg = (base["t"].diff() > max_gap_s) | (base["piece"].diff() != 1)
+    # nowy odcinek pracy po przerwie między sztukami (postój) albo skoku licznika (wgranie programu, cofnięcie).
+    # Pojedyncza brakująca sztuka (licznik +2, ok. 3 s) to zgubiona wiadomość, nie postój – 15.11: 7 na ok. 9000.
+    dp = base["piece"].diff()
+    new_seg = (base["t"].diff() > max_gap_s) | (dp < 1) | (dp > 5)
     base["segment"] = new_seg.cumsum()
     base["wear"] = base["wear"].fillna(0.0)
     base["wearing"] = base["wearing"].fillna(0.0) > 0.5
