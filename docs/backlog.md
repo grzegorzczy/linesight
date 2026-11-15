@@ -200,9 +200,11 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       sekcja; odległości tylko 0,11–0,18 – progu „nie wiem” nie opieramy na odległości)*
 - [x] **E5-04 – kontekst postoju** · laptop · 0,5 dnia · SQL: `stop_event` + sygnały 30 s wstecz + `drive_health`
       → tekst kontekstu z identyfikatorami źródeł
-- [ ] **E5-05 – usługa assistant** · laptop, Docker · 0,5 dnia · FastAPI `/ask`; odpowiedź z cytatami [S1]…,
+- [x] **E5-05 – usługa assistant** · laptop, Docker · 0,5 dnia · FastAPI `/ask`; odpowiedź z cytatami [S1]…,
       link do klipu, „nie wiem”, gdy kontekst nie wystarcza
-- [ ] **E5-06 – zestaw ewaluacyjny** · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
+      *(15.11: qwen3:4b-instruct w Ollamie natywnie na Windows; flash attention + KV cache q8_0 -> 37/37 warstw na GPU,
+      ok. 7-8 s na odpowiedź, odpowiedzi powtarzalne; usługa w Dockerze razem z E5-08)*
+- [ ] **E5-06 – zestaw ewaluacyjny** *(sesja danych `tools/scenario_rag.py` – 16.11)* · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
       wzorcowe źródła; w tym pytania bez odpowiedzi i kilka po angielsku
       *(test ręczny 15.11, qwen3:4b-instruct, 5 pytań: 2 poprawne, 1 poprawna odmowa w złym języku, 1 z cytatem
       nieistniejącego źródła [P4], 1 sprzeczna ze źródłem – postój 14.11 18:01 to zator, potem brak produktu,
