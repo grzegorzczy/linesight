@@ -204,6 +204,9 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       link do klipu, „nie wiem”, gdy kontekst nie wystarcza
 - [ ] **E5-06 – zestaw ewaluacyjny** · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
       wzorcowe źródła; w tym pytania bez odpowiedzi i kilka po angielsku
+      *(test ręczny 15.11, qwen3:4b-instruct, 5 pytań: 2 poprawne, 1 poprawna odmowa w złym języku, 1 z cytatem
+      nieistniejącego źródła [P4], 1 sprzeczna ze źródłem – postój 14.11 18:01 to zator, potem brak produktu,
+      a model napisał „no evidence of a product shortage”; oba przypadki muszą trafić do zestawu)*
 - [ ] **E5-07 – ewaluacja** · laptop · 0,5 dnia · recall@k wyszukiwania, trafność faktów, odsetek zmyśleń
       (sędzia LLM + kontrola cytowań), poprawne odmowy; tabela: bez RAG / RAG / RAG + kontekst postoju
 - [ ] **E5-08 – link w Grafanie** · laptop · 1 h · „Zapytaj asystenta” w tabeli postojów
