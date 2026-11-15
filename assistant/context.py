@@ -54,10 +54,17 @@ SQL_LAST = """SELECT t_start, t_end, state, stop_reason, cause, confidence, evid
                 FROM stop_event ORDER BY t_start DESC LIMIT 1"""
 
 
-def find_stop(conn, when=None):
-    """Postój trwający w chwili `when` (± MATCH_S), najbliższy początkiem; bez czasu – ostatni postój."""
+SQL_EXACT = """SELECT t_start, t_end, state, stop_reason, cause, confidence, evidence, clip
+                 FROM stop_event WHERE t_start = %(t)s"""
+
+
+def find_stop(conn, when=None, exact=False):
+    """Postój trwający w chwili `when` (± MATCH_S), najbliższy początkiem; bez czasu – ostatni postój.
+    exact=True: `when` to t_start z tabeli (link z Grafany) – dokładne dopasowanie."""
     if when is None:
         return conn.execute(SQL_LAST).fetchone()
+    if exact:
+        return conn.execute(SQL_EXACT, {"t": when}).fetchone()
     return conn.execute(SQL_AT, {"t": when, "m": MATCH_S}).fetchone()
 
 
