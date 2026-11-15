@@ -141,9 +141,11 @@ class ClipMaker(object):
         with open(lst, "w") as f:
             f.writelines("file '{}'\n".format(p) for p in paths)
         out = os.path.join(self.out_dir, name)
-        # concat demuxer + -c copy: sklejenie bez dekodowania i kodowania (ułamek sekundy, prawie 0 CPU)
+        # concat demuxer + -c copy: sklejenie bez dekodowania i kodowania (ułamek sekundy, prawie 0 CPU).
+        # +faststart (E4-04): indeks pliku (moov) na początek – przeglądarka odtwarza klip od razu z HTTP,
+        # bez pobierania całości (serwer http.server z Pythona 3.6 nie obsługuje zapytań o zakres bajtów).
         rc = subprocess.call(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0",
-                              "-i", lst, "-c", "copy", out])
+                              "-i", lst, "-c", "copy", "-movflags", "+faststart", out])
         os.remove(lst)
         print("KLIP:", out if rc == 0 else "błąd ffmpeg ({})".format(rc), "({} kawałków)".format(len(paths)))
 

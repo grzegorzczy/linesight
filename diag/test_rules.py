@@ -1,5 +1,5 @@
 """Testy reguł przyczyny i łączenia postojów. Uruchomienie: python diag/test_rules.py (albo pytest)."""
-from rules import classify
+from rules import classify, pick_clip
 from stops import merge_stops
 
 T = 1000.0   # początek postoju; czasy jako liczby sekund
@@ -65,6 +65,21 @@ def test_merge_stops():
          {"t_start": 40.0, "t_end": None, "state": 8}]
     assert merge_stops(s) == [{"t_start": 10.0, "t_end": 25.0, "state": 11, "states": [11, 5]},
                               {"t_start": 40.0, "t_end": None, "state": 8, "states": [8]}]
+
+
+def test_klip_pasujacy_do_przyczyny():
+    v = [(T - 2, "missing_cap", "a.mp4"), (T - 9, "fallen", "b.mp4"), (T - 1, "bottle", None)]
+    assert pick_clip(v, T, "zator") == ("b.mp4", -9.0)
+
+
+def test_klip_najblizszy_gdy_brak_pasujacego():
+    v = [(T - 12, "missing_cap", "a.mp4"), (T + 3, "missing_cap", "c.mp4")]
+    assert pick_clip(v, T, "awaria") == ("c.mp4", 3.0)
+
+
+def test_brak_klipu():
+    assert pick_clip([(T - 2, "bottle", None)], T, "zator") is None
+    assert pick_clip([(T - 2, "bottle")], T, "zator") is None
 
 
 if __name__ == "__main__":

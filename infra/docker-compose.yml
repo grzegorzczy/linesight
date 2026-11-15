@@ -68,6 +68,7 @@ services:
         condition: service_healthy
     environment:
       DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
+      CLIP_URL: http://192.168.0.124:8080/   # E4-04: serwer klipów na Jetsonie
 
   grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)
     image: grafana/grafana:13.2.4

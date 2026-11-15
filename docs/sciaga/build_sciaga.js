@@ -635,6 +635,12 @@ table([1000, 3600, 2400, 2638], [
   ['E', 'przewrócona butelka', 'xInjFault TRUE → FALSE, Clear, Reset, Start', 'awaria / tylko_plc'],
 ]);
 
+h1('10y. Klip przy postoju (E4-04)');
+step('SSH1', 'Aplikacja z klipami (po git pull)', ['cd ~/linesight && git pull', 'cd deepstream && python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203']);
+step('SSH2', 'Serwer klipów HTTP', 'cd ~/linesight_clips && python3 -m http.server 8080', 'Python 3.6: bez opcji --directory (jest od 3.7). Lista klipów: http://192.168.0.124:8080/');
+step('LAPTOP', 'Nowa wersja diag', ['python diag\\test_rules.py', 'docker compose -f infra/docker-compose.yml up -d --build diag']);
+step('LAPTOP', 'Postoje z klipami', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT to_char(t_start, \'HH24:MI:SS\') AS start_utc, cause, confidence, evidence->\'clip_at_s\' AS klip_s, clip FROM stop_event WHERE t_start > now() - interval \'1 hour\' ORDER BY stop_event.t_start"');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
