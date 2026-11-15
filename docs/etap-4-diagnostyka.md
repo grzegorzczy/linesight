@@ -312,3 +312,30 @@ python tools\scenario.py --scale 0.05
 python tools\scenario.py
 ```
 `--scale 0.05` – próba mechaniki w ok. 9 min (każdy krok 20× krótszy).
+
+### Zbiór i baseline (`anomaly/`)
+
+| Plik | Co robi |
+|---|---|
+| `anomaly/data.py` | surowe sygnały → jedna sztuka = jeden wiersz (kotwica: licznik sztuk; moment i prąd z tej samej próbki ±0,3 s, inaczej ostatnia znana; temperatura, zużycie, stan – ostatnia znana), odcinki pracy, epizody zużycia, **podział wg czasu**: train = przed 1. epizodem, val = do 2. epizodu, test = reszta |
+| `anomaly/metrics.py` | alarm = wynik nad progiem przez ≥ 20 sztuk (ok. 30 s, jak opóźnienie alarmu w SCADA); próg = kwantyl 99,9 % wyniku w normalnej części walidacji; wykrycie i opóźnienie dla każdego epizodu, zużycie w chwili alarmu, fałszywe alarmy na godzinę pracy normalnej (bez 2 min po naprawie) |
+| `anomaly/baseline.py` | B1: EWMA (λ = 0,05) na momencie; B2: wielomian 2. stopnia moment ~ temperatura (temperatura przycięta do zakresu treningu) + EWMA na reszcie; tabela, `data/baseline.png` |
+| `anomaly/sim.py` | kopia `FB_DriveSim` i scenariusza w Pythonie – **tylko do testów kodu** bez sterownika, nie do treningu |
+
+Dlaczego podział wg czasu, nie losowy: sąsiednie sztuki są prawie identyczne – losowe tasowanie przeniosłoby
+informację z testu do treningu, a model w produkcji i tak widzi tylko przeszłość.
+
+Dokładka `python tools\scenario.py --extra` (postój 15 min + praca 20 min): część testowa bez niej nie miała zimnego
+startu bez zużycia, czyli nie sprawdzała fałszywych alarmów po postoju – głównej pułapki dla B1.
+
+Na danych z `anomaly/sim.py` (sprawdzenie kodu): B1 – 18 % normalnej pracy testu w alarmie (zimny start), B2 – 0 fałszywych
+alarmów, wykrycie przy 19–24 % zużycia. Poprzeczka dla modelu: wcześniej niż B2, bez fałszywych alarmów.
+
+Eksport z bazy i uruchomienie (LAPTOP, po sesji i dokładce):
+```
+docker exec linesight-db psql -U linesight -d linesight -c "\copy (SELECT extract(epoch FROM time) AS t, name, value FROM plc_signal WHERE name IN ('udiProdProcessed','iStateCurrent','rTorqueMean_Nm','rTorquePeak_Nm','rCurrent_A','rMotorTemp_C','rSimWear','xInjWear') AND time > '2026-11-15 11:35:00+00' ORDER BY time) TO STDOUT WITH CSV HEADER" > data\drive_raw.csv
+python anomaly\data.py data\drive_raw.csv
+python anomaly\baseline.py data\drive_raw.csv
+```
+
+Wynik na danych z PLC: *(uzupełnić)*

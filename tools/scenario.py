@@ -5,6 +5,7 @@ Laptop, .venv (asyncua jest już zainstalowane – tools/opcua_browse.py):
     python tools\\scenario.py --dry              # plan i czas trwania, bez połączenia
     python tools\\scenario.py --scale 0.05       # próba mechaniki: każdy krok 20x krótszy
     python tools\\scenario.py                    # pełna sesja (ok. 2 h 50 min)
+    python tools\\scenario.py --extra            # dokładka po sesji: zimny start bez zużycia (35 min)
 
 Po co: model kondycji napędu potrzebuje danych normalnych z zimnymi startami po postojach różnej długości
 (pułapka dla prostego progu) i kilku epizodów zużycia, w tym jednego zaraz po zimnym starcie (najtrudniejszy
@@ -42,6 +43,12 @@ PLAN = [
     ("stop", 3, "postój bardzo krótki"),
     ("wear", 15, "zużycie 3"),
     ("run", 10, "praca normalna na koniec"),
+]
+# --extra: dopisane po pierwszej sesji 15.11. Część testowa (od 2. epizodu zużycia) nie miała zimnego startu bez
+# zużycia, więc nie sprawdzała fałszywych alarmów po postoju – a to główna pułapka dla prostego progu.
+PLAN_EXTRA = [
+    ("stop", 15, "postój długi: zimny start bez zużycia (test fałszywych alarmów)"),
+    ("run", 20, "rozgrzewanie i praca normalna"),
 ]
 
 
@@ -81,11 +88,11 @@ class Line(object):
         raise RuntimeError("linia nie doszła do Execute, stan {}".format(await self.state()))
 
 
-def plan_minutes(scale):
-    return sum(m for _, m, _ in PLAN) * scale
+def plan_minutes(plan, scale):
+    return sum(m for _, m, _ in plan) * scale
 
 
-async def run(scale, logfile):
+async def run(plan, scale, logfile):
     async with Client(url=URL, timeout=5) as client:
         line = Line(client, await client.get_namespace_index(NS_URI))
         await line.write("tWearRamp", int(WEAR_RAMP_MIN * 60000))   # TIME w OPC UA CODESYS = milisekundy
@@ -104,9 +111,9 @@ async def run(scale, logfile):
 
             try:
                 await line.ensure_execute(log)
-                for i, (step, minutes, desc) in enumerate(PLAN, 1):
+                for i, (step, minutes, desc) in enumerate(plan, 1):
                     dur = minutes * scale * 60
-                    await log(step, minutes * scale, "[{}/{}] {}".format(i, len(PLAN), desc))
+                    await log(step, minutes * scale, "[{}/{}] {}".format(i, len(plan), desc))
                     if step == "run":
                         await asyncio.sleep(dur)
                     elif step == "wear":
@@ -127,9 +134,11 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--scale", type=float, default=1.0, help="mnożnik czasu kroków (próba: 0.05)")
     ap.add_argument("--dry", action="store_true", help="tylko plan, bez połączenia z PLC")
+    ap.add_argument("--extra", action="store_true", help="dokładka: zimny start bez zużycia (PLAN_EXTRA)")
     args = ap.parse_args()
-    print("Plan: {} kroków, {:.0f} min (scale {})".format(len(PLAN), plan_minutes(args.scale), args.scale))
-    for step, m, desc in PLAN:
+    plan = PLAN_EXTRA if args.extra else PLAN
+    print("Plan: {} kroków, {:.0f} min (scale {})".format(len(plan), plan_minutes(plan, args.scale), args.scale))
+    for step, m, desc in plan:
         print("  {:<5} {:>5.1f} min  {}".format(step, m * args.scale, desc))
     if args.dry:
         return
@@ -137,7 +146,7 @@ def main():
     logfile = os.path.join("data", "scenario_{}.csv".format(datetime.datetime.now().strftime("%Y%m%d-%H%M")))
     print("Log:", logfile)
     try:
-        asyncio.run(run(args.scale, logfile))
+        asyncio.run(run(plan, args.scale, logfile))
     except KeyboardInterrupt:
         print("Przerwano.")
 

@@ -651,6 +651,10 @@ step('LAPTOP', 'Most z nowymi zmiennymi i dashboard', ['git pull', 'git checkout
 step('LAPTOP', 'Kontrola sygnałów (5 min)', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT name, count(*), round(min(value)::numeric,3) AS min, round(max(value)::numeric,3) AS max FROM plc_signal WHERE time > now() - interval \'5 minutes\' GROUP BY name ORDER BY name"', 'W pracy: moment ok. 2,0 Nm (zimny do 2,24), szczyt ok. 3,2, prąd ok. 3,2 A, temperatura rośnie do ok. 45 °C (10 min). xInjWear TRUE: zużycie rośnie do 1 w 20 min.');
 step('LAPTOP', 'Sesja danych napędu (scenariusz przez OPC UA)', ['python tools\\scenario.py --dry', 'python tools\\scenario.py --scale 0.05', 'python tools\\scenario.py'], 'Próba ok. 9 min, pełna sesja ok. 2 h 50 min. Okno zostawić otwarte. Dziennik: data\\scenario_<czas>.csv.');
 
+step('LAPTOP', 'Dokładka po sesji: zimny start bez zużycia', 'python tools\\scenario.py --extra', '35 min. Potrzebna do testu fałszywych alarmów.');
+step('LAPTOP', 'Eksport danych napędu z bazy', 'docker exec linesight-db psql -U linesight -d linesight -c "\\copy (SELECT extract(epoch FROM time) AS t, name, value FROM plc_signal WHERE name IN (\'udiProdProcessed\',\'iStateCurrent\',\'rTorqueMean_Nm\',\'rTorquePeak_Nm\',\'rCurrent_A\',\'rMotorTemp_C\',\'rSimWear\',\'xInjWear\') AND time > \'2026-11-15 11:35:00+00\' ORDER BY time) TO STDOUT WITH CSV HEADER" > data\\drive_raw.csv');
+step('LAPTOP', 'Zbiór i baseline', ['python anomaly\\data.py data\\drive_raw.csv', 'python anomaly\\baseline.py data\\drive_raw.csv'], 'Wynik: tabela w konsoli, data\\baseline_results.csv, data\\baseline.png. B1 EWMA na momencie, B2 regresja moment ~ temperatura + EWMA.');
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
