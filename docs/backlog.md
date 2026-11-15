@@ -170,7 +170,7 @@ zanim linia stanie. Wszystko na laptopie (Docker), Jetson tylko udostępnia klip
       `xInjWear` narastające przez `tWearRamp`; most i Grafana; sesja 2-3 h z postojami różnej długości i 3-4 epizodami
       zużycia; zbiór z bazy, podział wg czasu; baseline bez ML: (1) próg / EWMA na momencie, (2) regresja moment ~ temperatura
       + EWMA na reszcie – wyniki: opóźnienie wykrycia, fałszywe alarmy/h
-- [ ] **E4-07 – model kondycji napędu w PyTorch** · laptop · 1 dzień · własna pętla treningowa (Dataset, DataLoader,
+- [x] **E4-07 – model kondycji napędu w PyTorch** · laptop · 1 dzień · własna pętla treningowa (Dataset, DataLoader,
       optymalizator, walidacja, early stopping, zapis najlepszego modelu); autoenkoder okien cech (moment średni, szczytowy,
       prąd, temperatura) uczony na danych normalnych; próg z błędu rekonstrukcji na walidacji; tabela obok obu baseline;
       eksport ONNX. Uczciwie: jeśli baseline (2) wystarcza, zostaje on, a model jest porównaniem

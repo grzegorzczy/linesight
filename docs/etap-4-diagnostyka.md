@@ -363,7 +363,7 @@ early stopping z zapisem najlepszych wag), eksport ONNX i parametrów wdrożenia
 
 - Okno: ostatnie 32 sztuki (ok. 50 s) w obrębie odcinka pracy → 7 cech: średni moment średni i szczytowy, średni prąd,
   temperatura, odchylenie momentu średniego i szczytowego, średni stosunek szczyt/średni. Normalizacja z treningu.
-- Sieć: 7 → 16 → **2** → 16 → 7 (Tanh), 417 parametrów; uczona tylko na pracy normalnej (z zimnym startem).
+- Sieć: 7 → 16 → **2** → 16 → 7 (Tanh), 329 parametrów; uczona tylko na pracy normalnej (z zimnym startem).
 - Wynik = błąd odtworzenia cech okna (MSE); próg i alarm jak w baseline (99,9 % walidacji, 20 sztuk nad progiem).
 
 **Pierwsza wersja nie wyszła:** autoenkoder surowego okna (32 × 4 wartości → 16 → 32 × 4) wykrywał przy 29–30 % zużycia,
@@ -380,10 +380,14 @@ Wynik (te same dane, ziarno 0):
 | AE cech okna | test | 2/2 | 1,8; 1,4 | **17 %; 14 %** | **0** |
 
 Uczciwie: na teście AE wykrywa ok. 2 punkty procentowe zużycia wcześniej i bez fałszywego alarmu, na walidacji B2 jest
-o 2 p.p. lepszy. To 3 epizody – różnica w granicach przypadku. Realna przewaga AE to **margines**: błąd odtworzenia
-w pracy normalnej ok. 0,2–0,9, przy pełnym zużyciu kilkaset (oś log. na `data/model.png`), B2 – od ok. 0,3 do 6.
-Większy margines = mniej czułości na wybór progu. Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 417 parametrów),
-B2 liczony obok jako kontrola – na rozmowie: „model musiał pobić regresję; pobił nieznacznie, ale ma 100× większy margines”.
+o 2 p.p. lepszy. To 3 epizody – różnica w granicach przypadku. Przewaga AE to **margines przy zużyciu**: wynik rośnie
+do 100–300× progu (oś log. na `data/model.png`), B2 do ok. 15× progu – przy realnym zużyciu alarm jest pewny.
+Słabe miejsce: przy zimnym starcie z dokładki (ok. 255. minuta) wynik AE przez chwilę dotknął progu (ok. 1,3×) –
+alarmu nie było tylko dzięki regule 20 sztuk; w pracy normalnej margines obu metod jest podobny (próg to kwantyl 99,9 %).
+Laptop 15.11 (torch 2.11 + CUDA): te same liczby co w sprawdzeniu (ziarno 0), early stopping w 343. epoce.
+Decyzja do wdrożenia (E4-08): AE (ONNX Runtime, 329 parametrów), B2 liczony obok jako kontrola – na rozmowie:
+„model musiał pobić regresję; pobił nieznacznie i bez fałszywych alarmów, przy zużyciu wyraźniej, przy zimnym starcie
+jest blisko progu – kolejny krok to więcej zimnych startów w treningu”.
 
 Uruchomienie (LAPTOP, .venv; torch, jeśli brak: `pip install torch`):
 ```
