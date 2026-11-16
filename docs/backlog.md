@@ -204,15 +204,18 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       link do klipu, „nie wiem”, gdy kontekst nie wystarcza
       *(15.11: qwen3:4b-instruct w Ollamie natywnie na Windows; flash attention + KV cache q8_0 -> 37/37 warstw na GPU,
       ok. 7-8 s na odpowiedź, odpowiedzi powtarzalne; usługa w Dockerze razem z E5-08)*
-- [ ] **E5-06 – zestaw ewaluacyjny** *(16.11: sesja `tools/scenario_rag.py` – 8 postojów + powtórka E1, wszystkie
+- [x] **E5-06 – zestaw ewaluacyjny** *(16.11: sesja `tools/scenario_rag.py` – 8 postojów + powtórka E1, wszystkie
       przyczyny i pewności; znalezisko: postój E5 Held -> Suspended bez Execute pomiędzy gubił drugą przyczynę –
       poprawka w `diag/stops.py`)* · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
       wzorcowe źródła; w tym pytania bez odpowiedzi i kilka po angielsku
       *(test ręczny 15.11, qwen3:4b-instruct, 5 pytań: 2 poprawne, 1 poprawna odmowa w złym języku, 1 z cytatem
       nieistniejącego źródła [P4], 1 sprzeczna ze źródłem – postój 14.11 18:01 to zator, potem brak produktu,
       a model napisał „no evidence of a product shortage”; oba przypadki muszą trafić do zestawu)*
-- [ ] **E5-07 – ewaluacja** · laptop · 0,5 dnia · recall@k wyszukiwania, trafność faktów, odsetek zmyśleń
+- [x] **E5-07 – ewaluacja** · laptop · 0,5 dnia · recall@k wyszukiwania, trafność faktów, odsetek zmyśleń
       (sędzia LLM + kontrola cytowań), poprawne odmowy; tabela: bez RAG / RAG / RAG + kontekst postoju
+      *(16.11: fakty 10 % bez RAG -> 85 % RAG v3 (qwen3:4b), zmyślenia 43 % (v2) -> 14 % (v3); Gemini 3.5 Flash Lite:
+      94 %, 0 %*, 1,4 s; sędzia gemini-3.5-flash-lite sprawdzony na 12 ręcznych ocenach (11/12); znaleziska w potoku:
+      utracona druga przyczyna postoju, utracone postoje na granicy horyzontu diag)*
 - [ ] **E5-08 – link w Grafanie** · laptop · 1 h · „Zapytaj asystenta” w tabeli postojów
 - [ ] **E5-09 – dokumentacja** · repo · 0,5 dnia · `docs/etap-5-rag.md`, ściąga, README, 5 pytań technicznych
 

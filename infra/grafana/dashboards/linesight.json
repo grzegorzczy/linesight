@@ -425,7 +425,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT t_start AS \"początek\",\n       round(extract(epoch FROM coalesce(t_end, now()) - t_start))::int AS \"trwa [s]\",\n       (t_end IS NULL) AS \"trwa nadal\",\n       cause AS \"przyczyna\", confidence AS \"pewność\",\n       evidence->'secondary'->>0 AS \"druga przyczyna\",\n       stop_reason AS \"kod PLC\",\n       (evidence->'vision'->'counts')::text AS \"kamera w oknie\",\n       evidence->>'note' AS \"uwaga\",\n       clip AS \"klip\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nORDER BY t_start DESC\nLIMIT 100"
+          "rawSql": "SELECT t_start AS \"początek\",\n       round(extract(epoch FROM coalesce(t_end, now()) - t_start))::int AS \"trwa [s]\",\n       (t_end IS NULL) AS \"trwa nadal\",\n       cause AS \"przyczyna\", confidence AS \"pewność\",\n       evidence->'secondary'->>0 AS \"druga przyczyna\",\n       stop_reason AS \"kod PLC\",\n       (evidence->'vision'->'counts')::text AS \"kamera w oknie\",\n       evidence->>'note' AS \"uwaga\",\n       clip AS \"klip\",\n       'http://localhost:8000/?stop=' || to_char(t_start AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')\n         AS \"asystent\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nORDER BY t_start DESC\nLIMIT 100"
         }
       ],
       "fieldConfig": {
@@ -583,6 +583,43 @@
                     "targetBlank": true
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "asystent"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "regex",
+                    "options": {
+                      "pattern": ".*",
+                      "result": {
+                        "text": "💬 Zapytaj asystenta",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "Zapytaj asystenta o ten postój",
+                    "url": "${__value.raw}",
+                    "targetBlank": true
+                  }
+                ]
+              },
+              {
+                "id": "custom.width",
+                "value": 170
               }
             ]
           }

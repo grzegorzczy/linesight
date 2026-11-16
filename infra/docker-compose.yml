@@ -77,6 +77,27 @@ services:
     volumes:
       - ../models:/models:ro
 
+  assistant:   # E5-08: asystent RAG (FastAPI) – http://localhost:8000; link „Zapytaj asystenta” w tabeli postojów
+    build:
+      context: ..
+      dockerfile: assistant/Dockerfile
+    container_name: linesight-assistant
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    environment:
+      DB_DSN: postgresql://linesight:${PG_PASSWORD:-linesight}@db:5432/linesight
+      LLM_BACKEND: ${LLM_BACKEND:-ollama}            # ollama (lokalnie, domyślnie) | gemini
+      OLLAMA_URL: http://host.docker.internal:11434   # Ollama działa na Windowsie (GPU), nie w kontenerze
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}             # z zmiennej środowiskowej Windows (setx), nie z repo
+    extra_hosts:
+      - "host.docker.internal:host-gateway"           # Docker Desktop ma tę nazwę wbudowaną; to dla Dockera na Linuksie
+    volumes:
+      - hf-cache:/hf
+
   grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)
     image: grafana/grafana:13.2.4
     container_name: linesight-grafana
@@ -95,6 +116,7 @@ services:
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
 
 volumes:
+  hf-cache:
   mosquitto-data:
   pgdata:
   grafana:
