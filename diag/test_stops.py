@@ -45,14 +45,6 @@ def test_brak_wartosci_pomijany():
         [{"t_start": 10.0, "t_end": 20.0, "state": 11}]
 
 
-if __name__ == "__main__":
-    tests = [f for n, f in sorted(globals().items()) if n.startswith("test_")]
-    for f in tests:
-        f()
-        print("OK ", f.__name__)
-    print("{} testów zaliczonych".format(len(tests)))
-
-
 def test_druga_przyczyna_bez_execute_pomiedzy():
     # 16.11, E5: Held -> Suspended bez widocznego Execute (200 ms w PLC, most nie zdążył) – jeden postój, dwie przyczyny
     ch = [(t(0), 6), (t(10), 11), (t(20), 5), (t(45), 6)]
@@ -65,3 +57,11 @@ def test_lancuch_awarii_bez_drugiej_przyczyny():
     # Aborting -> Aborted -> Clearing -> Stopped ...: stany przejściowe nie są drugą przyczyną
     ch = [(t(0), 6), (t(5), 8), (t(6), 9), (t(40), 1), (t(41), 2), (t(50), 15), (t(51), 4), (t(52), 3), (t(53), 6)]
     assert merge_stops(find_stops(ch))[0]["states"] == [8]
+
+
+if __name__ == "__main__":
+    tests = [f for n, f in sorted(globals().items()) if n.startswith("test_")]
+    for f in tests:
+        f()
+        print("OK ", f.__name__)
+    print("{} testów zaliczonych".format(len(tests)))
