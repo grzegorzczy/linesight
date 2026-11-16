@@ -1871,6 +1871,135 @@
         "mode": "html",
         "content": "<iframe src=\"http://localhost:8000/?embed=1&stop=${stop}\" style=\"width:100%;height:100%;border:0\"></iframe>"
       }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "Detektor na Jetsonie: pewność i niepewne detekcje (sygnał dryfu)",
+      "gridPos": {
+        "x": 0,
+        "y": 75,
+        "w": 24,
+        "h": 8
+      },
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "linesight-db"
+      },
+      "description": "Co minutę z Jetsona (linesight_app.py --uncertain): odsetek detekcji z pewnością 0,45–0,6 i średnia pewność. Punkt odniesienia v1 przy sztucznym świetle (16.11): ok. 9 % niepewnych, średnia 0,79. Czerwona linia 20 %: dryf danych (światło, nowy produkt, zabrudzona kamera) albo degradacja modelu – przejrzyj klatki w gs://linesight-514914-frames i zaplanuj retrening. Okna z < 20 detekcjami pomijamy (za mała próba).",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, 100.0 * low_conf / dets AS \"niepewne detekcje [%]\" FROM vision_stats WHERE $__timeFilter(time) AND dets >= 20 ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, 100.0 * mean_conf AS \"średnia pewność [%]\" FROM vision_stats WHERE $__timeFilter(time) AND dets >= 20 ORDER BY 1"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "linesight-db"
+          },
+          "rawQuery": true,
+          "editorMode": "code",
+          "format": "time_series",
+          "rawSql": "SELECT time, 100.0 * class_flip / dets AS \"zmiany klasy w śladzie [%]\" FROM vision_stats WHERE $__timeFilter(time) AND dets >= 20 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "decimals": 1,
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "showPoints": "auto",
+            "spanNulls": false,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "średnia pewność [%]"
+            },
+            "properties": [
+              {
+                "id": "custom.thresholdsStyle",
+                "value": {
+                  "mode": "off"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "niepewne detekcje [%]"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
     }
   ],
   "templating": {

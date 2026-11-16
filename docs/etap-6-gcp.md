@@ -212,3 +212,40 @@ i ramkami, wersja modelu z `models/current.json`); JSON zapisywany drugi = para 
 `jetson/upload_frames.py` – osobny proces: sieć nie blokuje potoku wideo, a klatki czekają na dysku przy braku
 internetu. Wysyła pary do `gs://linesight-514914-frames/jetson-01/<RRRR-MM-DD>/` (`ifGenerationMatch=0`,
 412 = już wysłane), potem przenosi je do `sent/`.
+
+Wynik 16.11 (2,5 min, sztuczne światło, prowokowane trudne sytuacje): 4278 klatek przy 30 FPS, 1047 detekcji,
+**98 low_conf (9,4 %)**, średnia pewność 0,794, 95 niepewnych klatek, zapisane 5 (limit 5 s), 0 class_flip; RAM
+w `tegrastats` stały (1796 → 1800 MB). Wysłane 5/5 par (0,2 MB).
+
+| Klatka | Powód | Co widać |
+|---|---|---|
+| f3085 | bottle 0,475 | butelka ucięta przy prawej krawędzi, ręka, rozmycie |
+| f3298 | fallen 0,518 (druga, 0,853 – pewna) | leżąca butelka w ruchu; druga ramka ucięta na krawędzi (56 px) |
+| f3466 | fallen 0,546 | butelka niesiona ręką, przechylona ok. 20° |
+| f3636 | fallen 0,523 | butelka przechylona ok. 30° w trakcie przewracania |
+| f3787 | bottle 0,51 | ta sama sytuacja, przechylenie ok. 20° – tym razem bottle |
+
+Wnioski:
+- kryterium działa: zapisane klatki to przypadki graniczne, nie losowy szum,
+- f3636 i f3787 to ta sama sytuacja z różną klasą – przed etykietowaniem (E6-08) trzeba zapisać regułę dla
+  butelki przechylonej (np. „fallen, gdy oś butelki odchylona > 45° od pionu”), inaczej etykiety będą niespójne,
+- `class_flip` = 0: tracker IOU z `checkClassMatch: 1` kojarzy tylko detekcje tej samej klasy, więc przy zmianie
+  klasy zwykle zaczyna nowy ślad zamiast zmienić klasę w starym – sygnał działa słabo przy tym trackerze,
+- pobranie z laptopa: `mkdir data\frames_inbox` i `gcloud storage cp -r gs://linesight-514914-frames/jetson-01 data\frames_inbox\`
+  (właściciel projektu czyta, `jetson-edge` nie).
+
+## Sygnał dryfu w Grafanie (E6-07)
+
+Monitorowanie modelu w produkcji bez etykiet: nie wiemy, czy detekcja jest poprawna, ale widzimy, jak pewny jest
+model. Spadek średniej pewności i wzrost odsetka detekcji tuż nad progiem to typowy objaw przesunięcia danych
+(światło, nowy produkt, zabrudzona lub przestawiona kamera) albo starzenia się modelu.
+
+```
+linesight_app.py --uncertain --mqtt   co 60 s:  linesight/vision/stats  {t, window_s, frames, dets, low_conf,
+                                                                          class_flip, uncertain_frames, saved,
+                                                                          mean_conf, model, version}
+ingest (mqtt_to_db.py) ──► vision_stats (hipertabela, infra/db/50-vision-stats.sql) ──► Grafana: panel 15
+```
+Panel: odsetek niepewnych detekcji, średnia pewność i odsetek zmian klasy; czerwona linia 20 % (ok. 2× punkt
+odniesienia v1 = 9,4 %). Okna z < 20 detekcjami pomijamy – za mała próba. Kolumna `version` pozwala porównać
+modele przed i po wdrożeniu v2.

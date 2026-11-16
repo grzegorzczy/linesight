@@ -170,6 +170,7 @@ class MqttPublisher(object):
         self.client = client
         self.topic_events = prefix + "/events"
         self.topic_status = prefix + "/status"
+        self.topic_stats = prefix + "/stats"   # E6-07: statystyki detektora co minutę (sygnał dryfu)
         self.last = None
         client.max_queued_messages_set(max_queued)
         client.will_set(self.topic_status, "offline", qos=1, retain=True)
@@ -191,6 +192,9 @@ class MqttPublisher(object):
 
     def publish(self, ev):
         self.last = self.client.publish(self.topic_events, json.dumps(ev), qos=1)
+
+    def publish_stats(self, d):
+        self.client.publish(self.topic_stats, json.dumps(d), qos=1)
 
     def close(self, timeout=2.0):
         """Czeka krótko na potwierdzenie ostatniego zdarzenia, zgłasza offline i zamyka połączenie."""
@@ -369,6 +373,8 @@ def main():
                     help="detekcja z pewnością poniżej tej wartości jest niepewna (domyślnie 0.6; próg wdrożenia 0.45)")
     ap.add_argument("--unc-interval", type=float, default=5.0, help="najwyżej jedna klatka na tyle sekund")
     ap.add_argument("--unc-max-hour", type=int, default=60, help="najwyżej tyle klatek na godzinę")
+    ap.add_argument("--stats-every", type=float, default=60.0,
+                    help="E6-07: co ile sekund statystyki detektora do MQTT (<prefix>/stats; wymaga --mqtt i --uncertain)")
     args = ap.parse_args()
 
     Gst.init(None)
@@ -450,6 +456,8 @@ def main():
                     dets.append((o.object_id, o.class_id, o.confidence, (r.left, r.top, r.width, r.height)))
                     l_obj = l_obj.next
                 reasons = unc.check(fm.frame_num, dets)
+                if mqtt_pub and time.time() - unc._win[2] >= args.stats_every:
+                    mqtt_pub.publish_stats(unc.window())
                 if reasons and unc.want_save():
                     # mapowanie bufora NVMM do pamięci CPU tylko dla zapisywanej klatki (kopiowanie kosztuje)
                     surface = pyds.get_nvds_buf_surface(hash(buf), fm.batch_id)
