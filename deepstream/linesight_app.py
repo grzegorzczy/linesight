@@ -454,7 +454,10 @@ def main():
                     # mapowanie bufora NVMM do pamięci CPU tylko dla zapisywanej klatki (kopiowanie kosztuje)
                     surface = pyds.get_nvds_buf_surface(hash(buf), fm.batch_id)
                     bgr = cv2.cvtColor(np.array(surface, copy=True, order="C"), cv2.COLOR_RGBA2BGR)
-                    pyds.unmap_nvds_buf_surface(hash(buf), fm.batch_id)   # Jetson: wymagane po mapowaniu
+                    # unmap_nvds_buf_surface jest dopiero w nowszych pyds (nie w 1.1.1 z DS 6.0.1, AttributeError
+                    # 16.11); bez niego mapowanie zostaje, ale robimy je najwyżej 60 razy na godzinę
+                    if hasattr(pyds, "unmap_nvds_buf_surface"):
+                        pyds.unmap_nvds_buf_surface(hash(buf), fm.batch_id)
                     base = unc.save(bgr, fm.frame_num, dets, reasons,
                                     lambda path, img: cv2.imwrite(path, img, [cv2.IMWRITE_JPEG_QUALITY, 92]))
                     print("NIEPEWNA", os.path.basename(base), ",".join(sorted({r["why"] for r in reasons})))
