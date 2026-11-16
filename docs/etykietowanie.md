@@ -10,12 +10,33 @@ i obniżają mAP bardziej niż mała liczba zdjęć.
 |---|---|---|
 | 0 | `bottle` | butelka **stoi** i **ma nakrętkę** |
 | 1 | `missing_cap` | butelka **stoi** i **nie ma nakrętki** (widać sam pierścień szyjki) |
-| 2 | `fallen` | butelka **leży** lub jest wyraźnie przechylona – **niezależnie od nakrętki** |
+| 2 | `fallen` | butelka **leży** lub jest przechylona **o więcej niż 45°** od pionu – **niezależnie od nakrętki** |
 
 Jedna butelka = jedna ramka = jedna klasa. Pierwszeństwo: `fallen` >
 `missing_cap` > `bottle`. Leżąca butelka bez nakrętki to `fallen`, bo na
 linii przewrócona butelka to zator i postój – brak nakrętki jest wtedy
 drugorzędny.
+
+## Butelka przechylona (reguła 45°) – E6-08
+
+Dodana 16.11 po analizie niepewnych klatek z E6-06: dwie klatki z tą samą sytuacją (butelka przechylona ok. 20–30°
+w trakcie przewracania) model v1 nazwał raz `fallen`, raz `bottle`, obie z pewnością ok. 0,5. Dotąd reguła
+mówiła „wyraźnie przechylona”, więc granica nie była zdefiniowana – także w etykietach v1.
+
+| Oś butelki (dno → szyjka) względem pionu | Klasa |
+|---|---|
+| ≤ 45° | `bottle` / `missing_cap` – według nakrętki |
+| > 45° albo leży | `fallen` |
+
+Ocena „na oko”: 45° to połowa drogi między stojącą a leżącą. Gdy naprawdę nie da się rozstrzygnąć (ok. 40–50°),
+zdjęcie **pomijamy** – lepiej mniej przykładów niż sprzeczne etykiety.
+
+## Rozmycie ruchu i ręka – E6-08
+
+- Butelka rozmyta, ale rozpoznawalna (widać kształt i kolor nakrętki / szyjki) – etykietujemy normalnie.
+- Rozmycie tak duże, że nie widać, czy jest nakrętka: stojąca → `bottle` (jak przy ciętej butelce – nie zgadujemy
+  braku nakrętki), przechylona > 45° → `fallen`.
+- Ręka trzymająca butelkę: ramka tylko na butelkę (widoczną część), ręki nie etykietujemy.
 
 ## Jak rozpoznać nakrętkę
 
