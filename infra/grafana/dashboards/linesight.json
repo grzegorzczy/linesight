@@ -1886,7 +1886,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "linesight-db"
       },
-      "description": "Co minutę z Jetsona (linesight_app.py --uncertain): odsetek detekcji z pewnością 0,45–0,6 i średnia pewność. Punkt odniesienia v1 przy sztucznym świetle (16.11): ok. 9 % niepewnych, średnia 0,79. Czerwona linia 20 %: dryf danych (światło, nowy produkt, zabrudzona kamera) albo degradacja modelu – przejrzyj klatki w gs://linesight-514914-frames i zaplanuj retrening. Okna z < 20 detekcjami pomijamy (za mała próba).",
+      "description": "Co minutę z Jetsona (linesight_app.py --uncertain): odsetek detekcji z pewnością 0,45–0,6, średnia pewność i odsetek zmian klasy w śladzie. Punkt odniesienia v1 (16.11, sztuczne światło): normalna praca 0–3 % niepewnych, średnia 0,84–0,85; celowo trudne sytuacje 5–9 %, średnia 0,79–0,83. Czerwona linia 10 % utrzymana przez kilka minut: dryf danych (światło, nowy produkt, zabrudzona kamera) albo degradacja modelu – przejrzyj klatki w gs://linesight-514914-frames i zaplanuj retrening. Okna z < 20 detekcjami pomijamy.",
       "targets": [
         {
           "refId": "A",
@@ -1946,7 +1946,7 @@
               },
               {
                 "color": "red",
-                "value": 20
+                "value": 10
               }
             ]
           }

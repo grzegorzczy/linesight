@@ -256,8 +256,10 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       *(16.11: 4278 klatek / 30 FPS, 1047 detekcji, 98 low_conf (9,4 %), średnia pewność 0,794, 0 class_flip;
       zapisane 5 (limit), wysłane 5/5; RAM stały ~1800 MB mimo braku `unmap` w pyds 1.1.1. Klatki to realne trudne
       przypadki: rozmycie ruchu, ręka, butelka przechylona w trakcie przewracania, butelka ucięta na krawędzi kadru)*
-- [ ] **E6-07 – sygnał dryfu w Grafanie** · Jetson + laptop · 0,5 dnia · co minutę przez MQTT (`linesight/vision/stats`):
-      detekcje, średnia pewność, niepewne, zmiany klasy, wersja modelu → `vision_stats` → panel z progiem 20 %
+- [x] **E6-07 – sygnał dryfu w Grafanie** · Jetson + laptop · 0,5 dnia · co minutę przez MQTT (`linesight/vision/stats`):
+      detekcje, średnia pewność, niepewne, zmiany klasy, wersja modelu → `vision_stats` → panel z progiem 10 %
+      *(16.11: 4 okna po ~1000–1800 detekcji; normalnie 0–2,8 % niepewnych, średnia 0,84–0,85; z trudnymi sytuacjami
+      4,8 %, 0,829; próg obniżony z 20 % na 10 % – 20 % nie złapałby nawet celowo prowokowanych sytuacji)*
 - [ ] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · klatki z chmury + dzienne z E2-04, etykiety, trening;
       v2 nie gorsza na starym teście i lepsza na nowym; tabela v1 vs v2
 - [ ] **E6-09 – wdrożenie v2 przez rejestr** · Jetson · 1 h · `promote v2` → Jetson buduje i przełącza; rollback do v1
