@@ -42,6 +42,7 @@ services:
       - ./db/30-diag.sql:/docker-entrypoint-initdb.d/30-diag.sql:ro
       - ./db/31-drive-health.sql:/docker-entrypoint-initdb.d/31-drive-health.sql:ro
       - ./db/40-kb.sql:/docker-entrypoint-initdb.d/40-kb.sql:ro   # E5-01: pgvector, kb_chunk
+      - ./db/50-vision-stats.sql:/docker-entrypoint-initdb.d/50-vision-stats.sql:ro   # E6-07: sygnał dryfu
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U linesight -d linesight"]
       interval: 5s

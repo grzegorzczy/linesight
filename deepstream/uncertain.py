@@ -35,6 +35,7 @@ class UncertainFrames(object):
         self.saved_at = deque()     # czasy zapisów z ostatniej godziny
         self.stats = Counter()      # frames, dets, low_conf, class_flip, uncertain_frames, saved, rate_limited
         self.conf_sum = 0.0
+        self._win = (Counter(), 0.0, time.time())   # stan na początku bieżącego okna statystyk (E6-07)
 
     def check(self, frame_num, dets):
         """dets: lista (track_id, class_id, confidence, (left, top, width, height)). Zwraca listę powodów."""
@@ -97,6 +98,18 @@ class UncertainFrames(object):
         self.saved_at.append(now)
         self.stats["saved"] += 1
         return base
+
+    def window(self, now=None):
+        """E6-07: przyrosty liczników od poprzedniego wywołania – jeden wiersz statystyk na okno (ok. 60 s)."""
+        now = time.time() if now is None else now
+        prev, prev_sum, t0 = self._win
+        d = {k: self.stats[k] - prev[k] for k in ("frames", "dets", "low_conf", "class_flip",
+                                                   "uncertain_frames", "saved")}
+        d["mean_conf"] = round((self.conf_sum - prev_sum) / d["dets"], 4) if d["dets"] else None
+        d.update(t=round(now, 3), window_s=round(now - t0, 1), model=self.model.get("model"),
+                 version=self.model.get("version"))
+        self._win = (Counter(self.stats), self.conf_sum, now)
+        return d
 
     def summary(self):
         s = dict(self.stats)

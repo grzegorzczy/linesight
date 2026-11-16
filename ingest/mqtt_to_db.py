@@ -6,6 +6,7 @@ Laptop, kontener `ingest` z infra/docker-compose.yml.
 Tematy:
     linesight/plc/<zmienna>      {"t", "value", "t_src"}  -> plc_signal
     linesight/vision/events      zdarzenie zliczania       -> vision_event (time = t_cross)
+    linesight/vision/stats       statystyki detektora/min  -> vision_stats (E6-07, sygnał dryfu)
     linesight/<plc|vision>/status  online/offline         -> link_status
 
 Niezawodność:
@@ -32,6 +33,9 @@ SQL_SIGNAL = ("INSERT INTO plc_signal (time, name, value, t_src) "
               "VALUES (to_timestamp(%s), %s, %s, to_timestamp(%s)) ON CONFLICT DO NOTHING")
 SQL_EVENT = ("INSERT INTO vision_event (time, t_decided, track_id, class, direction, clip, votes, raw) "
              "VALUES (to_timestamp(%s), to_timestamp(%s), %s, %s, %s, %s, %s, %s) ON CONFLICT DO NOTHING")
+SQL_STATS = ("INSERT INTO vision_stats (time, window_s, frames, dets, low_conf, class_flip, uncertain_frames, saved, "
+             "mean_conf, model, version) VALUES (to_timestamp(%s), %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+             "ON CONFLICT DO NOTHING")
 SQL_LINK = ("INSERT INTO link_status (time, source, online) "
             "VALUES (to_timestamp(%s), %s, %s) ON CONFLICT DO NOTHING")
 
@@ -54,6 +58,10 @@ def to_row(topic, payload, now):
         t_cross = ev.get("t_cross", ev["t"])  # zdarzenia sprzed E2-07 nie mają t_cross
         return SQL_EVENT, (t_cross, ev["t"], ev["track_id"], ev["class"], ev.get("direction"),
                            ev.get("clip"), Jsonb(ev.get("votes")), Jsonb(ev))
+    if source == "vision" and leaf == "stats":
+        d = json.loads(payload)
+        return SQL_STATS, (d["t"], d["window_s"], d["frames"], d["dets"], d["low_conf"], d["class_flip"],
+                           d["uncertain_frames"], d["saved"], d.get("mean_conf"), d.get("model"), d.get("version"))
     return None
 
 
