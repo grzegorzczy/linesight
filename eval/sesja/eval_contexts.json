@@ -1,0 +1,1967 @@
+[
+ {
+  "t_start_local": "14.11.2026 17:25:42",
+  "t_start": "2026-11-14T16:25:42.373000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1570.0,
+    "stop_reason": 101,
+    "pieces_in_window": 15,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 14.11.2026 17:25:42 (zator)",
+    "text": "Postój 14.11.2026 17:25:42 czasu lokalnego, trwał 18 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 15, ostatni czas cyklu: 1570.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-14T16:25:42.373000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 14.11.2026 17:25:42",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 368 -> 383 szt.\n- udiCycleTime_ms: 1403 -> 1570 ms (min 1402, max 1595, zmian 15)\n- rMachSpeed: 42.766 -> 0 szt./min (min 0, max 42.796, zmian 16)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 14.11.2026 17:25:42",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "14.11.2026 18:01:59",
+  "t_start": "2026-11-14T17:01:59.497000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11,
+     5
+    ],
+    "cycle_ms": 1477.0,
+    "stop_reason": 101,
+    "pieces_in_window": 15,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null,
+   "secondary": [
+    "brak_produktu"
+   ]
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 14.11.2026 18:01:59 (zator)",
+    "text": "Postój 14.11.2026 18:01:59 czasu lokalnego, trwał 36 s.\nStany po Execute: Held (11), Suspended (5). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nKolejne przyczyny w tym postoju: brak_produktu.\nSztuk w 30 s przed postojem: 15, ostatni czas cyklu: 1477.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-14T17:01:59.497000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 14.11.2026 18:01:59",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 1448 -> 1463 szt.\n- udiCycleTime_ms: 1564 -> 1477 ms (min 1409, max 1575, zmian 15)\n- rMachSpeed: 38.363 -> 0 szt./min (min 0, max 42.583, zmian 16)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 14.11.2026 18:01:59",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "14.11.2026 18:02:33",
+  "t_start": "2026-11-14T17:02:33.328000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1477.0,
+    "stop_reason": 201,
+    "pieces_in_window": 0,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 14.11.2026 18:02:33 (brak_produktu)",
+    "text": "Postój 14.11.2026 18:02:33 czasu lokalnego, trwał 2 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 0, ostatni czas cyklu: 1477.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-14T17:02:33.328000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 14.11.2026 18:02:33",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Held (11) -> Suspended (5) (przebieg: Held (11) -> Execute (6) -> Suspended (5))\n- iStopReason: 101 -> 201\n- udiProdProcessed: 1463 -> 1463 szt.\n- udiCycleTime_ms: 1477 -> 1477 ms\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 40.623, zmian 2)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 14.11.2026 18:02:33",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "14.11.2026 18:48:47",
+  "t_start": "2026-11-14T17:48:47.220000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1470.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -24.4
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 24.4
+   },
+   "window_s": 30,
+   "clip_at_s": -24.4
+  },
+  "clip": "http://192.168.0.124:8080/20261114-184822_fallen_id19.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 14.11.2026 18:48:47 (zator)",
+    "text": "Postój 14.11.2026 18:48:47 czasu lokalnego, trwał 35 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1470.0 ms.\nKamera: obiekty fallen 1, przewrócone butelki w chwilach -24.4 s względem postoju, ostatnia sztuka 24.4 s przed postojem.\nKlip: http://192.168.0.124:8080/20261114-184822_fallen_id19.mp4.",
+    "url": "http://192.168.0.124:8080/20261114-184822_fallen_id19.mp4",
+    "source": "stop:2026-11-14T17:48:47.220000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 14.11.2026 18:48:47",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 1347 -> 1367 szt.\n- udiCycleTime_ms: 1501 -> 1470 ms (min 1420, max 1610, zmian 20)\n- rMachSpeed: 39.973 -> 0 szt./min (min 0, max 42.254, zmian 21)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 14.11.2026 18:48:47",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:37:15",
+  "t_start": "2026-11-15T08:37:15.735000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1490.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:37:15 (zator)",
+    "text": "Postój 15.11.2026 09:37:15 czasu lokalnego, trwał 12 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1490.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:37:15.735000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:37:15",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 36537 -> 36557 szt.\n- udiCycleTime_ms: 1590 -> 1490 ms (min 1409, max 1591, zmian 20)\n- rMachSpeed: 37.736 -> 0 szt./min (min 0, max 42.583, zmian 21)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:37:15",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:38:24",
+  "t_start": "2026-11-15T08:38:24.469000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1439.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:38:24 (zator)",
+    "text": "Postój 15.11.2026 09:38:24 czasu lokalnego, trwał 16 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1439.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:38:24.469000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:38:24",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 36574 -> 36594 szt.\n- udiCycleTime_ms: 1521 -> 1439 ms (min 1439, max 1610, zmian 20)\n- rMachSpeed: 39.448 -> 0 szt./min (min 0, max 41.696, zmian 21)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:38:24",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:39:00",
+  "t_start": "2026-11-15T08:39:00.134000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1450.0,
+    "stop_reason": 101,
+    "pieces_in_window": 13,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:39:00 (zator)",
+    "text": "Postój 15.11.2026 09:39:00 czasu lokalnego, trwał 13 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 13, ostatni czas cyklu: 1450.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:39:00.134000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:39:00",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Held (11) -> Held (11) (przebieg: Held (11) -> Execute (6) -> Held (11))\n- iStopReason: 101 -> 101\n- udiProdProcessed: 36594 -> 36607 szt.\n- udiCycleTime_ms: 1439 -> 1450 ms (min 1419, max 1611, zmian 13)\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 42.283, zmian 15)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:39:00",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:47:48",
+  "t_start": "2026-11-15T08:47:48.594000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1569.0,
+    "stop_reason": 201,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:47:48 (brak_produktu)",
+    "text": "Postój 15.11.2026 09:47:48 czasu lokalnego, trwał 22 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1569.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:47:48.594000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:47:48",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Suspended (5) (przebieg: Execute (6) -> Suspended (5))\n- iStopReason: 0 -> 201\n- udiProdProcessed: 36926 -> 36946 szt.\n- udiCycleTime_ms: 1590 -> 1569 ms (min 1419, max 1610, zmian 19)\n- rMachSpeed: 37.736 -> 0 szt./min (min 0, max 42.283, zmian 20)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:47:48",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:48:13",
+  "t_start": "2026-11-15T08:48:13.923000+00:00",
+  "cause": "awaria",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     8
+    ],
+    "cycle_ms": 1470.0,
+    "stop_reason": 301,
+    "pieces_in_window": 5,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjFault": 1.0
+   },
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:48:13 (awaria)",
+    "text": "Postój 15.11.2026 09:48:13 czasu lokalnego, trwał 295 s.\nStany po Execute: Aborting (8). Kod iStopReason: 301.\nPrzyczyna: awaria, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 5, ostatni czas cyklu: 1470.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:48:13.923000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:48:13",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Aborting (8) (przebieg: Execute (6) -> Suspended (5) -> Execute (6) -> Aborting (8))\n- iStopReason: 0 -> 301\n- udiProdProcessed: 36943 -> 36948 szt.\n- udiCycleTime_ms: 1591 -> 1470 ms (min 1470, max 1599, zmian 5)\n- rMachSpeed: 37.712 -> 0 szt./min (min 0, max 40.816, zmian 8)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:48:13",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:55:36",
+  "t_start": "2026-11-15T08:55:36.239000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1560.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -6.7
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 6.7
+   },
+   "window_s": 30,
+   "clip_at_s": -6.7
+  },
+  "clip": "http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:55:36 (zator)",
+    "text": "Postój 15.11.2026 09:55:36 czasu lokalnego, trwał 11 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1560.0 ms.\nKamera: obiekty fallen 1, przewrócone butelki w chwilach -6.7 s względem postoju, ostatnia sztuka 6.7 s przed postojem.\nKlip: http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4.",
+    "url": "http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4",
+    "source": "stop:2026-11-15T08:55:36.239000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:55:36",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 37024 -> 37044 szt.\n- udiCycleTime_ms: 1561 -> 1560 ms (min 1419, max 1610, zmian 20)\n- rMachSpeed: 38.437 -> 0 szt./min (min 0, max 42.283, zmian 21)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:55:36",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:55:55",
+  "t_start": "2026-11-15T08:55:55.352000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1460.0,
+    "stop_reason": 101,
+    "pieces_in_window": 12,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -25.8
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 25.8
+   },
+   "window_s": 30,
+   "clip_at_s": -25.8
+  },
+  "clip": "http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:55:55 (zator)",
+    "text": "Postój 15.11.2026 09:55:55 czasu lokalnego, trwał 4 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 12, ostatni czas cyklu: 1460.0 ms.\nKamera: obiekty fallen 1, przewrócone butelki w chwilach -25.8 s względem postoju, ostatnia sztuka 25.8 s przed postojem.\nKlip: http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4.",
+    "url": "http://192.168.0.124:8080/20261115-095529_fallen_id0.mp4",
+    "source": "stop:2026-11-15T08:55:55.352000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:55:55",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11) -> Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 37037 -> 37049 szt.\n- udiCycleTime_ms: 1593 -> 1460 ms (min 1429, max 1593, zmian 12)\n- rMachSpeed: 37.665 -> 0 szt./min (min 0, max 41.987, zmian 15)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:55:55",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:56:07",
+  "t_start": "2026-11-15T08:56:07.946000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1479.0,
+    "stop_reason": 201,
+    "pieces_in_window": 10,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:56:07 (brak_produktu)",
+    "text": "Postój 15.11.2026 09:56:07 czasu lokalnego, trwał 16 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 10, ostatni czas cyklu: 1479.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:56:07.946000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:56:07",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Held (11) -> Suspended (5) (przebieg: Held (11) -> Execute (6) -> Held (11) -> Execute (6) -> Suspended (5))\n- iStopReason: 101 -> 201\n- udiProdProcessed: 37044 -> 37054 szt.\n- udiCycleTime_ms: 1560 -> 1479 ms (min 1439, max 1560, zmian 10)\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 41.696, zmian 14)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:56:07",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:56:28",
+  "t_start": "2026-11-15T08:56:28.388000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1601.0,
+    "stop_reason": 201,
+    "pieces_in_window": 8,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 1
+    },
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:56:28 (brak_produktu)",
+    "text": "Postój 15.11.2026 09:56:28 czasu lokalnego, trwał 21 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 8, ostatni czas cyklu: 1601.0 ms.\nKamera: obiekty bottle 1, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T08:56:28.388000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:56:28",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Held (11) -> Suspended (5) (przebieg: Held (11) -> Execute (6) -> Suspended (5) -> Execute (6) -> Suspended (5))\n- iStopReason: 101 -> 201\n- udiProdProcessed: 37049 -> 37057 szt.\n- udiCycleTime_ms: 1460 -> 1601 ms (min 1439, max 1601, zmian 8)\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 41.696, zmian 12)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:56:28",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 09:57:00",
+  "t_start": "2026-11-15T08:57:00.645000+00:00",
+  "cause": "awaria",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     8
+    ],
+    "cycle_ms": 1430.0,
+    "stop_reason": 301,
+    "pieces_in_window": 7,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjFault": 1.0
+   },
+   "note": "kamera: przewrócona butelka w oknie",
+   "vision": {
+    "counts": {
+     "bottle": 2,
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     7.1
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 19.0
+   },
+   "window_s": 30,
+   "clip_at_s": 7.1
+  },
+  "clip": "http://192.168.0.124:8080/20261115-095707_fallen_id9.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 09:57:00 (awaria)",
+    "text": "Postój 15.11.2026 09:57:00 czasu lokalnego, trwał 89 s.\nStany po Execute: Aborting (8). Kod iStopReason: 301.\nPrzyczyna: awaria, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 7, ostatni czas cyklu: 1430.0 ms.\nKamera: obiekty bottle 2, fallen 1, przewrócone butelki w chwilach 7.1 s względem postoju, ostatnia sztuka 19.0 s przed postojem.\nUwaga: kamera: przewrócona butelka w oknie.\nKlip: http://192.168.0.124:8080/20261115-095707_fallen_id9.mp4.",
+    "url": "http://192.168.0.124:8080/20261115-095707_fallen_id9.mp4",
+    "source": "stop:2026-11-15T08:57:00.645000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 09:57:00",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Suspended (5) -> Aborting (8) (przebieg: Suspended (5) -> Execute (6) -> Aborting (8))\n- iStopReason: 201 -> 301\n- udiProdProcessed: 37057 -> 37064 szt.\n- udiCycleTime_ms: 1601 -> 1430 ms (min 1410, max 1601, zmian 7)\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 42.553, zmian 9)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 09:57:00",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 10:06:07",
+  "t_start": "2026-11-15T09:06:07.187000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1441.0,
+    "stop_reason": 201,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 6
+    },
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": 15.7
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 10:06:07 (brak_produktu)",
+    "text": "Postój 15.11.2026 10:06:07 czasu lokalnego, trwał 20 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1441.0 ms.\nKamera: obiekty bottle 6, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka 15.7 s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T09:06:07.187000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 10:06:07",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Suspended (5) (przebieg: Execute (6) -> Suspended (5))\n- iStopReason: 0 -> 201\n- udiProdProcessed: 37347 -> 37366 szt.\n- udiCycleTime_ms: 1600 -> 1441 ms (min 1421, max 1600, zmian 19)\n- rMachSpeed: 37.5 -> 0 szt./min (min 0, max 42.224, zmian 20)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 10:06:07",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 10:23:02",
+  "t_start": "2026-11-15T09:23:02.987000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1489.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -10.5
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 10.5
+   },
+   "window_s": 30,
+   "clip_at_s": -10.5
+  },
+  "clip": "http://192.168.0.124:8080/20261115-102252_fallen_id1.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 10:23:02 (zator)",
+    "text": "Postój 15.11.2026 10:23:02 czasu lokalnego, trwał 10 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1489.0 ms.\nKamera: obiekty fallen 1, przewrócone butelki w chwilach -10.5 s względem postoju, ostatnia sztuka 10.5 s przed postojem.\nKlip: http://192.168.0.124:8080/20261115-102252_fallen_id1.mp4.",
+    "url": "http://192.168.0.124:8080/20261115-102252_fallen_id1.mp4",
+    "source": "stop:2026-11-15T09:23:02.987000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 10:23:02",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 38004 -> 38024 szt.\n- udiCycleTime_ms: 1509 -> 1489 ms (min 1419, max 1601, zmian 20)\n- rMachSpeed: 39.761 -> 0 szt./min (min 0, max 42.283, zmian 21)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 10:23:02",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 11:45:29",
+  "t_start": "2026-11-15T10:45:29.655000+00:00",
+  "cause": "restart_plc",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     0
+    ],
+    "cycle_ms": 0.0,
+    "stop_reason": 0,
+    "pieces_in_window": -41263,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 11:45:29 (restart_plc)",
+    "text": "Postój 15.11.2026 11:45:29 czasu lokalnego, trwał 47 s.\nStany po Execute: nieznany (0). Kod iStopReason: 0.\nPrzyczyna: restart_plc, pewność: tylko_plc.\nSztuk w 30 s przed postojem: nieznana (licznik sztuk wyzerowany w oknie), ostatni czas cyklu: 0.0 ms.\nKamera była offline w oknie postoju.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T10:45:29.655000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 11:45:29",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> nieznany (0) (przebieg: Execute (6) -> nieznany (0))\n- iStopReason: 0 -> 0\n- udiProdProcessed: 41263 -> 0 szt.\n- udiCycleTime_ms: 1599 -> 0 ms (min 0, max 1611, zmian 19)\n- rMachSpeed: 37.523 -> 0 szt./min (min 0, max 41.958, zmian 19)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych\n- puste wartości sygnałów w oknie: 9 (brak danych z PLC)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 11:45:29",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 11:52:42",
+  "t_start": "2026-11-15T10:52:42.897000+00:00",
+  "cause": "restart_plc",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     0
+    ],
+    "cycle_ms": 0.0,
+    "stop_reason": 0,
+    "pieces_in_window": -234,
+    "offline_in_window": true
+   },
+   "sim": {},
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 11:52:42 (restart_plc)",
+    "text": "Postój 15.11.2026 11:52:42 czasu lokalnego, trwał 164 s.\nStany po Execute: nieznany (0). Kod iStopReason: 0.\nPrzyczyna: restart_plc, pewność: tylko_plc.\nSztuk w 30 s przed postojem: nieznana (licznik sztuk wyzerowany w oknie), ostatni czas cyklu: 0.0 ms.\nKamera była offline w oknie postoju.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T10:52:42.897000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 11:52:42",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> nieznany (0) (przebieg: Execute (6) -> nieznany (0))\n- iStopReason: 0 -> 0\n- udiProdProcessed: 234 -> 0 szt.\n- udiCycleTime_ms: 1590 -> 0 ms (min 0, max 1590, zmian 16)\n- rMachSpeed: 37.736 -> 0 szt./min (min 0, max 41.667, zmian 16)\n- rTorqueMean_Nm: brak danych\n- rTorquePeak_Nm: brak danych\n- rCurrent_A: brak danych\n- rMotorTemp_C: brak danych\n- puste wartości sygnałów w oknie: 9 (brak danych z PLC)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 11:52:42",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 12:24:30",
+  "t_start": "2026-11-15T11:24:30.714000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1580.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 12:24:30 (operator)",
+    "text": "Postój 15.11.2026 12:24:30 czasu lokalnego, trwał 49 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1580.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T11:24:30.714000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 12:24:30",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 1130 -> 1150 szt.\n- udiCycleTime_ms: 1580 -> 1580 ms (min 1420, max 1590, zmian 20)\n- rMachSpeed: 37.975 -> 0 szt./min (min 0, max 42.254, zmian 21)\n- rTorqueMean_Nm: 2.021 -> 1.948 Nm (min 1.916, max 2.114, zmian 20)\n- rTorquePeak_Nm: 3.349 -> 3.083 Nm (min 3.037, max 3.428, zmian 20)\n- rCurrent_A: 3.204 -> 3.138 A (min 3.083, max 3.329, zmian 20)\n- rMotorTemp_C: 44 -> 44 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 12:24:30",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 12:27:05",
+  "t_start": "2026-11-15T11:27:05.330000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1460.0,
+    "stop_reason": 1,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 12:27:05 (operator)",
+    "text": "Postój 15.11.2026 12:27:05 czasu lokalnego, trwał 19 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1460.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T11:27:05.330000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 12:27:05",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 1200 -> 1219 szt.\n- udiCycleTime_ms: 1540 -> 1460 ms (min 1420, max 1610, zmian 17)\n- rMachSpeed: 38.961 -> 0 szt./min (min 0, max 42.254, zmian 18)\n- rTorqueMean_Nm: 1.892 -> 1.955 Nm (min 1.892, max 2.09, zmian 19)\n- rTorquePeak_Nm: 3.175 -> 3.176 Nm (min 3.003, max 3.453, zmian 19)\n- rCurrent_A: 3.055 -> 3.14 A (min 3.055, max 3.312, zmian 19)\n- rMotorTemp_C: 42.6 -> 42.7 °C (min 42.6, max 42.8, zmian 3)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 12:27:05",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 12:28:10",
+  "t_start": "2026-11-15T11:28:10.356000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1580.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 12:28:10 (operator)",
+    "text": "Postój 15.11.2026 12:28:10 czasu lokalnego, trwał 49 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1580.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T11:28:10.356000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 12:28:10",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 1229 -> 1249 szt.\n- udiCycleTime_ms: 1580 -> 1580 ms (min 1420, max 1610, zmian 20)\n- rMachSpeed: 37.975 -> 0 szt./min (min 0, max 42.254, zmian 21)\n- rTorqueMean_Nm: 1.906 -> 1.972 Nm (min 1.886, max 2.069, zmian 20)\n- rTorquePeak_Nm: 2.975 -> 3.336 Nm (min 2.848, max 3.469, zmian 20)\n- rCurrent_A: 3.1 -> 3.206 A (min 3.053, max 3.27, zmian 20)\n- rMotorTemp_C: 42.2 -> 42.3 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 12:28:10",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 12:30:30",
+  "t_start": "2026-11-15T11:30:30.270000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1450.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 12:30:30 (operator)",
+    "text": "Postój 15.11.2026 12:30:30 czasu lokalnego, trwał 13 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1450.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T11:30:30.270000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 12:30:30",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 1289 -> 1309 szt.\n- udiCycleTime_ms: 1570 -> 1450 ms (min 1420, max 1600, zmian 19)\n- rMachSpeed: 38.217 -> 0 szt./min (min 0, max 42.254, zmian 20)\n- rTorqueMean_Nm: 1.97 -> 2.067 Nm (min 1.835, max 2.084, zmian 20)\n- rTorquePeak_Nm: 3.236 -> 3.181 Nm (min 2.853, max 3.424, zmian 20)\n- rCurrent_A: 3.189 -> 3.276 A (min 3.009, max 3.34, zmian 20)\n- rMotorTemp_C: 41.1 -> 41.3 °C (min 41.1, max 41.3, zmian 2)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 12:30:30",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 13:05:45",
+  "t_start": "2026-11-15T12:05:45.232000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1420.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 13:05:45 (operator)",
+    "text": "Postój 15.11.2026 13:05:45 czasu lokalnego, trwał 904 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1420.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T12:05:45.232000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 13:05:45",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 2678 -> 2698 szt.\n- udiCycleTime_ms: 1610 -> 1420 ms (min 1420, max 1610, zmian 19)\n- rMachSpeed: 37.267 -> 0 szt./min (min 0, max 42.254, zmian 20)\n- rTorqueMean_Nm: 1.985 -> 2.021 Nm (min 1.867, max 2.09, zmian 20)\n- rTorquePeak_Nm: 3.2 -> 3.356 Nm (min 2.952, max 3.356, zmian 20)\n- rCurrent_A: 3.166 -> 3.226 A (min 3.047, max 3.308, zmian 20)\n- rMotorTemp_C: 44.9 -> 44.9 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 13:05:45",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 13:55:49",
+  "t_start": "2026-11-15T12:55:49.996000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1610.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 13:55:49 (operator)",
+    "text": "Postój 15.11.2026 13:55:49 czasu lokalnego, trwał 304 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1610.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T12:55:49.996000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 13:55:49",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 4066 -> 4086 szt.\n- udiCycleTime_ms: 1600 -> 1610 ms (min 1420, max 1610, zmian 19)\n- rMachSpeed: 37.5 -> 0 szt./min (min 0, max 42.254, zmian 20)\n- rTorqueMean_Nm: 2.312 -> 2.311 Nm (min 2.034, max 2.635, zmian 20)\n- rTorquePeak_Nm: 4.779 -> 4.602 Nm (min 3.403, max 4.796, zmian 20)\n- rCurrent_A: 3.584 -> 3.572 A (min 3.249, max 3.984, zmian 20)\n- rMotorTemp_C: 47.9 -> 48 °C (min 47.9, max 48.1, zmian 3)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 13:55:49",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 14:15:54",
+  "t_start": "2026-11-15T13:15:54.621000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1590.0,
+    "stop_reason": 1,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 14:15:54 (operator)",
+    "text": "Postój 15.11.2026 14:15:54 czasu lokalnego, trwał 904 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1590.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T13:15:54.621000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 14:15:54",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 4662 -> 4681 szt.\n- udiCycleTime_ms: 1570 -> 1590 ms (min 1440, max 1600, zmian 17)\n- rMachSpeed: 38.217 -> 0 szt./min (min 0, max 41.667, zmian 18)\n- rTorqueMean_Nm: 2.062 -> 2.016 Nm (min 1.877, max 2.116, zmian 19)\n- rTorquePeak_Nm: 3.369 -> 3.24 Nm (min 2.983, max 3.369, zmian 19)\n- rCurrent_A: 3.3 -> 3.18 A (min 3.043, max 3.348, zmian 19)\n- rMotorTemp_C: 43.3 -> 43.4 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 14:15:54",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 15:00:59",
+  "t_start": "2026-11-15T14:00:59.504000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1420.0,
+    "stop_reason": 1,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 15:00:59 (operator)",
+    "text": "Postój 15.11.2026 15:00:59 czasu lokalnego, trwał 184 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1420.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T14:00:59.504000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 15:00:59",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 5853 -> 5872 szt.\n- udiCycleTime_ms: 1600 -> 1420 ms (min 1420, max 1600, zmian 18)\n- rMachSpeed: 37.5 -> 0 szt./min (min 0, max 42.254, zmian 19)\n- rTorqueMean_Nm: 2.081 -> 1.949 Nm (min 1.87, max 2.081, zmian 19)\n- rTorquePeak_Nm: 3.195 -> 3.252 Nm (min 2.939, max 3.285, zmian 19)\n- rCurrent_A: 3.309 -> 3.14 A (min 3.035, max 3.309, zmian 19)\n- rMotorTemp_C: 44.9 -> 44.9 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 15:00:59",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "15.11.2026 16:27:35",
+  "t_start": "2026-11-15T15:27:35.707000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1470.0,
+    "stop_reason": 1,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "note": "kamera offline w oknie",
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": true,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 15.11.2026 16:27:35 (operator)",
+    "text": "Postój 15.11.2026 16:27:35 czasu lokalnego, trwał 904 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1470.0 ms.\nKamera była offline w oknie postoju.\nUwaga: kamera offline w oknie.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-15T15:27:35.707000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 15.11.2026 16:27:35",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Stopping (7) (przebieg: Execute (6) -> Stopping (7))\n- iStopReason: 0 -> 1\n- udiProdProcessed: 9164 -> 9184 szt.\n- udiCycleTime_ms: 1440 -> 1470 ms (min 1430, max 1570, zmian 19)\n- rMachSpeed: 41.667 -> 0 szt./min (min 0, max 41.958, zmian 20)\n- rTorqueMean_Nm: 1.888 -> 2.055 Nm (min 1.888, max 2.11, zmian 19)\n- rTorquePeak_Nm: 3.017 -> 3.341 Nm (min 2.937, max 3.367, zmian 20)\n- rCurrent_A: 3.093 -> 3.264 A (min 3.063, max 3.303, zmian 20)\n- rMotorTemp_C: 45 -> 45 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 15.11.2026 16:27:35",
+    "text": "Kondycja napędu: brak wyników modelu w 30 min przed postojem.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 08:51:01",
+  "t_start": "2026-11-16T07:51:01.037000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1430.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 1
+    },
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": 15.1
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 08:51:01 (zator)",
+    "text": "Postój 16.11.2026 08:51:01 czasu lokalnego, trwał 20 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1430.0 ms.\nKamera: obiekty bottle 1, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka 15.1 s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T07:51:01.037000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 08:51:01",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 47534 -> 47554 szt.\n- udiCycleTime_ms: 1610 -> 1430 ms (min 1430, max 1611, zmian 17)\n- rMachSpeed: 37.267 -> 0 szt./min (min 0, max 41.958, zmian 18)\n- rTorqueMean_Nm: 2.074 -> 2.018 Nm (min 1.854, max 2.081, zmian 20)\n- rTorquePeak_Nm: 3.302 -> 3.232 Nm (min 2.866, max 3.401, zmian 20)\n- rCurrent_A: 3.323 -> 3.228 A (min 3.022, max 3.323, zmian 20)\n- rMotorTemp_C: 45 -> 45 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 08:51:01",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.30, alarm: nie). W 30 min przed postojem: najniższa kondycja 72 %, alarm wystąpił: nie, ocenionych sztuk 1188.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 08:52:17",
+  "t_start": "2026-11-16T07:52:17.092000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1440.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 6
+    },
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": 6.3
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 08:52:17 (zator)",
+    "text": "Postój 16.11.2026 08:52:17 czasu lokalnego, trwał 25 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1440.0 ms.\nKamera: obiekty bottle 6, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka 6.3 s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T07:52:17.092000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 08:52:17",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 47570 -> 47590 szt.\n- udiCycleTime_ms: 1500 -> 1440 ms (min 1420, max 1600, zmian 20)\n- rMachSpeed: 40 -> 0 szt./min (min 0, max 42.254, zmian 21)\n- rTorqueMean_Nm: 1.997 -> 1.943 Nm (min 1.882, max 2.103, zmian 19)\n- rTorquePeak_Nm: 3.143 -> 3.176 Nm (min 2.996, max 3.396, zmian 20)\n- rCurrent_A: 3.214 -> 3.123 A (min 3.059, max 3.328, zmian 20)\n- rMotorTemp_C: 44.3 -> 44.3 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 08:52:17",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.12, alarm: nie). W 30 min przed postojem: najniższa kondycja 72 %, alarm wystąpił: nie, ocenionych sztuk 1143.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 08:53:23",
+  "t_start": "2026-11-16T07:53:23.345000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1540.0,
+    "stop_reason": 201,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 08:53:23 (brak_produktu)",
+    "text": "Postój 16.11.2026 08:53:23 czasu lokalnego, trwał 30 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1540.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T07:53:23.345000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 08:53:23",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Suspended (5) (przebieg: Execute (6) -> Suspended (5))\n- iStopReason: 0 -> 201\n- udiProdProcessed: 47597 -> 47617 szt.\n- udiCycleTime_ms: 1558 -> 1540 ms (min 1450, max 1610, zmian 19)\n- rMachSpeed: 38.511 -> 0 szt./min (min 0, max 41.379, zmian 20)\n- rTorqueMean_Nm: 1.939 -> 1.909 Nm (min 1.894, max 2.042, zmian 20)\n- rTorquePeak_Nm: 3.214 -> 3.094 Nm (min 2.955, max 3.352, zmian 20)\n- rCurrent_A: 3.106 -> 3.095 A (min 3.085, max 3.265, zmian 20)\n- rMotorTemp_C: 43.4 -> 43.5 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 08:53:23",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.12, alarm: nie). W 30 min przed postojem: najniższa kondycja 72 %, alarm wystąpił: nie, ocenionych sztuk 1099.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 08:54:37",
+  "t_start": "2026-11-16T07:54:37.695000+00:00",
+  "cause": "brak_produktu",
+  "confidence": "sprzeczna",
+  "evidence": {
+   "plc": {
+    "states": [
+     5
+    ],
+    "cycle_ms": 1480.0,
+    "stop_reason": 201,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjNoProduct": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 6
+    },
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": 5.7
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 08:54:37 (brak_produktu)",
+    "text": "Postój 16.11.2026 08:54:37 czasu lokalnego, trwał 20 s.\nStany po Execute: Suspended (5). Kod iStopReason: 201.\nPrzyczyna: brak_produktu, pewność: sprzeczna.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1480.0 ms.\nKamera: obiekty bottle 6, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka 5.7 s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T07:54:37.695000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 08:54:37",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Suspended (5) (przebieg: Execute (6) -> Suspended (5))\n- iStopReason: 0 -> 201\n- udiProdProcessed: 47626 -> 47646 szt.\n- udiCycleTime_ms: 1500 -> 1480 ms (min 1420, max 1570, zmian 18)\n- rMachSpeed: 40 -> 0 szt./min (min 0, max 42.254, zmian 19)\n- rTorqueMean_Nm: 2.075 -> 2.152 Nm (min 1.875, max 2.152, zmian 19)\n- rTorquePeak_Nm: 3.325 -> 3.422 Nm (min 2.862, max 3.454, zmian 19)\n- rCurrent_A: 3.304 -> 3.359 A (min 3.024, max 3.359, zmian 20)\n- rMotorTemp_C: 42.5 -> 42.6 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 08:54:37",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.12, alarm: nie). W 30 min przed postojem: najniższa kondycja 72 %, alarm wystąpił: nie, ocenionych sztuk 1050.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 08:56:09",
+  "t_start": "2026-11-16T07:56:09.111000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11,
+     5
+    ],
+    "cycle_ms": 1540.0,
+    "stop_reason": 101,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -22.1
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 22.1
+   },
+   "window_s": 30,
+   "clip_at_s": -22.1,
+   "secondary": [
+    "brak_produktu"
+   ]
+  },
+  "clip": "http://192.168.0.124:8080/20261116-085547_fallen_id18.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 08:56:09 (zator)",
+    "text": "Postój 16.11.2026 08:56:09 czasu lokalnego, trwał 35 s.\nStany po Execute: Held (11), Suspended (5). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nKolejne przyczyny w tym postoju: brak_produktu.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1540.0 ms.\nKamera: obiekty fallen 1, przewrócone butelki w chwilach -22.1 s względem postoju, ostatnia sztuka 22.1 s przed postojem.\nKlip: http://192.168.0.124:8080/20261116-085547_fallen_id18.mp4.",
+    "url": "http://192.168.0.124:8080/20261116-085547_fallen_id18.mp4",
+    "source": "stop:2026-11-16T07:56:09.111000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 08:56:09",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 47673 -> 47692 szt.\n- udiCycleTime_ms: 1470 -> 1540 ms (min 1428, max 1610, zmian 18)\n- rMachSpeed: 40.816 -> 0 szt./min (min 0, max 42.017, zmian 19)\n- rTorqueMean_Nm: 1.892 -> 1.989 Nm (min 1.892, max 2.096, zmian 19)\n- rTorquePeak_Nm: 2.895 -> 3.198 Nm (min 2.895, max 3.377, zmian 19)\n- rCurrent_A: 3.074 -> 3.204 A (min 3.067, max 3.355, zmian 19)\n- rMotorTemp_C: 42.1 -> 42.2 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 08:56:09",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.05, alarm: nie). W 30 min przed postojem: najniższa kondycja 72 %, alarm wystąpił: nie, ocenionych sztuk 1004.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 09:04:51",
+  "t_start": "2026-11-16T08:04:51.953000+00:00",
+  "cause": "awaria",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     8
+    ],
+    "cycle_ms": 1429.0,
+    "stop_reason": 301,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjWear": 1.0,
+    "xInjFault": 1.0
+   },
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 09:04:51 (awaria)",
+    "text": "Postój 16.11.2026 09:04:51 czasu lokalnego, trwał 40 s.\nStany po Execute: Aborting (8). Kod iStopReason: 301.\nPrzyczyna: awaria, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1429.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T08:04:51.953000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 09:04:51",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Aborting (8) (przebieg: Execute (6) -> Aborting (8))\n- iStopReason: 0 -> 301\n- udiProdProcessed: 47993 -> 48013 szt.\n- udiCycleTime_ms: 1580 -> 1429 ms (min 1420, max 1580, zmian 19)\n- rMachSpeed: 37.975 -> 0 szt./min (min 0, max 42.254, zmian 20)\n- rTorqueMean_Nm: 2.215 -> 1.978 Nm (min 1.978, max 2.439, zmian 20)\n- rTorquePeak_Nm: 4.146 -> 3.588 Nm (min 3.528, max 4.59, zmian 20)\n- rCurrent_A: 3.456 -> 3.197 A (min 3.178, max 3.724, zmian 20)\n- rMotorTemp_C: 44.3 -> 44.5 °C (min 44.3, max 44.5, zmian 2)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 09:04:51",
+    "text": "Kondycja napędu tuż przed postojem: 0 % (wynik/próg 179.25, alarm: tak). W 30 min przed postojem: najniższa kondycja 0 %, alarm wystąpił: tak, ocenionych sztuk 950.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 09:07:06",
+  "t_start": "2026-11-16T08:07:06.252000+00:00",
+  "cause": "awaria",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     8
+    ],
+    "cycle_ms": 1510.0,
+    "stop_reason": 302,
+    "pieces_in_window": 19,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 09:07:06 (awaria)",
+    "text": "Postój 16.11.2026 09:07:06 czasu lokalnego, trwał 25 s.\nStany po Execute: Aborting (8). Kod iStopReason: 302.\nPrzyczyna: awaria, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 19, ostatni czas cyklu: 1510.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T08:07:06.252000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 09:07:06",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Aborting (8) (przebieg: Execute (6) -> Aborting (8))\n- iStopReason: 0 -> 302\n- udiProdProcessed: 48055 -> 48074 szt.\n- udiCycleTime_ms: 1490 -> 1510 ms (min 1420, max 1611, zmian 18)\n- rMachSpeed: 40.268 -> 0 szt./min (min 0, max 42.254, zmian 19)\n- rTorqueMean_Nm: 1.983 -> 1.985 Nm (min 1.912, max 2.092, zmian 19)\n- rTorquePeak_Nm: 3.186 -> 3.196 Nm (min 2.994, max 3.488, zmian 19)\n- rCurrent_A: 3.201 -> 3.18 A (min 3.087, max 3.293, zmian 19)\n- rMotorTemp_C: 43.3 -> 43.3 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 09:07:06",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.16, alarm: nie). W 30 min przed postojem: najniższa kondycja 0 %, alarm wystąpił: tak, ocenionych sztuk 891.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 09:07:50",
+  "t_start": "2026-11-16T08:07:50.371000+00:00",
+  "cause": "operator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     7
+    ],
+    "cycle_ms": 1600.0,
+    "stop_reason": 1,
+    "pieces_in_window": 12,
+    "offline_in_window": false
+   },
+   "sim": {},
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 09:07:50 (operator)",
+    "text": "Postój 16.11.2026 09:07:50 czasu lokalnego, trwał 64 s.\nStany po Execute: Stopping (7). Kod iStopReason: 1.\nPrzyczyna: operator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 12, ostatni czas cyklu: 1600.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T08:07:50.371000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 09:07:50",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Aborted (9) -> Stopping (7) (przebieg: Aborted (9) -> Clearing (1) -> Stopped (2) -> Resetting (15) -> Idle (4) -> Starting (3) -> Execute (6) -> Stopping (7))\n- iStopReason: 302 -> 1\n- udiProdProcessed: 48074 -> 48086 szt.\n- udiCycleTime_ms: 1510 -> 1600 ms (min 1430, max 1600, zmian 12)\n- rMachSpeed: 0 -> 0 szt./min (min 0, max 41.958, zmian 14)\n- rTorqueMean_Nm: 1.985 -> 2.001 Nm (min 1.925, max 2.086, zmian 12)\n- rTorquePeak_Nm: 3.196 -> 3.153 Nm (min 3.049, max 3.43, zmian 12)\n- rCurrent_A: 3.18 -> 3.215 A (min 3.095, max 3.299, zmian 12)\n- rMotorTemp_C: 42.8 -> 42.5 °C (min 42.5, max 42.8, zmian 3)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 09:07:50",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.16, alarm: nie). W 30 min przed postojem: najniższa kondycja 0 %, alarm wystąpił: tak, ocenionych sztuk 862.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 09:38:47",
+  "t_start": "2026-11-16T08:38:47.072000+00:00",
+  "cause": "zator",
+  "confidence": "tylko_plc",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1500.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {},
+    "fallen_at_s": [],
+    "offline_in_window": false,
+    "last_item_s_before": null
+   },
+   "window_s": 30,
+   "clip_at_s": null
+  },
+  "clip": null,
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 09:38:47 (zator)",
+    "text": "Postój 16.11.2026 09:38:47 czasu lokalnego, trwał 20 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: tylko_plc.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1500.0 ms.\nKamera: obiekty brak, przewrócone butelki w chwilach brak s względem postoju, ostatnia sztuka None s przed postojem.\nKlip: brak.",
+    "url": null,
+    "source": "stop:2026-11-16T08:38:47.072000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 09:38:47",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 49250 -> 49270 szt.\n- udiCycleTime_ms: 1600 -> 1500 ms (min 1430, max 1610, zmian 19)\n- rMachSpeed: 37.5 -> 0 szt./min (min 0, max 41.958, zmian 20)\n- rTorqueMean_Nm: 1.947 -> 2.031 Nm (min 1.824, max 2.107, zmian 20)\n- rTorquePeak_Nm: 3.144 -> 3.12 Nm (min 2.919, max 3.536, zmian 20)\n- rCurrent_A: 3.132 -> 3.215 A (min 2.965, max 3.322, zmian 20)\n- rMotorTemp_C: 44.7 -> 44.7 °C (min 44.7, max 44.8, zmian 2)",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 09:38:47",
+    "text": "Kondycja napędu tuż przed postojem: 100 % (wynik/próg 0.24, alarm: nie). W 30 min przed postojem: najniższa kondycja 68 %, alarm wystąpił: nie, ocenionych sztuk 1153.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ },
+ {
+  "t_start_local": "16.11.2026 09:40:00",
+  "t_start": "2026-11-16T08:40:00.228000+00:00",
+  "cause": "zator",
+  "confidence": "potwierdzona",
+  "evidence": {
+   "plc": {
+    "states": [
+     11
+    ],
+    "cycle_ms": 1470.0,
+    "stop_reason": 101,
+    "pieces_in_window": 20,
+    "offline_in_window": false
+   },
+   "sim": {
+    "xInjJam": 1.0
+   },
+   "vision": {
+    "counts": {
+     "bottle": 6,
+     "fallen": 1
+    },
+    "fallen_at_s": [
+     -13.8
+    ],
+    "offline_in_window": false,
+    "last_item_s_before": 13.8
+   },
+   "window_s": 30,
+   "clip_at_s": -13.8
+  },
+  "clip": "http://192.168.0.124:8080/20261116-093946_fallen_id25.mp4",
+  "sources": [
+   {
+    "id": "P1",
+    "title": "Postój 16.11.2026 09:40:00 (zator)",
+    "text": "Postój 16.11.2026 09:40:00 czasu lokalnego, trwał 20 s.\nStany po Execute: Held (11). Kod iStopReason: 101.\nPrzyczyna: zator, pewność: potwierdzona.\nSztuk w 30 s przed postojem: 20, ostatni czas cyklu: 1470.0 ms.\nKamera: obiekty bottle 6, fallen 1, przewrócone butelki w chwilach -13.8 s względem postoju, ostatnia sztuka 13.8 s przed postojem.\nKlip: http://192.168.0.124:8080/20261116-093946_fallen_id25.mp4.",
+    "url": "http://192.168.0.124:8080/20261116-093946_fallen_id25.mp4",
+    "source": "stop:2026-11-16T08:40:00.228000+00:00"
+   },
+   {
+    "id": "P2",
+    "title": "Sygnały PLC przed postojem 16.11.2026 09:40:00",
+    "text": "Sygnały PLC w 30 s przed postojem (wartość na początku okna -> w chwili postoju):\n- iStateCurrent: Execute (6) -> Held (11) (przebieg: Execute (6) -> Held (11))\n- iStopReason: 0 -> 101\n- udiProdProcessed: 49285 -> 49305 szt.\n- udiCycleTime_ms: 1480 -> 1470 ms (min 1420, max 1610, zmian 19)\n- rMachSpeed: 40.541 -> 0 szt./min (min 0, max 42.254, zmian 20)\n- rTorqueMean_Nm: 2.102 -> 1.98 Nm (min 1.863, max 2.127, zmian 20)\n- rTorquePeak_Nm: 3.339 -> 3.214 Nm (min 2.921, max 3.353, zmian 20)\n- rCurrent_A: 3.338 -> 3.195 A (min 3.056, max 3.37, zmian 20)\n- rMotorTemp_C: 44 -> 44.1 °C",
+    "url": null,
+    "source": "plc_signal"
+   },
+   {
+    "id": "P3",
+    "title": "Kondycja napędu przed postojem 16.11.2026 09:40:00",
+    "text": "Kondycja napędu tuż przed postojem: 88 % (wynik/próg 0.45, alarm: nie). W 30 min przed postojem: najniższa kondycja 68 %, alarm wystąpił: nie, ocenionych sztuk 1145.",
+    "url": null,
+    "source": "drive_health"
+   }
+  ]
+ }
+]

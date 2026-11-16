@@ -19,6 +19,7 @@ const TAGS = {
   ADMIN: { label: 'LAPTOP (cmd jako administrator)', color: '8C1F1F' },
   PLC: { label: 'CODESYS', color: 'B5651D' },
   WWW: { label: 'PRZEGLĄDARKA', color: '555555' },
+  OLLAMA: { label: 'OLLAMA (cmd)', color: '3D3D3D' },
 };
 
 const children = [];
@@ -674,6 +675,43 @@ p('Usługa diag liczy po każdej sztuce wynik modelu (ONNX Runtime) i zapisuje d
 step('LAPTOP', 'Tabela, nowa wersja diag, dashboard', ['docker exec -i linesight-db psql -U linesight < infra\\db\\31-drive-health.sql', 'docker compose -f infra/docker-compose.yml up -d --build diag', 'docker restart linesight-grafana', 'docker logs --tail 10 linesight-diag'], 'W logu: Napęd: model … i co 5 s Napęd: +N sztuk, kondycja … %. Model: models\\drive_ae.onnx + .json z anomaly\\model.py.');
 step('PLC', 'Test na żywo', 'xInjWear := TRUE … po ok. 2 min ALARM … xInjWear := FALSE', 'Zużycie narasta przez tWearRamp (10 min po sesji danych).');
 
+h1('10zd. Asystent RAG: baza wiedzy i indeks (E5-01 – E5-03)');
+p('pgvector w tej samej bazie, tabela kb_chunk; instrukcja linii docs/kb (sekcja ## = fragment); embeddingi multilingual-e5-small na CPU.');
+step('LAPTOP', 'pgvector i tabela (raz)', ['docker exec -i linesight-db psql -U linesight < infra\\db\\40-kb.sql', 'docker exec linesight-db psql -U linesight -d linesight -c "\\dx vector"']);
+step('LAPTOP', 'Indeks i zapytanie testowe', ['pip install -r assistant\\requirements.txt', 'python assistant\\index_kb.py', 'python assistant\\index_kb.py --query "co zrobić, gdy linia stoi w Held"', 'python assistant\\index_kb.py --query "what does stop code 201 mean" --kind manual'], 'Po każdej zmianie docs/kb albo opisu postojów: index_kb.py jeszcze raz. Wynik: case: 37, manual: 33.');
+step('LAPTOP', 'Kontekst postoju (bez LLM)', ['python assistant\\context.py "dlaczego linia stanęła o 10:23?"', 'python assistant\\context.py "ostatni postój"']);
+
+h1('10ze. Ollama i odpowiedź asystenta (E5-05)');
+step('LAPTOP', 'Model i ustawienia serwera (raz)', ['ollama pull qwen3:4b-instruct', 'setx OLLAMA_FLASH_ATTENTION 1', 'setx OLLAMA_KV_CACHE_TYPE q8_0'], 'Nie qwen3:4b – to wariant thinking (długie rozumowanie). Po setx: nowe okno cmd.');
+step('OLLAMA', 'Serwer Ollamy (okno zostaje otwarte)', 'ollama serve', 'W logu: OLLAMA_KV_CACHE_TYPE:q8_0, przy pierwszym pytaniu offloaded 37/37 layers to GPU.');
+step('LAPTOP', 'Pytania z wiersza poleceń', ['python assistant\\rag.py "dlaczego linia stanęła 16.11 o 9:40?"', 'python assistant\\rag.py --backend gemini "co oznacza kod 302?"', 'ollama ps'], 'ollama ps: 100% GPU. Gemini: zmienna GEMINI_API_KEY (setx), model domyślny gemini-3.5-flash-lite.');
+step('LAPTOP', 'Klucz Gemini (raz, aistudio.google.com → Get API key)', ['setx GEMINI_API_KEY "KLUCZ"', 'set GEMINI_API_KEY=KLUCZ', 'curl -s -H "x-goog-api-key: %GEMINI_API_KEY%" "https://generativelanguage.googleapis.com/v1beta/models?pageSize=200" | findstr /C:"\"name\": \"models/gemini"'], 'Klucza nie pokazywać na zrzutach. Limity: AI Studio → Rate Limit (3.6/3.8 Flash: 20 zapytań dziennie, 3.5 Flash Lite: 500).');
+
+h1('10zf. Sesja postojów i ewaluacja (E5-06, E5-07)');
+step('SSH1', 'Kamera + klipy', 'cd ~/linesight/deepstream && python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203');
+step('SSH2', 'Serwer klipów', 'python3 ~/linesight/jetson/serve_clips.py');
+step('LAPTOP', 'Sesja z operatorem (ok. 25 min)', ['python tools\\scenario_rag.py --dry', 'python tools\\scenario_rag.py', 'python tools\\scenario_rag.py --only E1'], 'Robić to, co po >>, Enter dopiero gdy gotowe. E1: Enter po ZLICZONO … "fallen" w SSH1.');
+step('LAPTOP', 'Postoje sesji i kontekst do wzorców', ['docker exec linesight-db psql -U linesight -d linesight -c "SELECT t_start AT TIME ZONE \'Europe/Warsaw\' AS start, cause, confidence, evidence->\'secondary\' AS druga, clip IS NOT NULL AS klip FROM stop_event WHERE t_start::date = \'2026-11-16\' ORDER BY t_start;"', 'python assistant\\dump_contexts.py --since 2026-11-14 > data\\eval_contexts.json']);
+step('LAPTOP', 'Ewaluacja (28 pytań)', ['python eval\\run_eval.py --name rag_ollama_v3 --judge gemini --judge-model gemini-3.5-flash-lite', 'python eval\\run_eval.py --name norag_ollama --mode norag', 'python eval\\run_eval.py --name rag_gemini_v3 --backend gemini --judge gemini --judge-model gemini-3.5-flash-lite --delay 6', 'python eval\\run_eval.py --summary'], 'Wyniki: eval\\results\\*.jsonl, tabela: eval\\results\\summary.md. set GEMINI_TIMEOUT_S=180 dla wolnych modeli.');
+step('LAPTOP', 'Sprawdzenie sędziego na ręcznych ocenach', 'python eval\\run_eval.py --rejudge rag_ollama_v2 --judge gemini --judge-model gemini-3.5-flash-lite --only P01 P02 P05 P10 P08 M01 M02 M03 M04 M07 H01 P14 --judge-check', 'Wynik 16.11: zgodność 11/12, wykryte zmyślenia 4/5, fałszywe alarmy 0/7.');
+step('LAPTOP', 'Odtworzenie postojów po poprawce diag', ['docker compose -f infra/docker-compose.yml up -d --build diag', 'docker exec -e HORIZON_H=72 linesight-diag python diag.py --once']);
+
+h1('10zg. Asystent w Dockerze i Grafanie (E5-08)');
+step('LAPTOP', 'Usługa assistant', ['docker compose -f infra/docker-compose.yml up -d --build assistant grafana', 'docker logs -f linesight-assistant'], 'Czekać na Uvicorn running on http://0.0.0.0:8000, Ctrl+C. Okno ollama serve otwarte. Gemini w usłudze: set LLM_BACKEND=gemini przed up.');
+step('WWW', 'Asystent i panel w Grafanie', ['http://localhost:8000', 'http://localhost:3000'], 'Grafana: zakres Last 24 hours, tabela Postoje → 💬 Zapytaj → panel Asystent poniżej odpowiada o tym postoju.');
+table([3600, 3000, 3038], [
+  ['Objaw', 'Przyczyna', 'Rozwiązanie'],
+  ['WinError 10061 … localhost:11434', 'Ollama nie działa (okno zamknięte / restart)', 'ollama serve w osobnym oknie'],
+  ['qwen3 pisze długie <think>', 'qwen3:4b = wariant thinking', 'ollama pull qwen3:4b-instruct'],
+  ['ollama ps: 20%/80% CPU/GPU', 'Za mało VRAM (KV cache, embeddingi na GPU)', 'OLLAMA_KV_CACHE_TYPE q8_0 + flash attention; embeddingi na CPU'],
+  ['Gemini 503 / timeout', 'Model przeciążony (darmowy poziom)', 'Ponowienia w kodzie; lżejszy model 3.5-flash-lite'],
+  ['Gemini 429 „exceeded your current quota”', 'Limit dzienny (20 zapytań dla 3.6/3.8 Flash)', 'gemini-3.5-flash-lite (500/dzień)'],
+  ['Gemini 404 „no longer available to new users”', 'Starszy model (2.5 Flash) niedostępny dla nowych kluczy', 'Model z listy models?pageSize=200'],
+  ['COPY docs/kb: not found', '.dockerignore przepuszczał tylko diag', '!assistant/ i !docs/kb/ w .dockerignore'],
+  ['Panel asystenta: ERR_EMPTY_RESPONSE', 'Kontener jeszcze startował', 'docker logs linesight-assistant, odczekać, F5'],
+  ['Komenda wklejona przy [Enter] skryptu', 'input() wziął tekst jako Enter', 'Najpierw Enter, potem komenda'],
+]);
+
 h1('11. Jednorazowa konfiguracja Jetsona (etap 0)');
 p('Już zrobione. Tylko przy nowej karcie SD.');
 step('SSH1', 'Plik wymiany 4 GB', [
@@ -724,6 +762,20 @@ table([3600, 3000, 3038], [
 h1('Archiwum: Intel RealSense (etap 0, niewykorzystana)');
 p('RealSense 8086:0b48, RGB = /dev/video0, 640x480 YUYV 30 FPS. Zastąpiona kamerą ASUS w E1-01 (lepsza jasność sceny).');
 step('SSH1', 'Ręczna ekspozycja 20 ms', 'v4l2-ctl -d /dev/video0 -c exposure_auto=1 -c exposure_absolute=200 -c gain=64');
+
+h1('13. Etap 5 – wyniki');
+p('Pełny opis: docs/etap-5-rag.md. Wyniki ewaluacji: eval\\results\\summary.md.');
+table([3000, 1100, 1700, 1400, 1300, 1138], [
+  ['Przebieg', 'Postój', 'Fakty (PL / EN)', 'Zmyślenia', 'Poprawność', 's/odp.'],
+  ['bez RAG (qwen3:4b)', '–', '10 % (11 / 8)', '–', '–', '3,8'],
+  ['RAG v2 (qwen3:4b)', '100 %', '82 % (92 / 62)', '43 %', '1,61', '5,8'],
+  ['RAG v3 (qwen3:4b)', '100 %', '85 % (94 / 68)', '14 %', '1,86', '5,8'],
+  ['RAG v3 (Gemini 3.5 Flash Lite)', '100 %', '94 % (100 / 83)', '0 %*', '2,00*', '1,4'],
+]);
+p('* Gemini ocenia własne odpowiedzi – wynik optymistyczny.');
+img('e5-ewaluacja.png', 'E5-07: fakty 10 % → 85 % dzięki RAG; zmyślenia 43 % → 14 % po zmianach danych w kontekście (v3).');
+img('e5-asystent.png', 'E5-08: strona asystenta – zator 16.11 9:40 potwierdzony kamerą, źródła [P1]/[S2] i link do klipu.');
+img('e5-grafana-asystent.png', 'E5-08: asystent jako panel w Grafanie pod tabelą postojów.');
 
 // ---------- DOC ----------
 h1('12. Etap 4 – wyniki (wykresy)');

@@ -6,7 +6,7 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **stages 0–4 done** · next: Stage 5 – RAG assistant
+> Status: **stages 0–5 done** · next: Stage 6 – GCP (model registry, retraining)
 
 ## Architecture (target)
 
@@ -29,7 +29,7 @@ Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 | 2 | GStreamer/DeepStream pipeline, tracking, counting, RTSP, event clips | done |
 | 3 | CODESYS PackML state machine, OPC UA → MQTT → TimescaleDB, Grafana | done |
 | 4 | Stop diagnostics (PLC + camera + clip) and drive-health model (PyTorch autoencoder, ONNX) | done |
-| 5 | RAG assistant (pgvector) with evaluation set | – |
+| 5 | RAG assistant (pgvector, local LLM / Gemini) with evaluation set and validated LLM judge | done |
 | 6 | GCP: model registry, retraining loop | – |
 | 7 | Demo video, results, final documentation | – |
 
@@ -144,11 +144,44 @@ Live: alarm at ~15 % wear, Grafana shows health %, a drive schematic (Canvas) an
 
 Details: [docs/etap-4-diagnostyka.md](docs/etap-4-diagnostyka.md).
 
+### RAG assistant with evaluation (stage 5)
+
+**Why did the line stop at 9:04, and what do I do?** A specific stop is fetched **deterministically with SQL** (the stop
+event with cause, confidence and clip, PLC signals from the 30 s before it, drive health) – embeddings cannot tell 9:04
+from 9:07. Vector search (pgvector in the same TimescaleDB, `multilingual-e5-small`, PL/EN) is used only for text: the
+line manual written for the project (33 sections) and similar past stops. The stop's cause is appended to the vector
+query, so the manual hit is the right procedure. Answer: `qwen3:4b-instruct` in Ollama on the laptop GPU (4 GB VRAM:
+instruct variant, flash attention, q8_0 KV cache → 37/37 layers on GPU, ~6 s) or Gemini 3.5 Flash Lite; every fact
+cites a source; "I don't know" when the sources do not cover it. FastAPI service in Docker, embedded as a panel in
+Grafana: click a stop → the assistant answers about it.
+
+**Evaluation:** a scripted 25-min session in front of the camera produced every stop type and confidence (jam with
+and without a fallen bottle, contradicted "no product", drive wear → alarm → fault). 28 questions (19 PL / 9 EN) with
+required facts, gold manual sections and reference answers; deterministic metrics plus an LLM judge that labels each
+claim supported / unsupported / contradicted. **The judge was validated against 12 human labels first** – the first
+prompt passed "the stop was confirmed" for a PLC-only stop; claim-by-claim: 11/12 agreement, 4/5 hallucinations caught,
+0 false alarms.
+
+| Run | Right stop | Recall@4 | Required facts (PL / EN) | Hallucinated answers | Latency |
+|---|---|---|---|---|---|
+| no RAG (qwen3:4b) | – | – | 10 % (11 / 8) | – (refuses 91 % of answerable) | 3.8 s |
+| RAG v2 (qwen3:4b) | 100 % | 100 % | 82 % (92 / 62) | 43 % | 5.8 s |
+| **RAG v3 (qwen3:4b, local)** | **100 %** | **100 %** | **85 % (94 / 68)** | **14 %** | 5.8 s |
+| RAG v3 (Gemini 3.5 Flash Lite) | 100 % | 100 % | 94 % (100 / 83) | 0 %* | 1.4 s |
+
+\* same model answers and judges – optimistic. v2 → v3 changed the **data in the context**, not the model: confidence
+spelled out ("the camera did NOT confirm"), times as "X s before / after the stop" instead of signed numbers, the chain of
+causes numbered. The evaluation also found two **pipeline bugs** upstream of the LLM: a second stop cause lost when the
+PLC passed through Execute for one 200 ms cycle, and real stops deleted when the 24 h recomputation window crossed a
+NULL state before a PLC restart. Open: EN → PL retrieval for some questions; counting questions need SQL, not RAG.
+
+Details: [docs/etap-5-rag.md](docs/etap-5-rag.md).
+
 ## Repository layout
 
 ```
 linesight/
-├── docs/       stage-by-stage notes: commands, results, decisions (Polish)
+├── docs/       stage-by-stage notes (Polish); docs/kb = line manual for the assistant
 ├── training/   laptop: dataset, training, ONNX export          (stage 1)
 ├── jetson/     Jetson: image capture, TensorRT engines, benchmarks    (stages 1–2)
 ├── deepstream/ Jetson: DeepStream app, C++ parser, configs, tests (stage 2)
@@ -158,7 +191,9 @@ linesight/
 ├── ingest/     laptop, Docker: MQTT → TimescaleDB               (stage 3)
 ├── diag/       laptop, Docker: stop events, cause rules, drive-health inference (stage 4)
 ├── anomaly/    laptop: drive dataset, baselines, PyTorch autoencoder, shared features (stage 4)
-├── tools/      clock offset (SNTP), OPC UA browser, data-session scenario (stages 3–4)
+├── assistant/  laptop, Docker: RAG assistant – retrieval, stop context, LLM, FastAPI (stage 5)
+├── eval/       laptop: 28-question evaluation set, runner, LLM judge, results (stage 5)
+├── tools/      clock offset (SNTP), OPC UA browser, data-session scenarios (stages 3–5)
 └── infra/      docker-compose, Mosquitto, DB schema, Grafana    (stage 3)
 ```
 
@@ -171,6 +206,7 @@ Folders are added when their first file appears.
 - [Stage 2 – DeepStream, tracking, counting, RTSP, event clips](docs/etap-2-wideo.md)
 - [Stage 3 – PackML, OPC UA, MQTT, TimescaleDB, Grafana](docs/etap-3-plc-dane.md)
 - [Stage 4 – stop diagnostics, drive-health model](docs/etap-4-diagnostyka.md)
+- [Stage 5 – RAG assistant, evaluation](docs/etap-5-rag.md)
 - [Backlog](docs/backlog.md)
 
 ## Not in the repository
