@@ -110,6 +110,9 @@ services:
     environment:
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-linesight}
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/linesight.json
+      # E5-08: panel tekstowy z iframe asystenta (http://localhost:8000). Wyłączona sanityzacja HTML pozwala na <iframe>
+      # i skrypty w panelach – akceptowalne lokalnie (jeden użytkownik, sieć domowa), NIE na współdzielonej Grafanie.
+      GF_PANELS_DISABLE_SANITIZE_HTML: "true"
     volumes:
       - grafana:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
