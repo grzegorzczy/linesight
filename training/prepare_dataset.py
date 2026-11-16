@@ -16,6 +16,7 @@ Kontrolę robimy na rekordach NDJSON (tam są oryginalne nazwy z sesji):
 
 Uruchomienie (laptop, folder projektu, aktywne .venv):
   python training\\prepare_dataset.py data\\export\\linesight.ndjson
+  python training\\prepare_dataset.py data\\export\\linesight_v2.ndjson --split v2     # E6-08
 """
 import argparse
 import asyncio
@@ -28,7 +29,7 @@ from ultralytics.data.converter import convert_ndjson_to_yolo
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "data" / "datasets"
-SPLIT_CSV = ROOT / "training" / "splits" / "split_v1.csv"
+SPLIT_CSV = ROOT / "training" / "splits" / "split_v1.csv"   # zmieniane przez --split
 SPLITS = ("train", "val", "test")
 
 
@@ -84,7 +85,10 @@ def compare_split(records):
 def main():
     p = argparse.ArgumentParser(description="NDJSON z Ultralytics Platform -> foldery YOLO + kontrola")
     p.add_argument("ndjson", type=Path, help="plik .ndjson pobrany z Platform")
+    p.add_argument("--split", default="v1", help="wersja podziału: training/splits/split_<wersja>.csv")
     args = p.parse_args()
+    global SPLIT_CSV
+    SPLIT_CSV = ROOT / "training" / "splits" / "split_{}.csv".format(args.split)
 
     names, records = read_ndjson(args.ndjson)
     print("Klasy: {}\n".format(names))
