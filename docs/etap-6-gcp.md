@@ -202,8 +202,9 @@ narysowanych ramek). Klatka jest niepewna, gdy:
   światło skacze między `bottle` a `missing_cap` – przesunięcie domeny z E2-04).
 
 Limit: ≥ 5 s odstępu, ≤ 60 klatek na godzinę – długi problem (cały dzień innego światła) nie zapcha karty SD
-ani zasobnika prawie identycznymi klatkami. Mapowanie bufora NVMM do CPU (`get_nvds_buf_surface` +
-`unmap_nvds_buf_surface`, wymagane na Jetsonie) tylko dla zapisywanej klatki.
+ani zasobnika prawie identycznymi klatkami. Mapowanie bufora NVMM do CPU (`get_nvds_buf_surface`) tylko dla
+zapisywanej klatki. `unmap_nvds_buf_surface` nie istnieje w pyds 1.1.1 (DS 6.0.1) – pierwsze uruchomienie
+kończyło każdą próbę zapisu `AttributeError`; wywołujemy go tylko, gdy jest.
 
 Na dysku `~/linesight_uncertain/<RRRRMMDD>/<czas>_f<klatka>.jpg` + `.json` (powody, detekcje z pewnością
 i ramkami, wersja modelu z `models/current.json`); JSON zapisywany drugi = para kompletna.
