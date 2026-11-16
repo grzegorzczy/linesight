@@ -115,6 +115,11 @@ def camera_text(vis):
     return " ".join(parts)
 
 
+CONF_TEXT = {"potwierdzona": "kamera potwierdziła przyczynę",
+             "tylko_plc": "kamera NIE potwierdziła przyczyny – wiadomo tylko ze sterownika",
+             "sprzeczna": "kamera przeczy sterownikowi"}
+
+
 def case_text(r):
     """Wiersz stop_event -> opis postoju po polsku (jedno źródło 'stop:<t_start UTC ISO>')."""
     t_start, t_end, state, reason, cause, conf, ev, clip = r
@@ -126,11 +131,14 @@ def case_text(r):
             t_start.astimezone(TZ).strftime("%d.%m.%Y %H:%M:%S"),
             "trwał {:.0f} s".format((t_end - t_start).total_seconds()) if t_end else "trwa nadal"),
         "Stany po Execute: {}. Kod iStopReason: {}.".format(states, reason),
-        "Przyczyna: {}, pewność: {}.".format(cause, conf),
+        "Przyczyna: {}. Pewność: {} ({}).".format(cause, conf, CONF_TEXT.get(conf, "?")),
     ]
     if ev.get("secondary"):
-        lines[-1] = "Przyczyna: {}, potem w tym samym postoju: {}; pewność: {}.".format(
-            cause, ", ".join(ev["secondary"]), conf)
+        # 16.11 (P05): „zator, potem w tym samym postoju: brak_produktu” model czytał jako „później potwierdzono brak
+        # produktu” – kolejność wprost, z numerami
+        chain = [cause] + list(ev["secondary"])
+        lines[-1] = "Przyczyny po kolei w tym jednym postoju: {}. Pewność (pierwszej przyczyny): {} ({}).".format(
+            ", ".join("{}) {}".format(i, c) for i, c in enumerate(chain, 1)), conf, CONF_TEXT.get(conf, "?"))
     pcs = plc.get("pieces_in_window")
     if pcs is not None and pcs < 0:      # licznik wyzerowany (wgranie programu / restart PLC) – różnica bez sensu
         pcs = "nieznana (licznik sztuk wyzerowany w oknie)"

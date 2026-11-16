@@ -9,4 +9,4 @@
 {"run": "rag_ollama_v2", "id": "M04", "halluc": false, "why": "zimny start do 12 %, zużycie przy ciepłym silniku – zgodne z [S1], [S4]", "answer_start": "Po dłuższym postoju moment napędu jest wyższy, ponieważ smar"}
 {"run": "rag_ollama_v2", "id": "M07", "halluc": false, "why": "definicja pewności sprzecznej zgodna z [S1]", "answer_start": "Pewność „sprzeczna” oznacza, że kamera przeczy sterownikowi "}
 {"run": "rag_ollama_v2", "id": "H01", "halluc": false, "why": "odmowa liczenia – brak pełnej historii", "answer_start": "W dostępnych źródłach nie ma pełnej historii postojów – [H1]"}
-{"run": "rag_ollama_v2", "id": "P14", "halluc": false, "why": "odmowa (błędna, ale bez zmyśleń)", "answer_start": "I don't know – the available sources do not contain this inf"}
+{"run": "rag_ollama_v2", "id": "P14", "halluc": true, "why": "„sources do not contain this information” – sprzeczne z [P1] („linia w tym czasie nie stała”); poprawka etykiety 16.11 po ocenie sędziego", "answer_start": "I don't know – the available sources do not contain this inf"}
