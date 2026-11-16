@@ -13,3 +13,6 @@ torch==2.11.0+cu128
 torchvision==0.26.0+cu128
 ultralytics==8.4.208
 onnx==1.23.2
+
+# E6-04: rejestr modeli w Cloud Storage (cloud/registry.py); poświadczenia z `gcloud auth application-default login`
+google-cloud-storage==3.17.1

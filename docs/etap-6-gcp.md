@@ -113,3 +113,42 @@ Jetson (gcs.py, Python 3.6, urllib) ── GET /token + sekret ──► laptop:
   zależnościami protobuf/api-core; trzy wywołania REST są prostsze.
 - Sekret brokera: zmienna Windows `BROKER_SECRET` (laptop) i plik `~/.config/linesight/broker_secret`, prawa 600
   (Jetson). Sieć domowa, HTTP bez TLS – jak MQTT; w produkcji TLS albo sieć zarządzana.
+
+Uruchomienie i test (16.11): wynik `selftest` – 8/8 zgodnych z uprawnieniami, token z brokera w 0,03 s.
+```cmd
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+setx BROKER_SECRET <sekret>
+set BROKER_SECRET=<sekret>
+gcloud storage cp README.md gs://linesight-514914-models/selftest/hello.txt
+docker compose -f infra/docker-compose.yml up -d --build tokens
+curl -s -o NUL -w "%{http_code}\n" -H "Authorization: Bearer %BROKER_SECRET%" http://localhost:8010/token
+echo %BROKER_SECRET%> %TEMP%\bs.txt
+scp %TEMP%\bs.txt grzegorz@192.168.0.124:.config/linesight/broker_secret
+del %TEMP%\bs.txt
+```
+```bash
+chmod 600 ~/.config/linesight/broker_secret
+python3 jetson/gcs.py selftest
+```
+- Sekret na Jetsona przez `scp`, nie przez wklejanie: SSH w oknie cmd buforował wklejony tekst i `read -s`
+  dostawał resztki poprzednich komend (plik 87 B zamiast 44–45 B).
+- Ponowne wysłanie tej samej nazwy kończy się **412 Precondition Failed**, nie 403: warunek
+  `ifGenerationMatch=0` jest sprawdzany przed uprawnieniami. Obie odpowiedzi znaczą „nie nadpiszesz”.
+- Jetson był na starej gałęzi z etapu 5 (`git pull` → „Already up to date”) – `git checkout main && git pull`.
+
+## Rejestr modeli (E6-04)
+
+```
+gs://linesight-514914-models/
+  yolo26n/v1/model.onnx        ONNX, zapis tylko gdy nie istnieje (wersje niezmienne)
+  yolo26n/v1/metrics.json      zapisywany OSTATNI: jego obecność = wersja kompletna
+  deployments/jetson-01.json   wskazanie wersji dla urządzenia + poprzednia (rollback)
+```
+`metrics.json`: sha256 i rozmiar ONNX, opset, wejścia/wyjścia, commit kodu (`+dirty` przy niezacommitowanych
+zmianach), zbiór (`linesight-5b628dbc`, `split_v1.csv`), parametry treningu, metryki val/test z `summary.json`
+i parametry wdrożenia (wejście 384x640, FP16, workspace 2048 MB, conf 0,45) – Jetson bierze je stąd,
+a nie z własnej konfiguracji.
+
+Dlaczego tak, a nie MLflow / Vertex AI Model Registry: jeden model i jedno urządzenie; dwa pliki JSON w Cloud
+Storage dają wersje, metryki, pochodzenie (commit + zbiór) i wskazanie wdrożenia bez dodatkowej usługi.
+Klient na Jetsonie potrzebuje tylko odczytu z zasobnika.

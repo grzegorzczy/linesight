@@ -235,11 +235,14 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       *(16.11: klucz JSON zablokowany polityką organizacji `iam.disableServiceAccountKeyCreation`, a konto nie
       administruje organizacją → impersonation: rola TokenCreator dla użytkownika na `jetson-edge`; test
       `--impersonate-service-account`: models OK, frames `storage.objects.list denied`)*
-- [ ] **E6-03 – broker tokenów i klient na Pythonie 3.6** · laptop + Jetson · 1-2 h · `cloud/token_broker.py`
+- [x] **E6-03 – broker tokenów i klient na Pythonie 3.6** · laptop + Jetson · 1-2 h · `cloud/token_broker.py`
       w Dockerze wydaje token `jetson-edge` (1 h); `jetson/gcs.py selftest` na Jetsonie: lista i pobranie z `models`,
       wysłanie do `frames` OK; nadpisanie, odczyt, lista, usunięcie klatek i zapis do `models` odrzucone
-- [ ] **E6-04 – rejestr modeli** · laptop · 0,5 dnia · `publish`: ONNX + `metrics.json` (mAP, sha256, commit, wersja
-      zbioru); `promote`: plik wskazania wersji dla urządzenia; v1 w rejestrze
+      *(16.11: 8/8 zgodnych; token z brokera 0,03 s; nadpisanie kończy się 412 – warunek `ifGenerationMatch=0`
+      sprawdzany przed uprawnieniami; sekret na Jetsona przez `scp`, bo wklejanie do SSH w cmd gubiło znaki)*
+- [ ] **E6-04 – rejestr modeli** · laptop · 0,5 dnia · `cloud/registry.py` – `publish`: ONNX + `metrics.json` (mAP,
+      sha256, commit, zbiór, parametry wdrożenia), wersje niezmienne; `promote`: `deployments/<urządzenie>.json`
+      z poprzednią wersją do rollbacku; `list`, `show`; v1 opublikowana i wskazana dla `jetson-01`
 - [ ] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · pobranie wskazanej wersji, sha256,
       `trtexec` FP16, test, podmiana silnika, rollback
 - [ ] **E6-06 – niepewne klatki i sygnał dryfu** · Jetson + laptop · 0,5 dnia · zapis klatki przy niskiej pewności
