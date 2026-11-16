@@ -57,7 +57,7 @@ def language(question):
     return "pl" if RE_PL.search(question) else "en"
 
 
-def gather(conn, emb, question, stop_t=None):
+def gather(conn, emb, question, stop_t=None, k=K_MANUAL):
     """Zbiera źródła: [{"id", "title", "text", "url", "source", "dist"}]."""
     sources = []
     when = None if stop_t else parse_when(question)
@@ -71,7 +71,7 @@ def gather(conn, emb, question, stop_t=None):
                             "text": "W bazie postojów nie ma postoju w ± {} s od {} (czas lokalny). "
                                     "Linia w tym czasie nie stała.".format(MATCH_S, t)})
     q = emb.query(question)
-    for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, K_MANUAL, "manual"), 1):
+    for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, k, "manual"), 1):
         sources.append({"id": "S{}".format(i), "title": sec, "text": text, "url": None, "source": src,
                         "dist": round(float(dist), 3)})
     if not any(s["id"] == "P1" for s in sources) and RE_HISTORY.search(question):
@@ -86,9 +86,9 @@ def prompt(question, sources):
     return "ŹRÓDŁA / SOURCES:\n\n{}\n\nPYTANIE / QUESTION: {}".format(blocks, question)
 
 
-def answer(conn, emb, question, stop_t=None, backend=None):
+def answer(conn, emb, question, stop_t=None, backend=None, k=K_MANUAL):
     t0 = time.time()
-    sources = gather(conn, emb, question, stop_t)
+    sources = gather(conn, emb, question, stop_t, k)
     t_ret = time.time() - t0
     lang = language(question)
     text, meta = generate(SYSTEM[lang], prompt(question, sources), backend)

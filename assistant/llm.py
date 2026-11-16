@@ -36,12 +36,12 @@ class LLMUnavailable(RuntimeError):
     """Dostawca LLM nieosiągalny (serwer nie działa, brak klucza) – usługa zwraca 503, nie 500."""
 
 
-def _ollama(system, user):
+def _ollama(system, user, json_mode=False):
     try:
         r = requests.post(OLLAMA_URL + "/api/chat", timeout=300, json={
             "model": OLLAMA_MODEL, "stream": False, "keep_alive": OLLAMA_KEEP_ALIVE,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "options": {"temperature": 0, "num_ctx": OLLAMA_CTX}})
+            "options": {"temperature": 0, "num_ctx": OLLAMA_CTX}, **({"format": "json"} if json_mode else {})})
     except requests.ConnectionError:
         raise LLMUnavailable("Ollama nie odpowiada pod {} – uruchom Ollamę (menu Start albo `ollama serve`)".format(
             OLLAMA_URL))
@@ -52,14 +52,14 @@ def _ollama(system, user):
                                      "load_s": round(j.get("load_duration", 0) / 1e9, 2)}
 
 
-def _gemini(system, user):
+def _gemini(system, user, json_mode=False):
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise LLMUnavailable("Brak GEMINI_API_KEY")
     r = requests.post(GEMINI_URL.format(GEMINI_MODEL), timeout=120, headers={"x-goog-api-key": key}, json={
         "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {"temperature": 0}})
+        "generationConfig": dict({"temperature": 0}, **({"responseMimeType": "application/json"} if json_mode else {}))})
     r.raise_for_status()
     j = r.json()
     text = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
@@ -68,11 +68,12 @@ def _gemini(system, user):
                   "output_tokens": u.get("candidatesTokenCount")}
 
 
-def generate(system, user, backend=None):
-    """-> (tekst, meta: model, tokeny, czas [s]). Wyjątek przy błędzie HTTP – wołający decyduje, co dalej."""
+def generate(system, user, backend=None, json_mode=False):
+    """-> (tekst, meta: model, tokeny, czas [s]). Wyjątek przy błędzie HTTP – wołający decyduje, co dalej.
+    json_mode=True: dostawca wymusza poprawny JSON (sędzia w ewaluacji)."""
     backend = backend or BACKEND
     t0 = time.time()
-    text, meta = {"ollama": _ollama, "gemini": _gemini}[backend](system, user)
+    text, meta = {"ollama": _ollama, "gemini": _gemini}[backend](system, user, json_mode)
     meta.update(backend=backend, seconds=round(time.time() - t0, 2))
     if backend == "ollama" and meta["prompt_tokens"] and meta["prompt_tokens"] >= OLLAMA_CTX - 50:
         meta["warning"] = "prompt na granicy okna kontekstu – mógł zostać przycięty"
