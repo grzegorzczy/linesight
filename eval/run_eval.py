@@ -5,6 +5,7 @@
     python eval\\run_eval.py --name rag_ollama --judge gemini --judge-model gemini-3.8-flash   # + sędzia LLM
     python eval\\run_eval.py --name rag_gemini --backend gemini --judge gemini
     python eval\\run_eval.py --summary                                  # tabela wszystkich przebiegów z eval/results
+    python eval\\run_eval.py --rejudge rag_ollama_v2 --judge gemini --judge-model gemini-3.6-flash --judge-check
 
 Miary deterministyczne (bez LLM, powtarzalne, tanie):
   stop_ok    – asystent wziął właściwy postój (albo poprawnie stwierdził, że postoju nie było)
@@ -42,14 +43,25 @@ NORAG_SYSTEM = {
           "words). If you do not know the answer, write: \"I don't know\".",
 }
 
-JUDGE_SYSTEM = """You evaluate answers of a RAG assistant for a packaging line. You get SOURCES (the only knowledge the
-assistant had; may be in Polish), the QUESTION, a REFERENCE answer written by an engineer, and the ANSWER.
+JUDGE_SYSTEM = """You verify answers of a RAG assistant for a packaging line. You get SOURCES (the only knowledge the
+assistant had; mostly in Polish), the QUESTION, a REFERENCE answer written by an engineer, and the ANSWER.
+
+Step 1 – split the ANSWER into atomic factual claims (one fact each; ignore citation markers like [P1]; skip polite
+phrases and "I don't know"). Step 2 – give each claim a verdict:
+  "supported"    – SOURCES state it, or it is a direct paraphrase/translation,
+  "unsupported"  – SOURCES do not state it (including the assistant's own interpretations, explanations of causes,
+                   or general knowledge),
+  "contradicted" – SOURCES state the opposite.
+Check these especially carefully: stop cause and code; confidence – "potwierdzona" = confirmed by the camera,
+"tylko_plc" = only the PLC, the camera did NOT confirm, "sprzeczna" = the camera contradicts the PLC; whether an event
+happened before or after the stop; counts ("how many times") – sources [H] are only examples, never the full history;
+numbers and units.
+Step 3 – correct: 2 = covers the key points of REFERENCE with no wrong statement, 1 = partly, or key points right but
+one wrong statement, 0 = wrong main point or misses it. If REFERENCE says the correct reply is a refusal, an honest
+refusal scores 2.
 Return JSON only:
-{"unsupported": [claims in ANSWER not supported by SOURCES], "contradictions": [claims in ANSWER that contradict SOURCES],
- "correct": 0 | 1 | 2, "comment": "one sentence"}
-Rules: a claim is supported if SOURCES state it or it is a trivial paraphrase/translation. Generic polite phrases and
-"I don't know" are not claims. correct: 2 = covers the key points of REFERENCE without errors, 1 = partly, 0 = wrong or
-misses the main point. If REFERENCE says the correct reply is a refusal, an honest refusal scores 2."""
+{"claims": [{"claim": "...", "verdict": "supported" | "unsupported" | "contradicted"}], "correct": 0 | 1 | 2,
+ "comment": "one sentence"}"""
 
 
 def norm(text):
@@ -64,7 +76,7 @@ def facts_score(answer, must):
 
 
 def judge(q, answer, sources, backend, model=None):
-    src = "\n\n".join("[{}] {}\n{}".format(s["id"], s["title"], s["text"]) for s in sources) or "(no sources)"
+    src = "\n\n".join("[{}] {}\n{}".format(s["id"], s["title"], s.get("text", "")) for s in sources) or "(no sources)"
     user = "SOURCES:\n{}\n\nQUESTION: {}\n\nREFERENCE: {}\n\nANSWER: {}".format(src, q["question"], q["reference"],
                                                                                answer)
     try:
@@ -75,8 +87,10 @@ def judge(q, answer, sources, backend, model=None):
         j = json.loads(text)
     except ValueError:
         return {"judge_error": text[:200]}
-    return {"unsupported": j.get("unsupported", []), "contradictions": j.get("contradictions", []),
-            "correct": j.get("correct"), "judge_comment": j.get("comment", "")}
+    claims = j.get("claims", [])
+    return {"unsupported": [c["claim"] for c in claims if c.get("verdict") == "unsupported"],
+            "contradictions": [c["claim"] for c in claims if c.get("verdict") == "contradicted"],
+            "n_claims": len(claims), "correct": j.get("correct"), "judge_comment": j.get("comment", "")}
 
 
 def evaluate(q, r):
@@ -133,7 +147,7 @@ def run(a):
             row = {"id": q["id"], "type": q["type"], "lang": q["lang"], "question": q["question"],
                    "answer": r["answer"], "metrics": m, "seconds": r["meta"].get("seconds"),
                    "model": r["meta"].get("model"), "mode": a.mode, "k": a.k,
-                   "sources": [{k: s.get(k) for k in ("id", "title", "dist")} for s in r["sources"]]}
+                   "sources": [{k: s.get(k) for k in ("id", "title", "text", "dist")} for s in r["sources"]]}
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
             f.flush()
             rows.append(row)
@@ -145,6 +159,68 @@ def run(a):
                 time.sleep(a.delay)
     print("\nWyniki: {}".format(out))
     print_summary([(a.name, rows)])
+
+
+def rejudge(a):
+    """Ocena sędziego dla zapisanych odpowiedzi (bez ponownego generowania): --rejudge <przebieg> -> <przebieg>__<model>."""
+    qs = {q["id"]: q for q in (json.loads(line) for line in open(QUESTIONS, encoding="utf-8"))}
+    src = RESULTS / "{}.jsonl".format(a.rejudge)
+    rows = [json.loads(line) for line in open(src, encoding="utf-8")]
+    if a.only:
+        rows = [r for r in rows if r["id"] in a.only]
+    if any("text" not in s for r in rows for s in r["sources"]):
+        # starsze wyniki (do v2) bez treści źródeł: odtwarzamy je tym samym wyszukiwaniem (SQL + pgvector, bez LLM –
+        # deterministyczne), tak jak widział je asystent
+        from kb import Embedder, connect
+        from rag import gather
+        emb, conn = Embedder(), connect()
+        for r in rows:
+            r["sources"] = [{k: s.get(k) for k in ("id", "title", "text", "dist")}
+                            for s in gather(conn, emb, r["question"], k=r.get("k", 4))]
+    out = RESULTS / "{}__{}.jsonl".format(a.rejudge, a.judge_model or a.judge)
+    with open(out, "w", encoding="utf-8") as f:
+        for r in rows:
+            m = {k: v for k, v in r["metrics"].items() if k not in ("unsupported", "contradictions", "n_claims",
+                                                                   "correct", "judge_comment", "judge_error", "halluc")}
+            time.sleep(a.delay)
+            m.update(judge(qs[r["id"]], r["answer"], r["sources"], a.judge, a.judge_model))
+            if "judge_error" not in m:
+                m["halluc"] = bool(m.get("unsupported") or m.get("contradictions") or m.get("bad_cite"))
+            r["metrics"] = m
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+            f.flush()
+            print("{:<4} halluc={} correct={} {}".format(r["id"], m.get("halluc"), m.get("correct"),
+                                                         m.get("judge_error", "")), flush=True)
+    print("\nWyniki: {}".format(out))
+    return out
+
+
+def judge_check(path):
+    """Zgodność sędziego z ręcznymi ocenami (eval/judge_labels.jsonl) – sędziego też trzeba sprawdzić."""
+    labels = [json.loads(line) for line in open(ROOT / "eval" / "judge_labels.jsonl", encoding="utf-8")]
+    res = {r["id"]: r for r in (json.loads(line) for line in open(path, encoding="utf-8"))}
+    got = {}
+    for lab in labels:
+        r = res.get(lab["id"])
+        if r is not None and r["answer"].startswith(lab["answer_start"]):
+            got[lab["id"]] = r["metrics"].get("halluc")
+        elif r is not None:
+            print("UWAGA {}: inna odpowiedź niż oceniona ręcznie – pomijam".format(lab["id"]))
+    tp = fp = fn = tn = miss = 0
+    for lab in labels:
+        g = got.get(lab["id"])
+        if g is None:
+            miss += 1
+            continue
+        tp += g and lab["halluc"]
+        fp += g and not lab["halluc"]
+        fn += (not g) and lab["halluc"]
+        tn += (not g) and not lab["halluc"]
+        mark = "OK " if g == lab["halluc"] else "ŹLE"
+        print("{} {:<4} człowiek={!s:<5} sędzia={!s:<5} {}".format(mark, lab["id"], lab["halluc"], g, lab["why"]))
+    n = tp + fp + fn + tn
+    print("\nZgodność {}/{}; wykryte zmyślenia {}/{} (czułość), fałszywe alarmy {}/{}; bez oceny {}".format(
+        tp + tn, n, tp, tp + fn, fp, fp + tn, miss))
 
 
 def agg(rows):
@@ -204,9 +280,17 @@ def main():
     ap.add_argument("--delay", type=float, default=4.0, help="przerwa przed zapytaniem do Gemini [s]")
     ap.add_argument("--only", nargs="+", help="tylko wskazane pytania, np. --only P05 P10")
     ap.add_argument("--summary", action="store_true", help="tabela wszystkich przebiegów")
+    ap.add_argument("--rejudge", metavar="PRZEBIEG", help="ocena sędziego zapisanych odpowiedzi (wymaga --judge)")
+    ap.add_argument("--judge-check", action="store_true", help="z --rejudge: zgodność z eval/judge_labels.jsonl")
     a = ap.parse_args()
     if a.summary:
         summary()
+    elif a.rejudge:
+        if not a.judge:
+            ap.error("--rejudge wymaga --judge")
+        out = rejudge(a)
+        if a.judge_check:
+            judge_check(out)
     elif a.name:
         try:
             run(a)

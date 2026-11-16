@@ -44,7 +44,7 @@ def _ollama(system, user, json_mode=False, model=None):
         r = requests.post(OLLAMA_URL + "/api/chat", timeout=300, json={
             "model": model, "stream": False, "keep_alive": OLLAMA_KEEP_ALIVE,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            "options": {"temperature": 0, "num_ctx": OLLAMA_CTX}, **({"format": "json"} if json_mode else {})})
+            "options": {"temperature": 0, "seed": 42, "num_ctx": OLLAMA_CTX}, **({"format": "json"} if json_mode else {})})
     except requests.ConnectionError:
         raise LLMUnavailable("Ollama nie odpowiada pod {} – uruchom Ollamę (menu Start albo `ollama serve`)".format(
             OLLAMA_URL)) from None

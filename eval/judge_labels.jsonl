@@ -1,0 +1,12 @@
+{"run": "rag_ollama_v2", "id": "P01", "halluc": true, "why": "„parametry napędu zmieniały się w sposób zgodny z blokowaniem taśmy” – interpretacja, której nie ma w źródłach", "answer_start": "Linia stanęła 16.11.2026 o 09:40 z powodu zatoru, ponieważ k"}
+{"run": "rag_ollama_v2", "id": "P02", "halluc": true, "why": "„the stop was confirmed as a jam” – pewność tylko_plc, kamera NIE potwierdziła", "answer_start": "The line stopped at 08:51 on 16.11 because of a jam (iStopRe"}
+{"run": "rag_ollama_v2", "id": "P05", "halluc": true, "why": "„initially zator, later confirmed as brak_produktu” – łańcuch przyczyn odwrócony w wniosek", "answer_start": "At 08:56 on 16.11.2026, a stop occurred lasting 35 seconds w"}
+{"run": "rag_ollama_v2", "id": "P10", "halluc": true, "why": "„jam occurred when a bottle fell” i „camera not observing bottles for 10 s” – kamera była offline", "answer_start": "The line stopped at 18:01 on 14.11.2026 due to two consecuti"}
+{"run": "rag_ollama_v2", "id": "P08", "halluc": false, "why": "operator, kod 1, Reset i Start – zgodne ze źródłami", "answer_start": "Operator zatrzymał linię 16.11.2026 o 09:07:50. Przyczyna po"}
+{"run": "rag_ollama_v2", "id": "M01", "halluc": false, "why": "abort operatora, Aborting -> Aborted, Clear/Reset/Start – zgodne z [S1]", "answer_start": "Kod 302 oznacza, że operator użył komendy Abort (wyłącznika "}
+{"run": "rag_ollama_v2", "id": "M02", "halluc": false, "why": "procedura zatoru zgodna z [S1], [S2]", "answer_start": "When the line is in Held (state 11), it indicates an interna"}
+{"run": "rag_ollama_v2", "id": "M03", "halluc": false, "why": "Clear -> Clearing -> Stopped, Reset, Start, sprawdzenie napędu – zgodne z [S1], [S2]", "answer_start": "Aby uruchomić linię po awarii w stanie Aborted (9), należy n"}
+{"run": "rag_ollama_v2", "id": "M04", "halluc": false, "why": "zimny start do 12 %, zużycie przy ciepłym silniku – zgodne z [S1], [S4]", "answer_start": "Po dłuższym postoju moment napędu jest wyższy, ponieważ smar"}
+{"run": "rag_ollama_v2", "id": "M07", "halluc": false, "why": "definicja pewności sprzecznej zgodna z [S1]", "answer_start": "Pewność „sprzeczna” oznacza, że kamera przeczy sterownikowi "}
+{"run": "rag_ollama_v2", "id": "H01", "halluc": false, "why": "odmowa liczenia – brak pełnej historii", "answer_start": "W dostępnych źródłach nie ma pełnej historii postojów – [H1]"}
+{"run": "rag_ollama_v2", "id": "P14", "halluc": false, "why": "odmowa (błędna, ale bez zmyśleń)", "answer_start": "I don't know – the available sources do not contain this inf"}
