@@ -245,15 +245,20 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       z poprzednią wersją do rollbacku; `list`, `show`; v1 opublikowana i wskazana dla `jetson-01`
       *(16.11: v1 = `yolo26n_v1_384x640.onnx`, sha256 924f2a96…, commit 0d89cba, test mAP50 0,987 / mAP50-95 0,778;
       ponowna publikacja v1 odrzucona)*
-- [ ] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · `jetson/model_sync.py`: pobranie wskazanej
+- [x] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · `jetson/model_sync.py`: pobranie wskazanej
       wersji, sha256, `trtexec` FP16, test (PASSED + ≥ 15 qps), atomowa podmiana `models/current.engine`, rollback
       z dysku; DeepStream czyta `current.engine`
-- [ ] **E6-06 – niepewne klatki i sygnał dryfu** · Jetson + laptop · 0,5 dnia · zapis klatki przy niskiej pewności
-      lub zmianie klasy w torze, limit na godzinę, wysyłka; odsetek niepewnych detekcji w Grafanie
-- [ ] **E6-07 – retrening v2 z bramką** · laptop · 1 dzień · klatki z chmury + dzienne z E2-04, etykiety, trening;
+      *(16.11: pobranie 9,8 MB w 2 s, budowa silnika 872 s (14,5 min), 8,7 MB, test 33,3 qps; drugi sync „aktualny”;
+      linesight_app ładuje silnik przez dowiązanie)*
+- [ ] **E6-06 – niepewne klatki do chmury** · Jetson · 0,5 dnia · `linesight_app.py --uncertain`: klatka bez ramek OSD,
+      gdy detekcja ma pewność w [0,45; 0,6) albo ślad zmienia klasę wbrew większości; limit 1 / 5 s i 60 / h;
+      `upload_frames.py` wysyła pary .jpg + .json do `frames`; klatki widoczne z laptopa
+- [ ] **E6-07 – sygnał dryfu w Grafanie** · Jetson + laptop · 0,5 dnia · co minutę przez MQTT: liczba detekcji, średnia
+      pewność, odsetek niepewnych, zmiany klasy, wersja modelu → TimescaleDB → panel z progiem alarmowym
+- [ ] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · klatki z chmury + dzienne z E2-04, etykiety, trening;
       v2 nie gorsza na starym teście i lepsza na nowym; tabela v1 vs v2
-- [ ] **E6-08 – wdrożenie v2 przez rejestr** · Jetson · 1 h · `promote v2` → Jetson buduje i przełącza; rollback do v1
-- [ ] **E6-09 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
+- [ ] **E6-09 – wdrożenie v2 przez rejestr** · Jetson · 1 h · `promote v2` → Jetson buduje i przełącza; rollback do v1
+- [ ] **E6-10 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
 
 ## Po etapie 5 (otwarte)
 - [ ] Wyszukiwanie EN -> PL (M05): `multilingual-e5-base` / `bge-m3` albo hybryda wektor + pełnotekstowe; ocena tym samym zestawem
