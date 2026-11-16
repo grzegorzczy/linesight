@@ -152,3 +152,35 @@ a nie z własnej konfiguracji.
 Dlaczego tak, a nie MLflow / Vertex AI Model Registry: jeden model i jedno urządzenie; dwa pliki JSON w Cloud
 Storage dają wersje, metryki, pochodzenie (commit + zbiór) i wskazanie wdrożenia bez dodatkowej usługi.
 Klient na Jetsonie potrzebuje tylko odczytu z zasobnika.
+
+Publikacja v1 (16.11):
+```cmd
+pip install google-cloud-storage==3.17.1
+python cloud\registry.py publish --version v1 --onnx models\yolo26n_v1_384x640.onnx --run runs\detect\yolo26n_v1 --notes "pierwszy model, 214 zdjęć, światło sztuczne (E1-06)"
+python cloud\registry.py promote --version v1 --device jetson-01 --reason "wdrożenie początkowe"
+python cloud\registry.py list
+python cloud\registry.py show
+```
+Wynik: v1, commit `0d89cba`, sha256 `924f2a96…`, test mAP50 0,987 / mAP50-95 0,778, wdrożona na `jetson-01`;
+ponowne `publish --version v1` → „już opublikowana – wersje są niezmienne”.
+
+## Synchronizacja modelu na Jetsonie (E6-05)
+
+`jetson/model_sync.py` (Python 3.6, klient `gcs.py`):
+1. czyta `deployments/jetson-01.json`; ta sama sha256 co w `models/current.json` → nic nie robi,
+2. wersja już na dysku (`registry/<model>/<wersja>/meta.json` z tą samą sha256) → tylko przełączenie,
+3. inaczej: odmowa, gdy działa `linesight_app.py` (RAM), pobranie ONNX, sprawdzenie sha256, `trtexec --fp16
+   --workspace=2048` (składnia TRT 8.2), test `trtexec --loadEngine --duration=5`: `&&&& PASSED` i ≥ 15 qps,
+4. atomowe przełączenie dowiązania `models/current.engine` (`os.replace`) i zapis `current.json` z poprzednią wersją.
+
+`deepstream/configs/nvinfer_yolo26.txt` wskazuje `../../models/current.engine`. Po przełączeniu trzeba
+zrestartować `linesight_app.py` – nvinfer wczytuje silnik przy starcie.
+
+Silnik budujemy na Jetsonie, a nie na laptopie: plan TensorRT jest związany z GPU (architektura, liczba SM) i wersją
+TensorRT – silnik z RTX 3050 nie wczyta się na Nano. Do rejestru trafia przenośny ONNX.
+
+Rollback:
+- **trwały** – na laptopie `registry.py promote --version v1`; Jetson przy następnym sync przełącza się bez budowy,
+  bo v1 jest już na dysku,
+- **awaryjny, bez sieci** – na Jetsonie `model_sync.py rollback`; chmura dalej wskazuje nowszą wersję, więc
+  następny sync ją przywróci.
