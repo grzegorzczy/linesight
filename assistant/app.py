@@ -66,6 +66,7 @@ PAGE = """<!doctype html>
 <div id="ans"></div><ul id="src" class="src"></ul><div id="meta" class="meta"></div>
 <script>
 const P = new URLSearchParams(location.search), stop = P.get("stop");
+if (P.get("embed")) { document.body.style.margin = "4px auto"; document.querySelector("h1").hidden = true; }
 const q = document.getElementById("q");
 if (stop) { const d = document.getElementById("stop"); d.hidden = false;
   d.textContent = "Postój z Grafany: " + new Date(stop).toLocaleString("pl-PL");

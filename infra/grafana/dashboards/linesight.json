@@ -425,7 +425,7 @@
           "rawQuery": true,
           "editorMode": "code",
           "format": "table",
-          "rawSql": "SELECT t_start AS \"początek\",\n       round(extract(epoch FROM coalesce(t_end, now()) - t_start))::int AS \"trwa [s]\",\n       (t_end IS NULL) AS \"trwa nadal\",\n       cause AS \"przyczyna\", confidence AS \"pewność\",\n       evidence->'secondary'->>0 AS \"druga przyczyna\",\n       stop_reason AS \"kod PLC\",\n       (evidence->'vision'->'counts')::text AS \"kamera w oknie\",\n       evidence->>'note' AS \"uwaga\",\n       clip AS \"klip\",\n       'http://localhost:8000/?stop=' || to_char(t_start AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')\n         AS \"asystent\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nORDER BY t_start DESC\nLIMIT 100"
+          "rawSql": "SELECT t_start AS \"początek\",\n       round(extract(epoch FROM coalesce(t_end, now()) - t_start))::int AS \"trwa [s]\",\n       (t_end IS NULL) AS \"trwa nadal\",\n       cause AS \"przyczyna\", confidence AS \"pewność\",\n       evidence->'secondary'->>0 AS \"druga przyczyna\",\n       stop_reason AS \"kod PLC\",\n       (evidence->'vision'->'counts')::text AS \"kamera w oknie\",\n       evidence->>'note' AS \"uwaga\",\n       clip AS \"klip\",\n       to_char(t_start AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')\n         AS \"asystent\"\nFROM stop_event\nWHERE t_start <= $__timeTo() AND coalesce(t_end, now()) >= $__timeFrom()\nORDER BY t_start DESC\nLIMIT 100"
         }
       ],
       "fieldConfig": {
@@ -600,7 +600,7 @@
                     "options": {
                       "pattern": ".*",
                       "result": {
-                        "text": "💬 Zapytaj asystenta",
+                        "text": "💬 Zapytaj",
                         "index": 0
                       }
                     }
@@ -611,15 +611,19 @@
                 "id": "links",
                 "value": [
                   {
-                    "title": "Zapytaj asystenta o ten postój",
-                    "url": "${__value.raw}",
+                    "title": "Zapytaj asystenta o ten postój (panel poniżej)",
+                    "url": "/d/linesight-line/linesight?var-stop=${__value.raw}&${__url_time_range}"
+                  },
+                  {
+                    "title": "Otwórz asystenta w nowej karcie",
+                    "url": "http://localhost:8000/?stop=${__value.raw}",
                     "targetBlank": true
                   }
                 ]
               },
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 110
               }
             ]
           }
@@ -642,7 +646,7 @@
       "description": "Postoje, które zaczęły się lub trwały w wybranym zakresie czasu.",
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 42,
         "w": 12,
         "h": 8
       },
@@ -692,7 +696,7 @@
       "description": "Czas postojów przycięty do wybranego zakresu (postój trwający dłużej liczy się tylko w części, która mieści się w zakresie). Analiza Pareto: od czego zacząć poprawę.",
       "gridPos": {
         "x": 12,
-        "y": 28,
+        "y": 42,
         "w": 12,
         "h": 8
       },
@@ -741,7 +745,7 @@
       "title": "Napęd taśmy: moment na sztukę",
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 50,
         "w": 12,
         "h": 8
       },
@@ -858,7 +862,7 @@
       "title": "Napęd taśmy: prąd i temperatura",
       "gridPos": {
         "x": 12,
-        "y": 36,
+        "y": 50,
         "w": 12,
         "h": 8
       },
@@ -949,7 +953,7 @@
       "title": "Kondycja napędu",
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 58,
         "w": 5,
         "h": 9
       },
@@ -1018,7 +1022,7 @@
       "title": "Napęd taśmy – schemat i kondycja",
       "gridPos": {
         "x": 5,
-        "y": 44,
+        "y": 58,
         "w": 11,
         "h": 9
       },
@@ -1683,7 +1687,7 @@
       "title": "Model kondycji: wynik / próg",
       "gridPos": {
         "x": 16,
-        "y": 44,
+        "y": 58,
         "w": 8,
         "h": 9
       },
@@ -1823,7 +1827,7 @@
       "description": "Klip: ~/linesight_clips na Jetsonie (tylko missing_cap i fallen).",
       "gridPos": {
         "x": 0,
-        "y": 53,
+        "y": 67,
         "w": 24,
         "h": 8
       },
@@ -1851,6 +1855,38 @@
       "options": {
         "showHeader": true
       }
+    },
+    {
+      "id": 14,
+      "type": "text",
+      "title": "Asystent – dlaczego linia stanęła (kliknij „💬 Zapytaj” w tabeli postojów)",
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 14
+      },
+      "description": "Asystent RAG (usługa assistant, http://localhost:8000) osadzony w iframe. Link „💬 Zapytaj” w tabeli ustawia ukrytą zmienną $stop, panel od razu pyta o ten postój. Wymaga GF_PANELS_DISABLE_SANITIZE_HTML=true (tylko lokalne demo).",
+      "options": {
+        "mode": "html",
+        "content": "<iframe src=\"http://localhost:8000/?embed=1&stop=${stop}\" style=\"width:100%;height:100%;border:0\"></iframe>"
+      }
     }
-  ]
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "stop",
+        "type": "textbox",
+        "label": "postój",
+        "hide": 2,
+        "query": "",
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "options": []
+      }
+    ]
+  }
 }
