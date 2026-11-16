@@ -84,8 +84,11 @@ def signals_text(conn, t_start, window_s=30):
     """Przebieg sygnałów PLC w oknie: wartość na początku okna, na końcu, min–max, liczba zmian."""
     rows = conn.execute("SELECT time, name, value FROM signals_before(%s, make_interval(secs => %s))",
                         (t_start, window_s)).fetchall()
-    by = {}
+    by, nulls = {}, 0
     for _, name, v in rows:
+        if v is None:            # wartość pusta w plc_signal (np. zła jakość OPC UA przy restarcie PLC) – pomijamy
+            nulls += 1
+            continue
         by.setdefault(name, []).append(v)
     out = ["Sygnały PLC w {} s przed postojem (wartość na początku okna -> w chwili postoju):".format(window_s)]
     for name, unit in SIGNALS:
@@ -99,6 +102,8 @@ def signals_text(conn, t_start, window_s=30):
         if name == "iStateCurrent" and len(vs) > 1:
             line += " (przebieg: {})".format(" -> ".join(_fmt(name, v) for v in vs))
         out.append(line)
+    if nulls:
+        out.append("- puste wartości sygnałów w oknie: {} (brak danych z PLC)".format(nulls))
     return "\n".join(out)
 
 
