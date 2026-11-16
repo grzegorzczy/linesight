@@ -4,6 +4,7 @@
 Laptop, .venv; PLC, most, baza, diag (drive_health) i Jetson (kamera + serwer klipów) muszą działać:
     python tools\\scenario_rag.py --dry      # plan bez połączenia
     python tools\\scenario_rag.py            # sesja z operatorem (Enter = gotowe)
+    python tools\\scenario_rag.py --only E1  # powtórka jednego zdarzenia (16.11: w E1 kamera nie zliczyła leżącej butelki)
 
 Czemu z operatorem: pewność „potwierdzona” wymaga, żeby kamera NAPRAWDĘ zobaczyła przewróconą butelkę albo brak
 butelek – tego nie wstrzykniemy przez OPC UA. Skrypt mówi, co zrobić przed kamerą, czeka na Enter i dopiero wtedy
@@ -30,7 +31,8 @@ FLOW = "przesuwaj stojące butelki przez kadr co ok. 2 s"
 PLAN = [
     ("E0", "-", "-", "Rozgrzewka: " + FLOW + " przez ok. 1 min, potem Enter", [("wait", 60)]),
     ("E1", "zator", "potwierdzona",
-     FLOW + "; potem PRZEWRÓĆ jedną butelkę i przesuń ją leżącą przez kadr – Enter zaraz po tym",
+     FLOW + "; potem PRZEWRÓĆ jedną butelkę i przesuń ją leżącą przez kadr – Enter dopiero, gdy na Jetsonie "
+     "(SSH1) pojawi się ZLICZONO z \"class\": \"fallen\"",
      [("wait", 2), ("set", "xInjJam", True), ("wait", 20), ("set", "xInjJam", False)]),
     ("E2", "zator", "tylko_plc", FLOW + " (tylko stojące, bez przewróconej) przez ok. 20 s – Enter",
      [("set", "xInjJam", True), ("wait", 25), ("set", "xInjJam", False)]),
@@ -69,7 +71,7 @@ async def recover(line):
     raise RuntimeError("linia nie wróciła do Execute, stan {}".format(await line.state()))
 
 
-async def run(logfile):
+async def run(plan, logfile):
     loop = asyncio.get_running_loop()
     async with Client(url=URL, timeout=5) as client:
         line = Line(client, await client.get_namespace_index(NS_URI))
@@ -88,8 +90,8 @@ async def run(logfile):
                 print("  {} UTC  {}  {}".format(t, eid, what), flush=True)
 
             try:
-                for i, (eid, cause, conf, instr, actions) in enumerate(PLAN, 1):
-                    print("\n[{}/{}] {} – oczekiwane: {} / {}\n  >> {}".format(i, len(PLAN), eid, cause, conf, instr))
+                for i, (eid, cause, conf, instr, actions) in enumerate(plan, 1):
+                    print("\n[{}/{}] {} – oczekiwane: {} / {}\n  >> {}".format(i, len(plan), eid, cause, conf, instr))
                     await loop.run_in_executor(None, input, "  [Enter] ")
                     log(eid, cause, conf, "start")
                     for a in actions:
@@ -115,8 +117,10 @@ async def run(logfile):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--dry", action="store_true", help="tylko plan")
+    ap.add_argument("--only", nargs="+", metavar="ID", help="tylko wskazane zdarzenia, np. --only E1")
     a = ap.parse_args()
-    for eid, cause, conf, instr, actions in PLAN:
+    plan = [p for p in PLAN if not a.only or p[0] in a.only]
+    for eid, cause, conf, instr, actions in plan:
         sec = sum(x[1] for x in actions if x[0] == "wait")
         print("{:<3} {:>4} s  {:<40} {:<13} {}".format(eid, sec, cause, conf, instr))
     if a.dry:
@@ -125,7 +129,7 @@ def main():
     logfile = os.path.join("data", "scenario_rag_{}.csv".format(datetime.datetime.now().strftime("%Y%m%d-%H%M")))
     print("Log:", logfile)
     try:
-        asyncio.run(run(logfile))
+        asyncio.run(run(plan, logfile))
     except KeyboardInterrupt:
         print("Przerwano – usterki zdjęte.")
 
