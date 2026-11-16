@@ -93,6 +93,28 @@ STATE = {1: "Clearing", 2: "Stopped", 3: "Starting", 4: "Idle", 5: "Suspended", 
          8: "Aborting", 9: "Aborted", 11: "Held", 15: "Resetting"}
 
 
+def _rel(sec):
+    """Czas zdarzenia względem początku postoju słownie – model myli znak liczby (test 16.11: „-10.5 s”)."""
+    return "{:.1f} s przed postojem".format(-sec) if sec <= 0 else "{:.1f} s PO początku postoju".format(sec)
+
+
+def camera_text(vis):
+    """Dowody z kamery pełnymi zdaniami. Wcześniej: „przewrócone butelki w chwilach brak s”, „ostatnia sztuka None s”
+    – model czytał to jako wykrycie przewróconej butelki (ewaluacja 16.11, P02)."""
+    if vis.get("offline_in_window"):
+        return "Kamera była offline w oknie postoju – brak zdarzeń z kamery niczego nie dowodzi."
+    counts = vis.get("counts") or {}
+    parts = ["Kamera w oknie postoju: " + (", ".join("{} × {}".format(n, c) for c, n in counts.items())
+                                           or "nie zobaczyła żadnej butelki") + "."]
+    fallen = vis.get("fallen_at_s") or []
+    parts.append("Przewrócona butelka (fallen): " + (", ".join(_rel(x) for x in fallen) if fallen
+                                                      else "kamera NIE widziała przewróconej butelki") + ".")
+    last = vis.get("last_item_s_before")
+    if last is not None:
+        parts.append("Ostatnia butelka przeszła {:.1f} s przed postojem.".format(last))
+    return " ".join(parts)
+
+
 def case_text(r):
     """Wiersz stop_event -> opis postoju po polsku (jedno źródło 'stop:<t_start UTC ISO>')."""
     t_start, t_end, state, reason, cause, conf, ev, clip = r
@@ -100,24 +122,20 @@ def case_text(r):
     plc, vis = ev.get("plc", {}), ev.get("vision", {})
     states = ", ".join("{} ({})".format(STATE.get(s, "nieznany"), s) for s in plc.get("states", [state]))
     lines = [
-        "Postój {} czasu lokalnego, trwał {:.0f} s.".format(
-            t_start.astimezone(TZ).strftime("%d.%m.%Y %H:%M:%S"), (t_end - t_start).total_seconds()),
+        "Postój {} czasu lokalnego, {}.".format(
+            t_start.astimezone(TZ).strftime("%d.%m.%Y %H:%M:%S"),
+            "trwał {:.0f} s".format((t_end - t_start).total_seconds()) if t_end else "trwa nadal"),
         "Stany po Execute: {}. Kod iStopReason: {}.".format(states, reason),
         "Przyczyna: {}, pewność: {}.".format(cause, conf),
     ]
     if ev.get("secondary"):
-        lines.append("Kolejne przyczyny w tym postoju: {}.".format(", ".join(ev["secondary"])))
+        lines[-1] = "Przyczyna: {}, potem w tym samym postoju: {}; pewność: {}.".format(
+            cause, ", ".join(ev["secondary"]), conf)
     pcs = plc.get("pieces_in_window")
     if pcs is not None and pcs < 0:      # licznik wyzerowany (wgranie programu / restart PLC) – różnica bez sensu
         pcs = "nieznana (licznik sztuk wyzerowany w oknie)"
     lines.append("Sztuk w 30 s przed postojem: {}, ostatni czas cyklu: {} ms.".format(pcs, plc.get("cycle_ms")))
-    if vis.get("offline_in_window"):
-        lines.append("Kamera była offline w oknie postoju.")
-    else:
-        lines.append("Kamera: obiekty {}, przewrócone butelki w chwilach {} s względem postoju, "
-                     "ostatnia sztuka {} s przed postojem.".format(
-                         ", ".join("{} {}".format(c, n) for c, n in (vis.get("counts") or {}).items()) or "brak",
-                         ", ".join(str(x) for x in vis.get("fallen_at_s") or []) or "brak", vis.get("last_item_s_before")))
+    lines.append(camera_text(vis))
     if ev.get("note"):
         lines.append("Uwaga: {}.".format(ev["note"]))
     lines.append("Klip: {}.".format(clip or "brak"))

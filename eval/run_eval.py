@@ -28,7 +28,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "assistant"))
 
-from llm import generate  # noqa: E402
+from llm import LLMUnavailable, generate  # noqa: E402
 
 QUESTIONS = ROOT / "eval" / "questions.jsonl"
 RESULTS = ROOT / "eval" / "results"
@@ -203,7 +203,10 @@ def main():
     if a.summary:
         summary()
     elif a.name:
-        run(a)
+        try:
+            run(a)
+        except LLMUnavailable as e:
+            raise SystemExit("Błąd: {}".format(e))
     else:
         ap.error("podaj --name albo --summary")
 
