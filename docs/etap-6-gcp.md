@@ -184,3 +184,30 @@ Rollback:
   bo v1 jest już na dysku,
 - **awaryjny, bez sieci** – na Jetsonie `model_sync.py rollback`; chmura dalej wskazuje nowszą wersję, więc
   następny sync ją przywróci.
+
+Wynik 16.11: pobranie 9,8 MB w 2 s, sha256 zgodny, budowa silnika 872 s (14,5 min, Nano bez `jetson_clocks`),
+silnik 8,7 MB, test 33,3 qps; drugi sync – „aktualny … nic do zrobienia”; `linesight_app.py` ładuje
+`registry/yolo26n/v1/model_384x640_fp16.engine` przez `current.engine`.
+
+## Niepewne klatki (E6-06)
+
+Pętla aktywnego uczenia: do etykietowania trafiają klatki, na których model się waha – one najwięcej zmieniają
+w retreningu, a losowe klatki z działającej linii to w 99 % łatwe przypadki.
+
+`linesight_app.py --uncertain` (moduł `deepstream/uncertain.py`) – sonda na wejściu `nvdsosd` (RGBA, jeszcze bez
+narysowanych ramek). Klatka jest niepewna, gdy:
+- **low_conf** – detekcja z pewnością w [0,45; 0,6): próg wdrożenia 0,45 obcina nvinfer, więc pasmo tuż nad
+  nim to detekcje „ledwo przepuszczone”,
+- **class_flip** – ślad z ≥ 10 klatkami dostaje klasę inną niż jego dotychczasowa większość (np. butelka pod
+  światło skacze między `bottle` a `missing_cap` – przesunięcie domeny z E2-04).
+
+Limit: ≥ 5 s odstępu, ≤ 60 klatek na godzinę – długi problem (cały dzień innego światła) nie zapcha karty SD
+ani zasobnika prawie identycznymi klatkami. Mapowanie bufora NVMM do CPU (`get_nvds_buf_surface` +
+`unmap_nvds_buf_surface`, wymagane na Jetsonie) tylko dla zapisywanej klatki.
+
+Na dysku `~/linesight_uncertain/<RRRRMMDD>/<czas>_f<klatka>.jpg` + `.json` (powody, detekcje z pewnością
+i ramkami, wersja modelu z `models/current.json`); JSON zapisywany drugi = para kompletna.
+
+`jetson/upload_frames.py` – osobny proces: sieć nie blokuje potoku wideo, a klatki czekają na dysku przy braku
+internetu. Wysyła pary do `gs://linesight-514914-frames/jetson-01/<RRRR-MM-DD>/` (`ifGenerationMatch=0`,
+412 = już wysłane), potem przenosi je do `sent/`.

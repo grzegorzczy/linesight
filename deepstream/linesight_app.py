@@ -8,6 +8,7 @@ Jetson, Python 3.6, DeepStream 6.0.1, pyds 1.1.1. Uruchamiać z ~/linesight/deep
     python3 linesight_app.py --rtsp                                 # kamera -> rtsp://<jetson>:8554/linesight
     python3 linesight_app.py --rtsp --clips                         # + klip 10 s przed / 5 s po zdarzeniu
     python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203    # + zdarzenia do brokera MQTT (E2-07)
+    python3 linesight_app.py --rtsp --clips --mqtt 192.168.0.203 --uncertain   # + niepewne klatki (E6-06)
     (--rtsp, --out i --clips można łączyć: jeden koder, tee na RTSP, MP4 i bufor kołowy)
 
 Potok:
@@ -229,7 +230,7 @@ def build_pipeline(args):
         "! nvtracker name=tracker ll-lib-file={lib} ll-config-file={trk} "
         "tracker-width=640 tracker-height=384 enable-batch-process=1 "
         "! nvvideoconvert name=post ! video/x-raw(memory:NVMM),format=RGBA "
-        "! nvdsosd ! {sink}"
+        "! nvdsosd name=osd ! {sink}"
     ).format(src=src, w=W, h=H, live=int(live), cfg=os.path.join(HERE, "configs", "nvinfer_yolo26.txt"),
              lib=TRACKER_LIB, trk=os.path.abspath(args.tracker), sink=sink)
     return Gst.parse_launch(desc)
@@ -361,6 +362,13 @@ def main():
                     help="plik YAML trackera (domyślnie configs/tracker_iou.yml)")
     ap.add_argument("--direction", default="L->R", choices=["L->R", "R->L", "both"],
                     help="kierunek taśmy: liczymy tylko przejścia w tym kierunku (domyślnie L->R)")
+    ap.add_argument("--uncertain", action="store_true",
+                    help="E6-06: zapisuj niepewne klatki (bez ramek OSD) do retreningu; wysyła je upload_frames.py")
+    ap.add_argument("--unc-dir", default=os.path.expanduser("~/linesight_uncertain"))
+    ap.add_argument("--unc-conf", type=float, default=0.6,
+                    help="detekcja z pewnością poniżej tej wartości jest niepewna (domyślnie 0.6; próg wdrożenia 0.45)")
+    ap.add_argument("--unc-interval", type=float, default=5.0, help="najwyżej jedna klatka na tyle sekund")
+    ap.add_argument("--unc-max-hour", type=int, default=60, help="najwyżej tyle klatek na godzinę")
     args = ap.parse_args()
 
     Gst.init(None)
@@ -416,6 +424,45 @@ def main():
     # sonda za trackerem (na wejściu nvvideoconvert przed OSD): ID śladów są już nadane
     pipeline.get_by_name("post").get_static_pad("sink").add_probe(Gst.PadProbeType.BUFFER, probe, None)
 
+    unc = None
+    if args.uncertain:
+        import numpy as np  # import tutaj: bez --uncertain OpenCV i numpy nie są potrzebne
+        import cv2
+        from uncertain import UncertainFrames, load_model_info
+        model = load_model_info()
+        unc = UncertainFrames(args.unc_dir, args.unc_conf, args.unc_interval, args.unc_max_hour,
+                              model=model, untracked=UNTRACKED)
+        print("NIEPEWNE: conf < {}, co najmniej {} s odstępu, max {}/h, w {} (model {} {})".format(
+            args.unc_conf, args.unc_interval, args.unc_max_hour, args.unc_dir, model.get("model"), model.get("version")))
+
+        def unc_probe(pad, info, _):
+            """Na wejściu nvdsosd: bufor RGBA bez narysowanych ramek (OSD rysuje dopiero w tym elemencie)."""
+            buf = info.get_buffer()
+            batch = pyds.gst_buffer_get_nvds_batch_meta(hash(buf))
+            l_frame = batch.frame_meta_list
+            while l_frame is not None:
+                fm = pyds.NvDsFrameMeta.cast(l_frame.data)
+                dets = []
+                l_obj = fm.obj_meta_list
+                while l_obj is not None:
+                    o = pyds.NvDsObjectMeta.cast(l_obj.data)
+                    r = o.rect_params
+                    dets.append((o.object_id, o.class_id, o.confidence, (r.left, r.top, r.width, r.height)))
+                    l_obj = l_obj.next
+                reasons = unc.check(fm.frame_num, dets)
+                if reasons and unc.want_save():
+                    # mapowanie bufora NVMM do pamięci CPU tylko dla zapisywanej klatki (kopiowanie kosztuje)
+                    surface = pyds.get_nvds_buf_surface(hash(buf), fm.batch_id)
+                    bgr = cv2.cvtColor(np.array(surface, copy=True, order="C"), cv2.COLOR_RGBA2BGR)
+                    pyds.unmap_nvds_buf_surface(hash(buf), fm.batch_id)   # Jetson: wymagane po mapowaniu
+                    base = unc.save(bgr, fm.frame_num, dets, reasons,
+                                    lambda path, img: cv2.imwrite(path, img, [cv2.IMWRITE_JPEG_QUALITY, 92]))
+                    print("NIEPEWNA", os.path.basename(base), ",".join(sorted({r["why"] for r in reasons})))
+                l_frame = l_frame.next
+            return Gst.PadProbeReturn.OK
+
+        pipeline.get_by_name("osd").get_static_pad("sink").add_probe(Gst.PadProbeType.BUFFER, unc_probe, None)
+
     loop = GLib.MainLoop()
     bus = pipeline.get_bus()
     bus.add_signal_watch()
@@ -441,6 +488,8 @@ def main():
     if stats["t0"] and stats["frames"] > 1:
         s["fps"] = round((stats["frames"] - 1) / (time.time() - stats["t0"]), 1)
     s["frames"] = stats["frames"]
+    if unc:
+        s["uncertain"] = unc.summary()
     print("PODSUMOWANIE", json.dumps(s))
     if mqtt_pub:
         mqtt_pub.close()
