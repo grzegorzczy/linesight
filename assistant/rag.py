@@ -75,11 +75,15 @@ def gather(conn, emb, question, stop_t=None, k=K_MANUAL):
             secondary = ((stop[6] or {}).get("secondary") or [])
             extra = " Przyczyna: {}. Kod {}. Procedura postępowania.".format(
                 ", ".join([stop[4] or "nieznana"] + secondary).replace("_", " "), stop[3])
+            if "alarm wystąpił: tak" in sources[-1]["text"]:      # [P3]: alarm napędu w 30 min przed postojem
+                extra += " Alarm napędu, objawy zużycia łożyska."  # 16.11 (P06): brak sekcji o alarmie i zużyciu
         else:
             t = when.astimezone(TZ).strftime("%d.%m.%Y %H:%M") if when else "-"
             sources.append({"id": "P1", "title": "Brak postoju", "url": None, "source": "stop_event",
-                            "text": "W bazie postojów nie ma postoju w ± {} s od {} (czas lokalny). "
-                                    "Linia w tym czasie nie stała.".format(MATCH_S, t)})
+                            "text": "W bazie postojów nie ma postoju w ± {0} s od {1} (czas lokalny). "
+                                    "Linia w tym czasie nie stała. / No stop within ± {0} s of {1} (local time): "
+                                    "the line did NOT stop at that time.".format(MATCH_S, t)})
+            # 16.11 (P14): pytanie po angielsku + polskie „nie stała” -> model odpowiadał „I don't know”
     q = emb.query(question + extra)
     for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, k, "manual"), 1):
         sources.append({"id": "S{}".format(i), "title": sec, "text": text, "url": None, "source": src,
