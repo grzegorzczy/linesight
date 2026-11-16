@@ -80,9 +80,14 @@ def list_names(bucket, prefix=""):
     return [i["name"] for i in json.loads(_call("GET", url).decode()).get("items", [])]
 
 
+def get(bucket, name, timeout=300):
+    """Zawartość obiektu w pamięci (małe pliki: JSON, ONNX ~10 MB)."""
+    return _call("GET", "{}/b/{}/o/{}?alt=media".format(API, bucket, _obj(name)), timeout=timeout)
+
+
 def download(bucket, name, dest):
     """Pobranie do pliku tymczasowego i zamiana nazwy – przerwane pobieranie nie zostawia połowy pliku pod dest."""
-    data = _call("GET", "{}/b/{}/o/{}?alt=media".format(API, bucket, _obj(name)), timeout=300)
+    data = get(bucket, name)
     tmp = dest + ".part"
     with open(tmp, "wb") as f:
         f.write(data)

@@ -240,11 +240,14 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       wysłanie do `frames` OK; nadpisanie, odczyt, lista, usunięcie klatek i zapis do `models` odrzucone
       *(16.11: 8/8 zgodnych; token z brokera 0,03 s; nadpisanie kończy się 412 – warunek `ifGenerationMatch=0`
       sprawdzany przed uprawnieniami; sekret na Jetsona przez `scp`, bo wklejanie do SSH w cmd gubiło znaki)*
-- [ ] **E6-04 – rejestr modeli** · laptop · 0,5 dnia · `cloud/registry.py` – `publish`: ONNX + `metrics.json` (mAP,
+- [x] **E6-04 – rejestr modeli** · laptop · 0,5 dnia · `cloud/registry.py` – `publish`: ONNX + `metrics.json` (mAP,
       sha256, commit, zbiór, parametry wdrożenia), wersje niezmienne; `promote`: `deployments/<urządzenie>.json`
       z poprzednią wersją do rollbacku; `list`, `show`; v1 opublikowana i wskazana dla `jetson-01`
-- [ ] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · pobranie wskazanej wersji, sha256,
-      `trtexec` FP16, test, podmiana silnika, rollback
+      *(16.11: v1 = `yolo26n_v1_384x640.onnx`, sha256 924f2a96…, commit 0d89cba, test mAP50 0,987 / mAP50-95 0,778;
+      ponowna publikacja v1 odrzucona)*
+- [ ] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · `jetson/model_sync.py`: pobranie wskazanej
+      wersji, sha256, `trtexec` FP16, test (PASSED + ≥ 15 qps), atomowa podmiana `models/current.engine`, rollback
+      z dysku; DeepStream czyta `current.engine`
 - [ ] **E6-06 – niepewne klatki i sygnał dryfu** · Jetson + laptop · 0,5 dnia · zapis klatki przy niskiej pewności
       lub zmianie klasy w torze, limit na godzinę, wysyłka; odsetek niepewnych detekcji w Grafanie
 - [ ] **E6-07 – retrening v2 z bramką** · laptop · 1 dzień · klatki z chmury + dzienne z E2-04, etykiety, trening;
