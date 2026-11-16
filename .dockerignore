@@ -4,3 +4,7 @@
 !diag/
 !anomaly/data.py
 !anomaly/features.py
+# E5-08: usługa assistant – kod i instrukcja (docs/kb) do indeksowania
+!assistant/
+!docs/kb/
+**/__pycache__
