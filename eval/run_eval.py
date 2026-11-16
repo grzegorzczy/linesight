@@ -2,7 +2,7 @@
 
     python eval\\run_eval.py --name rag_ollama                          # RAG + qwen3:4b-instruct (Ollama)
     python eval\\run_eval.py --name norag_ollama --mode norag           # ten sam model BEZ źródeł (punkt odniesienia)
-    python eval\\run_eval.py --name rag_ollama --judge gemini           # + sędzia LLM (zmyślenia, poprawność)
+    python eval\\run_eval.py --name rag_ollama --judge gemini --judge-model gemini-3.8-flash   # + sędzia LLM
     python eval\\run_eval.py --name rag_gemini --backend gemini --judge gemini
     python eval\\run_eval.py --summary                                  # tabela wszystkich przebiegów z eval/results
 
@@ -63,11 +63,14 @@ def facts_score(answer, must):
     return (sum(hits) / len(hits) if hits else None), [g[0] for g, h in zip(must, hits) if not h]
 
 
-def judge(q, answer, sources, backend):
+def judge(q, answer, sources, backend, model=None):
     src = "\n\n".join("[{}] {}\n{}".format(s["id"], s["title"], s["text"]) for s in sources) or "(no sources)"
     user = "SOURCES:\n{}\n\nQUESTION: {}\n\nREFERENCE: {}\n\nANSWER: {}".format(src, q["question"], q["reference"],
                                                                                answer)
-    text, _ = generate(JUDGE_SYSTEM, user, backend, json_mode=True)
+    try:
+        text, _ = generate(JUDGE_SYSTEM, user, backend, json_mode=True, model=model)
+    except LLMUnavailable as e:                  # sędzia niedostępny: pytanie bez oceny, przebieg idzie dalej
+        return {"judge_error": str(e)[:200]}
     try:
         j = json.loads(text)
     except ValueError:
@@ -124,7 +127,7 @@ def run(a):
             m = evaluate(q, r)
             if a.judge:
                 time.sleep(a.delay)                       # darmowy poziom Gemini: limit zapytań na minutę
-                m.update(judge(q, r["answer"], r["sources"], a.judge))
+                m.update(judge(q, r["answer"], r["sources"], a.judge, a.judge_model))
                 m["halluc"] = bool(m.get("unsupported") or m.get("contradictions") or m.get("bad_cite"))
             row = {"id": q["id"], "type": q["type"], "lang": q["lang"], "question": q["question"],
                    "answer": r["answer"], "metrics": m, "seconds": r["meta"].get("seconds"),
@@ -195,6 +198,7 @@ def main():
     ap.add_argument("--mode", choices=["rag", "norag"], default="rag")
     ap.add_argument("--backend", choices=["ollama", "gemini"], default="ollama")
     ap.add_argument("--judge", choices=["ollama", "gemini"], help="sędzia LLM (domyślnie brak)")
+    ap.add_argument("--judge-model", help="model sędziego (np. gemini-3.8-flash); domyślnie jak GEMINI_MODEL")
     ap.add_argument("-k", type=int, default=4, help="liczba fragmentów instrukcji")
     ap.add_argument("--delay", type=float, default=4.0, help="przerwa przed zapytaniem do Gemini [s]")
     ap.add_argument("--only", nargs="+", help="tylko wskazane pytania, np. --only P05 P10")
