@@ -246,6 +246,18 @@ linesight_app.py --uncertain --mqtt   co 60 s:  linesight/vision/stats  {t, wind
                                                                           mean_conf, model, version}
 ingest (mqtt_to_db.py) ──► vision_stats (hipertabela, infra/db/50-vision-stats.sql) ──► Grafana: panel 15
 ```
-Panel: odsetek niepewnych detekcji, średnia pewność i odsetek zmian klasy; czerwona linia 20 % (ok. 2× punkt
-odniesienia v1 = 9,4 %). Okna z < 20 detekcjami pomijamy – za mała próba. Kolumna `version` pozwala porównać
+Panel: odsetek niepewnych detekcji, średnia pewność i odsetek zmian klasy; czerwona linia 10 %. Okna z < 20 detekcjami pomijamy – za mała próba. Kolumna `version` pozwala porównać
 modele przed i po wdrożeniu v2.
+
+Wynik 16.11 (`vision_stats`, okna 60 s, v1):
+
+| okno (UTC) | detekcje | niepewne | % | średnia pewność | sytuacja |
+|---|---|---|---|---|---|
+| 16:07 | 1473 | 23 | 1,6 | 0,849 | normalna praca |
+| 16:08 | 1799 | 0 | 0,0 | 0,850 | normalna praca |
+| 16:09 | 1481 | 41 | 2,8 | 0,842 | częściowo trudne |
+| 16:10 | 1037 | 50 | 4,8 | 0,829 | trudne (przechylanie, ręka) |
+
+Kierunek zgodny z oczekiwaniem, ale efekt mały: pierwotny próg 20 % (2× wynik z E6-06, liczony w całości
+z prowokowanych sytuacji) nie złapałby niczego. Próg ustawiony na **10 %** = ok. 3–4× normalnej pracy. W zakładzie
+próg wyznacza się z kilku dni normalnej pracy (np. kwantyl 99 % okien) i alarmuje dopiero przy kilku oknach z rzędu.
