@@ -261,3 +261,34 @@ Wynik 16.11 (`vision_stats`, okna 60 s, v1):
 Kierunek zgodny z oczekiwaniem, ale efekt mały: pierwotny próg 20 % (2× wynik z E6-06, liczony w całości
 z prowokowanych sytuacji) nie złapałby niczego. Próg ustawiony na **10 %** = ok. 3–4× normalnej pracy. W zakładzie
 próg wyznacza się z kilku dni normalnej pracy (np. kwantyl 99 % okien) i alarmuje dopiero przy kilku oknach z rzędu.
+
+## Retrening v2 – dane (E6-08)
+
+Sesja w nowej domenie 16.11, 22:54–23:07 (górne światło zgaszone, lampka z boku, przechylone butelki, ręka, ruch),
+`--uncertain --unc-interval 2 --unc-max-hour 400`: 24 638 klatek przy 30 FPS, 34 602 detekcje, **2693 niepewne (7,8 %)**,
+średnia pewność **0,808**, zapisane 184.
+
+`vision_stats` w tym czasie: 5 z 13 okien powyżej progu 10 % (szczyty 17,8 % i 27,2 %, średnia pewność do 0,70) –
+sygnał dryfu zareagował na zmianę światła bez żadnej etykiety. Okna 22:02–22:04 UTC: dokładnie 3600 detekcji,
+0 niepewnych, 0,861 = 2 butelki × 30 FPS × 60 s, scena nieruchoma.
+
+| Zbiór | Skąd | Wybór | Podział |
+|---|---|---|---|
+| `20261116_al_uncertain` (209) | gs://…-frames → `data/frames_inbox` | niepewne wg v1 (aktywne uczenie) | 167 train / 42 val |
+| `20261116_230831_e6_newdomain_test` (40) | `capture.py` co 4 s, `scp -O` z Jetsona | losowe – niezależne od v1 | 40 test |
+| v1 (214) | bez zmian (`split_v1.csv`) | – | stary test 21 zamrożony |
+
+Zbiór v2: train 317 / val 85 / test 61 (`training/splits/split_v2.csv`). Paczka do Platform tylko z nowymi
+zdjęciami: `data/upload/linesight_v2_nowe.zip` (10,9 MB).
+
+```cmd
+gcloud storage cp -r gs://linesight-514914-frames/jetson-01 data\frames_inbox\
+scp -O -r grzegorz@192.168.0.124:dataset/raw/20261116_230831_e6_newdomain_test data\raw\
+python training\add_to_dataset.py --base v1 --version v2 --al-from data\frames_inbox\jetson-01 --al-session 20261116_al_uncertain
+```
+- `scp -O` – stary protokół SCP; domyślny w nowym OpenSSH dla Windows (SFTP) kończył pobieranie katalogu
+  z Jetsona komunikatem „Connection closed”.
+- Test nowej domeny celowo **nie** pochodzi z niepewnych klatek: zbiór wybrany przez v1 jako „trudny dla v1”
+  z góry przesądzałby porównanie v1 vs v2.
+- Sąsiednie niepewne klatki dzieli 2–5 s, więc podział losowy na train/val daje zawyżone val (prawie te same
+  klatki po obu stronach); o wdrożeniu v2 rozstrzyga niezależny test.
