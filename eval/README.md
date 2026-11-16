@@ -20,3 +20,21 @@ Zasady:
 - Zestaw zmieniamy tylko wtedy, gdy zmieniają się dane albo instrukcja – NIE pod wynik modelu. Poprawki promptu
   oceniamy na tym samym zestawie przed i po.
 - Pytania o postoje mają datę w treści, więc wynik nie zależy od dnia uruchomienia ewaluacji.
+
+## Sędzia LLM i jego sprawdzenie
+
+Sędzia (`--judge gemini --judge-model …`) dzieli odpowiedź na pojedyncze twierdzenia i każde ocenia: `supported`,
+`unsupported` (brak w źródłach, także własne interpretacje), `contradicted` (sprzeczne ze źródłami). Zmyślenie =
+co najmniej jedno twierdzenie `unsupported`/`contradicted` albo cytat nieistniejącego źródła.
+
+Sędzia też może się mylić (test 16.11: pierwsza wersja promptu uznała „the stop was confirmed as a jam” przy
+pewności `tylko_plc` za poprawne). Dlatego `judge_labels.jsonl` – 12 odpowiedzi z przebiegu `rag_ollama_v2` ocenionych
+ręcznie (4 ze zmyśleniem, 8 bez) – i tryb:
+
+    python eval\run_eval.py --rejudge rag_ollama_v2 --judge gemini --judge-model gemini-3.6-flash --judge-check
+
+Wynik: zgodność z człowiekiem, czułość (ile zmyśleń wykrył) i fałszywe alarmy. Sędziego, który nie wykrywa
+oznaczonych zmyśleń, nie używamy do porównań.
+
+Uwaga: Ollama przy `temperature 0` nie jest w pełni deterministyczna (16.11: P01 inna w dwóch przebiegach) – stąd
+`seed` w zapytaniu i kontrola `answer_start` w etykietach.
