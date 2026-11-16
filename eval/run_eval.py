@@ -128,7 +128,8 @@ def run(a):
             if a.judge:
                 time.sleep(a.delay)                       # darmowy poziom Gemini: limit zapytań na minutę
                 m.update(judge(q, r["answer"], r["sources"], a.judge, a.judge_model))
-                m["halluc"] = bool(m.get("unsupported") or m.get("contradictions") or m.get("bad_cite"))
+                if "judge_error" not in m:      # bez oceny sędziego nie wiemy – None, nie False (16.11: 503 -> False)
+                    m["halluc"] = bool(m.get("unsupported") or m.get("contradictions") or m.get("bad_cite"))
             row = {"id": q["id"], "type": q["type"], "lang": q["lang"], "question": q["question"],
                    "answer": r["answer"], "metrics": m, "seconds": r["meta"].get("seconds"),
                    "model": r["meta"].get("model"), "mode": a.mode, "k": a.k,
@@ -138,7 +139,7 @@ def run(a):
             rows.append(row)
             flag = " ".join("{}={}".format(k, v) for k, v in m.items()
                             if k in ("stop_ok", "recall", "facts", "refusal_ok", "false_refusal", "bad_cite",
-                                     "correct", "halluc") and v not in (None,))
+                                     "correct", "halluc", "judge_error") and v not in (None,))
             print("{:<4} {:>5}s  {}".format(q["id"], r["meta"].get("seconds"), flag), flush=True)
             if a.backend == "gemini":
                 time.sleep(a.delay)
