@@ -52,15 +52,27 @@ def _ollama(system, user, json_mode=False):
                                      "load_s": round(j.get("load_duration", 0) / 1e9, 2)}
 
 
+RETRY_STATUS = {429, 500, 503}          # limit zapytań / przeciążenie po stronie Google – zwykle mija po chwili
+RETRY_WAIT_S = (5, 15, 30)
+
+
 def _gemini(system, user, json_mode=False):
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise LLMUnavailable("Brak GEMINI_API_KEY")
-    r = requests.post(GEMINI_URL.format(GEMINI_MODEL), timeout=120, headers={"x-goog-api-key": key}, json={
-        "system_instruction": {"parts": [{"text": system}]},
-        "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": dict({"temperature": 0}, **({"responseMimeType": "application/json"} if json_mode else {}))})
-    r.raise_for_status()
+    body = {"system_instruction": {"parts": [{"text": system}]},
+            "contents": [{"role": "user", "parts": [{"text": user}]}],
+            "generationConfig": dict({"temperature": 0}, **({"responseMimeType": "application/json"} if json_mode else {}))}
+    for wait in RETRY_WAIT_S + (None,):
+        r = requests.post(GEMINI_URL.format(GEMINI_MODEL), timeout=120, headers={"x-goog-api-key": key}, json=body)
+        if r.status_code not in RETRY_STATUS or wait is None:
+            break
+        print("Gemini {} – ponowienie za {} s".format(r.status_code, wait), flush=True)
+        time.sleep(wait)
+    if r.status_code in RETRY_STATUS:
+        raise LLMUnavailable("Gemini {} po {} próbach: {}".format(r.status_code, len(RETRY_WAIT_S) + 1, r.text[:300]))
+    if r.status_code != 200:
+        raise RuntimeError("Gemini {}: {}".format(r.status_code, r.text[:300]))   # np. 404 = zła nazwa modelu
     j = r.json()
     text = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
     u = j.get("usageMetadata", {})
