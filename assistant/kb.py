@@ -107,8 +107,10 @@ def case_text(r):
     ]
     if ev.get("secondary"):
         lines.append("Kolejne przyczyny w tym postoju: {}.".format(", ".join(ev["secondary"])))
-    lines.append("Sztuk w 30 s przed postojem: {}, ostatni czas cyklu: {} ms.".format(
-        plc.get("pieces_in_window"), plc.get("cycle_ms")))
+    pcs = plc.get("pieces_in_window")
+    if pcs is not None and pcs < 0:      # licznik wyzerowany (wgranie programu / restart PLC) – różnica bez sensu
+        pcs = "nieznana (licznik sztuk wyzerowany w oknie)"
+    lines.append("Sztuk w 30 s przed postojem: {}, ostatni czas cyklu: {} ms.".format(pcs, plc.get("cycle_ms")))
     if vis.get("offline_in_window"):
         lines.append("Kamera była offline w oknie postoju.")
     else:

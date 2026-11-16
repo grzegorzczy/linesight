@@ -204,7 +204,9 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       link do klipu, „nie wiem”, gdy kontekst nie wystarcza
       *(15.11: qwen3:4b-instruct w Ollamie natywnie na Windows; flash attention + KV cache q8_0 -> 37/37 warstw na GPU,
       ok. 7-8 s na odpowiedź, odpowiedzi powtarzalne; usługa w Dockerze razem z E5-08)*
-- [ ] **E5-06 – zestaw ewaluacyjny** *(sesja danych `tools/scenario_rag.py` – 16.11)* · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
+- [ ] **E5-06 – zestaw ewaluacyjny** *(16.11: sesja `tools/scenario_rag.py` – 8 postojów + powtórka E1, wszystkie
+      przyczyny i pewności; znalezisko: postój E5 Held -> Suspended bez Execute pomiędzy gubił drugą przyczynę –
+      poprawka w `diag/stops.py`)* · repo · 0,5 dnia · 25 pytań: wzorcowa odpowiedź, wymagane fakty,
       wzorcowe źródła; w tym pytania bez odpowiedzi i kilka po angielsku
       *(test ręczny 15.11, qwen3:4b-instruct, 5 pytań: 2 poprawne, 1 poprawna odmowa w złym języku, 1 z cytatem
       nieistniejącego źródła [P4], 1 sprzeczna ze źródłem – postój 14.11 18:01 to zator, potem brak produktu,
