@@ -1,0 +1,5 @@
+t_utc,id,przyczyna,pewnosc,zdarzenie
+2026-11-16 08:39:58,E1,zator,potwierdzona,start
+2026-11-16 08:40:00,E1,zator,potwierdzona,xInjJam := True
+2026-11-16 08:40:20,E1,zator,potwierdzona,xInjJam := False
+2026-11-16 08:40:20,END,-,-,koniec sesji

@@ -216,8 +216,13 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       *(16.11: fakty 10 % bez RAG -> 85 % RAG v3 (qwen3:4b), zmyślenia 43 % (v2) -> 14 % (v3); Gemini 3.5 Flash Lite:
       94 %, 0 %*, 1,4 s; sędzia gemini-3.5-flash-lite sprawdzony na 12 ręcznych ocenach (11/12); znaleziska w potoku:
       utracona druga przyczyna postoju, utracone postoje na granicy horyzontu diag)*
-- [ ] **E5-08 – link w Grafanie** · laptop · 1 h · „Zapytaj asystenta” w tabeli postojów
-- [ ] **E5-09 – dokumentacja** · repo · 0,5 dnia · `docs/etap-5-rag.md`, ściąga, README, 5 pytań technicznych
+- [x] **E5-08 – link w Grafanie** · laptop · 1 h · „Zapytaj asystenta” w tabeli postojów
+- [x] **E5-09 – dokumentacja** · repo · 0,5 dnia · `docs/etap-5-rag.md`, ściąga, README, 5 pytań technicznych
+
+## Po etapie 5 (otwarte)
+- [ ] Wyszukiwanie EN -> PL (M05): `multilingual-e5-base` / `bge-m3` albo hybryda wektor + pełnotekstowe; ocena tym samym zestawem
+- [ ] Pytania agregujące („ile razy…”) przez SQL (gotowe zapytania / text-to-SQL), nie RAG
+- [ ] Zgubione ok. 7/9000 zmian licznika (z etapu 4)
 
 ## Poza MVP (pomysły)
 - [ ] Demo MVP (14.11, 3:35 min, lokalnie `2026-11-14 18-46-13.mkv`) – do YouTube i README w etapie 7.
@@ -233,6 +238,11 @@ instrukcji i podobnych przypadków z historii. Wszystko na laptopie (Docker).
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **Asystent: postój z SQL, wektory tylko dla tekstu; LLM domyślnie lokalny (qwen3:4b-instruct w Ollamie), Gemini
+  3.5 Flash Lite przełączany zmienną** *(16.11, E5-07)*. Gemini: 94 % faktów, ~0 % zmyśleń, 1,4 s; qwen3:4b: 85 %,
+  14 %, 5,8 s – za lokalnym: dane zakładu nie wychodzą z sieci, brak limitów i kosztów.
+- **Sędzia ewaluacji: gemini-3.5-flash-lite, prompt twierdzenie po twierdzeniu** *(16.11)*: 11/12 zgodności z ręcznymi
+  ocenami jak 3.6-flash, a limit 500 zamiast 20 zapytań dziennie.
 - **PLC: sterownik JUMO variTRON 300 (705003, 192.168.0.244) zamiast programowego CODESYS Control Win**
   *(decyzja Grzegorza 14.11.2026, E3-03)*. Kod ST nie zależy od urządzenia (tylko biblioteka `Standard`),
   więc przeniesienie na Control Win to wklejenie trzech obiektów. Minus: projektu nie da się odtworzyć bez tego sterownika.
