@@ -9,7 +9,7 @@ Zmienne środowiskowe:
   OLLAMA_URL    http://localhost:11434                (z kontenera: http://host.docker.internal:11434)
   OLLAMA_MODEL  qwen3:4b-instruct                     (wariant bez trybu myślenia; :4b to dziś wersja thinking)
   OLLAMA_CTX    4096                                  okno kontekstu; za długi prompt Ollama PRZYCINA bez błędu
-  GEMINI_MODEL  gemini-flash-latest                   alias na bieżący model Flash
+  GEMINI_MODEL  gemini-3.5-flash-lite                 lekki model Flash z darmowego poziomu
   GEMINI_API_KEY                                      klucz z Google AI Studio (nie trafia do repo)
   OLLAMA_KEEP_ALIVE  30m                              jak długo model zostaje w VRAM po ostatnim pytaniu
 
@@ -28,7 +28,9 @@ OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen3:4b-instruct")
 OLLAMA_CTX = int(os.environ.get("OLLAMA_CTX", "4096"))
 # Ładowanie modelu do VRAM trwa ok. 19 s (test 15.11) – domyślne 5 min bezczynności to zimny start co chwilę
 OLLAMA_KEEP_ALIVE = os.environ.get("OLLAMA_KEEP_ALIVE", "30m")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-flash-latest")
+# 16.11: alias gemini-flash-latest -> 503 i brak odpowiedzi w 120 s; gemini-3.5-flash-lite odpowiada w ok. 1,4 s
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+GEMINI_TIMEOUT_S = float(os.environ.get("GEMINI_TIMEOUT_S", "60"))
 GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{}:generateContent"
 
 
@@ -36,10 +38,11 @@ class LLMUnavailable(RuntimeError):
     """Dostawca LLM nieosiągalny (serwer nie działa, brak klucza) – usługa zwraca 503, nie 500."""
 
 
-def _ollama(system, user, json_mode=False):
+def _ollama(system, user, json_mode=False, model=None):
+    model = model or OLLAMA_MODEL
     try:
         r = requests.post(OLLAMA_URL + "/api/chat", timeout=300, json={
-            "model": OLLAMA_MODEL, "stream": False, "keep_alive": OLLAMA_KEEP_ALIVE,
+            "model": model, "stream": False, "keep_alive": OLLAMA_KEEP_ALIVE,
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
             "options": {"temperature": 0, "num_ctx": OLLAMA_CTX}, **({"format": "json"} if json_mode else {})})
     except requests.ConnectionError:
@@ -47,7 +50,7 @@ def _ollama(system, user, json_mode=False):
             OLLAMA_URL)) from None
     r.raise_for_status()
     j = r.json()
-    return j["message"]["content"], {"model": OLLAMA_MODEL, "prompt_tokens": j.get("prompt_eval_count"),
+    return j["message"]["content"], {"model": model, "prompt_tokens": j.get("prompt_eval_count"),
                                      "output_tokens": j.get("eval_count"),
                                      "load_s": round(j.get("load_duration", 0) / 1e9, 2)}
 
@@ -56,7 +59,8 @@ RETRY_STATUS = {429, 500, 503}          # limit zapytań / przeciążenie po str
 RETRY_WAIT_S = (5, 15, 30)
 
 
-def _gemini(system, user, json_mode=False):
+def _gemini(system, user, json_mode=False, model=None):
+    model = model or GEMINI_MODEL
     key = os.environ.get("GEMINI_API_KEY")
     if not key:
         raise LLMUnavailable("Brak GEMINI_API_KEY")
@@ -64,28 +68,34 @@ def _gemini(system, user, json_mode=False):
             "contents": [{"role": "user", "parts": [{"text": user}]}],
             "generationConfig": dict({"temperature": 0}, **({"responseMimeType": "application/json"} if json_mode else {}))}
     for wait in RETRY_WAIT_S + (None,):
-        r = requests.post(GEMINI_URL.format(GEMINI_MODEL), timeout=120, headers={"x-goog-api-key": key}, json=body)
-        if r.status_code not in RETRY_STATUS or wait is None:
+        try:
+            r = requests.post(GEMINI_URL.format(model), timeout=GEMINI_TIMEOUT_S, headers={"x-goog-api-key": key},
+                              json=body)
+            status = r.status_code
+        except requests.Timeout:            # przeciążony model potrafi nie odpowiedzieć wcale (16.11, 120 s)
+            r, status = None, "timeout"
+        if status not in RETRY_STATUS and status != "timeout" or wait is None:
             break
-        print("Gemini {} – ponowienie za {} s".format(r.status_code, wait), flush=True)
+        print("Gemini {} – ponowienie za {} s".format(status, wait), flush=True)
         time.sleep(wait)
-    if r.status_code in RETRY_STATUS:
-        raise LLMUnavailable("Gemini {} po {} próbach: {}".format(r.status_code, len(RETRY_WAIT_S) + 1, r.text[:300]))
+    if r is None or r.status_code in RETRY_STATUS:
+        raise LLMUnavailable("Gemini ({}) {} po {} próbach: {}".format(
+            model, status, len(RETRY_WAIT_S) + 1, r.text[:300] if r is not None else "brak odpowiedzi"))
     if r.status_code != 200:
         raise RuntimeError("Gemini {}: {}".format(r.status_code, r.text[:300]))   # np. 404 = zła nazwa modelu
     j = r.json()
     text = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
     u = j.get("usageMetadata", {})
-    return text, {"model": GEMINI_MODEL, "prompt_tokens": u.get("promptTokenCount"),
+    return text, {"model": model, "prompt_tokens": u.get("promptTokenCount"),
                   "output_tokens": u.get("candidatesTokenCount")}
 
 
-def generate(system, user, backend=None, json_mode=False):
+def generate(system, user, backend=None, json_mode=False, model=None):
     """-> (tekst, meta: model, tokeny, czas [s]). Wyjątek przy błędzie HTTP – wołający decyduje, co dalej.
-    json_mode=True: dostawca wymusza poprawny JSON (sędzia w ewaluacji)."""
+    json_mode=True: dostawca wymusza poprawny JSON (sędzia w ewaluacji); model: inny niż domyślny (sędzia)."""
     backend = backend or BACKEND
     t0 = time.time()
-    text, meta = {"ollama": _ollama, "gemini": _gemini}[backend](system, user, json_mode)
+    text, meta = {"ollama": _ollama, "gemini": _gemini}[backend](system, user, json_mode, model)
     meta.update(backend=backend, seconds=round(time.time() - t0, 2))
     if backend == "ollama" and meta["prompt_tokens"] and meta["prompt_tokens"] >= OLLAMA_CTX - 50:
         meta["warning"] = "prompt na granicy okna kontekstu – mógł zostać przycięty"
