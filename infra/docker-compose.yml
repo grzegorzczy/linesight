@@ -98,6 +98,19 @@ services:
     volumes:
       - hf-cache:/hf
 
+  tokens:   # E6-03: broker krótkotrwałych tokenów GCP dla Jetsona (impersonation konta jetson-edge, bez klucza JSON)
+    build: ../cloud
+    container_name: linesight-tokens
+    restart: unless-stopped
+    ports:
+      - "8010:8010"
+    environment:
+      BROKER_SECRET: ${BROKER_SECRET:-}   # zmienna Windows (setx), nie w repo; bez niej broker się nie uruchomi
+      TARGET_SA: jetson-edge@linesight-514914.iam.gserviceaccount.com
+      GOOGLE_APPLICATION_CREDENTIALS: /gcloud/application_default_credentials.json
+    volumes:
+      - ${APPDATA}/gcloud:/gcloud:ro   # ADC z `gcloud auth application-default login` (konto użytkownika)
+
   grafana:   # E3-07: dashboard linii (źródło danych i dashboard z plików, provisioning)
     image: grafana/grafana:13.2.4
     container_name: linesight-grafana

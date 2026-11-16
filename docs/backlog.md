@@ -229,12 +229,15 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
 
 - [x] **E6-01 – konto, projekt, budżet, gcloud** · laptop · 1 h · `billingEnabled: true`, budżet widoczny,
       ADC z projektem kwoty `linesight-514914`, API Cloud Storage włączone
-- [ ] **E6-02 – zasobniki i konto usługi** · laptop · 1 h · `linesight-514914-models` i `linesight-514914-frames`
+- [x] **E6-02 – zasobniki i konto usługi** · laptop · 1 h · `linesight-514914-models` i `linesight-514914-frames`
       (us-central1, jednolity dostęp, blokada publicznego dostępu, klatki usuwane po 30 dniach); konto usługi
       `jetson-edge`: odczyt modeli, tylko dodawanie klatek
-- [ ] **E6-03 ⚠ – klient Cloud Storage na Pythonie 3.6** · Jetson · 1 h · pobranie z `models`, wysłanie do `frames`;
-      próba nadpisania / usunięcia / odczytu klatek kończy się 403
-      *(PyPI 16.11: ostatnie wersje z Pythonem 3.6 – google-cloud-storage 2.0.0, google-auth 2.22.0)*
+      *(16.11: klucz JSON zablokowany polityką organizacji `iam.disableServiceAccountKeyCreation`, a konto nie
+      administruje organizacją → impersonation: rola TokenCreator dla użytkownika na `jetson-edge`; test
+      `--impersonate-service-account`: models OK, frames `storage.objects.list denied`)*
+- [ ] **E6-03 – broker tokenów i klient na Pythonie 3.6** · laptop + Jetson · 1-2 h · `cloud/token_broker.py`
+      w Dockerze wydaje token `jetson-edge` (1 h); `jetson/gcs.py selftest` na Jetsonie: lista i pobranie z `models`,
+      wysłanie do `frames` OK; nadpisanie, odczyt, lista, usunięcie klatek i zapis do `models` odrzucone
 - [ ] **E6-04 – rejestr modeli** · laptop · 0,5 dnia · `publish`: ONNX + `metrics.json` (mAP, sha256, commit, wersja
       zbioru); `promote`: plik wskazania wersji dla urządzenia; v1 w rejestrze
 - [ ] **E6-05 – synchronizacja modelu na Jetsonie** · Jetson · 0,5 dnia · pobranie wskazanej wersji, sha256,
@@ -265,6 +268,10 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **GCP bez kluczy kont usług: broker krótkotrwałych tokenów na laptopie** *(16.11, E6-02)*. Polityka organizacji
+  blokuje klucze JSON, a konto nie może jej zmienić; tokeny 1 h przez impersonation `jetson-edge` – na Jetsonie
+  brak długoterminowego sekretu Google, klient REST bez bibliotek Google na Pythonie 3.6. Minus: odnowienie tokenu
+  wymaga laptopa (w produkcji brama brzegowa albo Workload Identity Federation).
 - **Asystent: postój z SQL, wektory tylko dla tekstu; LLM domyślnie lokalny (qwen3:4b-instruct w Ollamie), Gemini
   3.5 Flash Lite przełączany zmienną** *(16.11, E5-07)*. Gemini: 94 % faktów, ~0 % zmyśleń, 1,4 s; qwen3:4b: 85 %,
   14 %, 5,8 s – za lokalnym: dane zakładu nie wychodzą z sieci, brak limitów i kosztów.
