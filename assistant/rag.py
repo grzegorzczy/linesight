@@ -40,6 +40,8 @@ podanych w wiadomości (bloki [P1], [S1], [H1] itd.). Zasady:
 - Jeśli źródła nie wystarczają do odpowiedzi, napisz: "Nie wiem – w dostępnych źródłach nie ma tej informacji." i nic nie zmyślaj.
 - Przy pytaniu o postój: najpierw przyczyna i pewność, potem dowody (sygnały, kamera), potem co zrobić według instrukcji.
 - Jeśli źródło podaje link do klipu, podaj go.
+- Źródła [H] to tylko przykłady podobnych postojów, nie cała historia: nie licz na ich podstawie, ile razy coś się
+  zdarzyło – napisz, że nie masz pełnej historii, i podaj przykłady.
 - Odpowiadaj po polsku, zwięźle (do 150 słów).""",
     "en": """You are an assistant for technicians of the LineSight mini packaging line. Answer ONLY from the sources
 given in the message (blocks [P1], [S1], [H1] etc.); sources may be in Polish. Rules:
@@ -48,6 +50,8 @@ given in the message (blocks [P1], [S1], [H1] etc.); sources may be in Polish. R
 - If the sources are not sufficient, write: "I don't know – the available sources do not contain this information." and invent nothing.
 - For a question about a stop: first the cause and confidence, then the evidence (signals, camera), then what to do according to the manual.
 - If a source gives a clip link, include it.
+- Sources [H] are only examples of similar stops, not the full history: do not count how often something happened from
+  them – say that you do not have the full history and give the examples.
 - Answer in English, concisely (up to 150 words).""",
 }
 
@@ -59,24 +63,31 @@ def language(question):
 
 def gather(conn, emb, question, stop_t=None, k=K_MANUAL):
     """Zbiera źródła: [{"id", "title", "text", "url", "source", "dist"}]."""
-    sources = []
+    sources, extra = [], ""
     when = None if stop_t else parse_when(question)
     if stop_t or when or RE_LAST.search(question):
         stop = find_stop(conn, stop_t or when, exact=bool(stop_t))
         if stop:
             sources += stop_sources(conn, stop)
+            # Pytanie „dlaczego stanęła o 9:07” nie mówi nic o przyczynie, więc wyszukiwanie zwracało losowe sekcje
+            # o stanach (ewaluacja 16.11: recall 81 %, brak sekcji 302 -> model nazwał abort „usterką”).
+            # Dopisujemy przyczynę i kod z [P1] do zapytania wektorowego – instrukcja trafia w procedurę.
+            secondary = ((stop[6] or {}).get("secondary") or [])
+            extra = " Przyczyna: {}. Kod {}. Procedura postępowania.".format(
+                ", ".join([stop[4] or "nieznana"] + secondary).replace("_", " "), stop[3])
         else:
             t = when.astimezone(TZ).strftime("%d.%m.%Y %H:%M") if when else "-"
             sources.append({"id": "P1", "title": "Brak postoju", "url": None, "source": "stop_event",
                             "text": "W bazie postojów nie ma postoju w ± {} s od {} (czas lokalny). "
                                     "Linia w tym czasie nie stała.".format(MATCH_S, t)})
-    q = emb.query(question)
+    q = emb.query(question + extra)
     for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, k, "manual"), 1):
         sources.append({"id": "S{}".format(i), "title": sec, "text": text, "url": None, "source": src,
                         "dist": round(float(dist), 3)})
     if not any(s["id"] == "P1" for s in sources) and RE_HISTORY.search(question):
         for i, (_, kind, src, sec, text, dist) in enumerate(search(conn, q, K_CASES, "case"), 1):
-            sources.append({"id": "H{}".format(i), "title": sec, "text": text, "url": None, "source": src,
+            sources.append({"id": "H{}".format(i), "title": "Przykład podobnego postoju (NIE pełna historia): " + sec,
+                            "text": text, "url": None, "source": src,
                             "dist": round(float(dist), 3)})
     return sources
 

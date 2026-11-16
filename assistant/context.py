@@ -44,11 +44,19 @@ def parse_when(question, now=None):
     return t
 
 
+# Kolejność wyboru, gdy w ± MATCH_S jest kilka postojów (16.11: 08:53:23 i 08:54:37 dla pytania „o 8:54”,
+# 09:07:06 i 09:07:50 dla „o 9:07”): człowiek podający „8:54” ma na myśli MINUTĘ 8:54, więc
+#   0) postój, który zaczął się w tej minucie (najwcześniejszy),  1) postój trwający w tej chwili,
+#   2) najbliższy początkiem w ± MATCH_S.
 SQL_AT = """
     SELECT t_start, t_end, state, stop_reason, cause, confidence, evidence, clip FROM stop_event
      WHERE t_start <= %(t)s + make_interval(secs => %(m)s)
        AND coalesce(t_end, now()) >= %(t)s - make_interval(secs => %(m)s)
-     ORDER BY abs(extract(epoch FROM t_start - %(t)s)) LIMIT 1
+     ORDER BY CASE WHEN t_start >= %(t)s AND t_start < %(t)s + interval '60 seconds' THEN 0
+                   WHEN t_start <= %(t)s AND coalesce(t_end, now()) >= %(t)s THEN 1
+                   ELSE 2 END,
+              abs(extract(epoch FROM t_start - %(t)s))
+     LIMIT 1
 """
 SQL_LAST = """SELECT t_start, t_end, state, stop_reason, cause, confidence, evidence, clip
                 FROM stop_event ORDER BY t_start DESC LIMIT 1"""

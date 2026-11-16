@@ -44,7 +44,7 @@ def _ollama(system, user, json_mode=False):
             "options": {"temperature": 0, "num_ctx": OLLAMA_CTX}, **({"format": "json"} if json_mode else {})})
     except requests.ConnectionError:
         raise LLMUnavailable("Ollama nie odpowiada pod {} – uruchom Ollamę (menu Start albo `ollama serve`)".format(
-            OLLAMA_URL))
+            OLLAMA_URL)) from None
     r.raise_for_status()
     j = r.json()
     return j["message"]["content"], {"model": OLLAMA_MODEL, "prompt_tokens": j.get("prompt_eval_count"),
