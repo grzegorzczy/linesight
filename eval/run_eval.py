@@ -34,7 +34,11 @@ from llm import LLMUnavailable, generate  # noqa: E402
 QUESTIONS = ROOT / "eval" / "questions.jsonl"
 RESULTS = ROOT / "eval" / "results"
 REFUSAL = re.compile(r"nie wiem|nie ma tej informacji|brak (tej )?informacji|nie zawieraj|nie podaj|"
-                     r"don't know|do not know|not contain|no information|not available in the", re.I)
+                     r"nie mog[eę] (podać|policzyć|ustalić)|nie mam pełnej|"
+                     r"don't know|do not know|not contain|no information|not available in the|"
+                     r"cannot (count|give|determine)|don't have the full|do not have the full", re.I)
+# 16.11: „Nie mam pełnej historii… nie mogę podać całkowitej liczby” (H01, Gemini) to poprawna odmowa, a wzorzec
+# jej nie łapał – poprawka miary, nie modelu; wpływa też na „zbędne odmowy”.
 
 NORAG_SYSTEM = {
     "pl": "Jesteś asystentem technika mini linii pakującej. Odpowiadaj po polsku, zwięźle (do 150 słów). "

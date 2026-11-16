@@ -46,6 +46,8 @@ SQL_SINCE = """
 SQL_INITIAL = """
     SELECT value FROM plc_signal
      WHERE name = 'iStateCurrent' AND time <= %(since)s AND time > %(since)s - interval '7 days'
+       AND value IS NOT NULL      -- 16.11: NULL (zła jakość OPC UA przy restarcie PLC) tuż przed granicą horyzontu dawał
+                                  -- initial = None -> postój po granicy nie był wykryty, a DELETE_STALE go usuwał
      ORDER BY time DESC LIMIT 1
 """
 SQL_CHANGES = """
