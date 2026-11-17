@@ -54,9 +54,11 @@ def main():
     a = ap.parse_args()
 
     cfg = yaml.safe_load(a.data.read_text(encoding="utf-8"))
-    root = Path(cfg.get("path") or a.data.parent)
+    # 'path' w data.yaml jest opcjonalne (eksport z Platform go nie ma) – wtedy korzeń to folder data.yaml
+    root = Path(cfg["path"]) if cfg.get("path") else a.data.parent
     if not root.is_absolute():
-        root = a.data.parent / root
+        root = a.data.parent / root if cfg.get("path") else root
+    root = root.resolve()
     test_dir = root / cfg.get("test", "images/test")
     names_map = original_names(a.ndjson)
     out_dir = RUNS / "yolo26n_{}".format(a.candidate) / "compare"
