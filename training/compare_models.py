@@ -65,7 +65,8 @@ def main():
     imgs = sorted(p for p in test_dir.iterdir() if p.suffix.lower() in (".jpg", ".jpeg", ".png"))
     yamls = {}
     for sub, pick in SUBSETS.items():
-        chosen = [p for p in imgs if pick(names_map.get(p.stem, ""))]
+        # pliki w zbiorze YOLO: <skrót>_<nr>.jpg, a w NDJSON adres kończy się na <skrót>.jpg
+        chosen = [p for p in imgs if pick(names_map.get(p.stem.rsplit("_", 1)[0], ""))]
         lst = out_dir / "{}.txt".format(sub)
         lst.write_text("\n".join(str(p.resolve()) for p in chosen) + "\n", encoding="utf-8")
         y = out_dir / "{}.yaml".format(sub)
