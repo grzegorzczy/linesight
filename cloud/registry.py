@@ -96,6 +96,12 @@ def cmd_publish(a):
         "train": {k: summary.get(k) for k in ("model_start", "epochs_run", "imgsz", "batch", "seed")},
         "metrics": {"val": summary.get("val"), "test": summary.get("test")},
     }
+    gate_file = a.run / "gate.json"
+    if gate_file.is_file():   # E6-08: wynik bramki (compare_models.py) jedzie razem z wersją
+        g = json.loads(gate_file.read_text(encoding="utf-8"))
+        meta["gate"] = {k: g[k] for k in ("baseline", "passed", "rules", "delta", "n_images")}
+        meta["metrics"]["test_old"] = g["results"][g["candidate"]]["test_old"]
+        meta["metrics"]["test_new"] = g["results"][g["candidate"]]["test_new"]
 
     blob = b.blob(prefix + "model.onnx")
     blob.metadata = {"sha256": digest}
@@ -141,6 +147,10 @@ def cmd_promote(a):
     meta = read_json(b, "{}/{}/metrics.json".format(a.model, a.version))
     if meta is None:
         raise SystemExit("{}/{} nie jest opublikowana (brak metrics.json)".format(a.model, a.version))
+    gate = meta.get("gate")
+    if gate and not gate["passed"] and not a.force:   # E6-08: model bez bramki nie trafi na urządzenie
+        raise SystemExit("{} nie przeszła bramki względem {} ({}) – wdrożenie tylko z --force".format(
+            a.version, gate["baseline"], gate["delta"]))
     name = "deployments/{}.json".format(a.device)
     current = read_json(b, name)
     if current and current["version"] == a.version:
@@ -180,6 +190,7 @@ def main():
     s.add_argument("--version", required=True)
     s.add_argument("--device", default="jetson-01")
     s.add_argument("--reason", default="")
+    s.add_argument("--force", action="store_true", help="wdróż mimo nieprzechodzącej bramki (np. rollback awaryjny)")
     s = sub.add_parser("show", help="aktualne wskazanie dla urządzenia")
     s.add_argument("--device", default="jetson-01")
     a = p.parse_args()

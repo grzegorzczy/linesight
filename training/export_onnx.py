@@ -3,6 +3,7 @@
 Uruchom z głównego folderu projektu, z aktywnym .venv:
     python training\\export_onnx.py          # głowica z NMS (one-to-many), 640x640 i 384x640
     python training\\export_onnx.py --e2e    # test: głowica end-to-end bez NMS (one-to-one), 384x640
+    python training\\export_onnx.py --version v2 --only 384x640   # E6-08: runs/detect/yolo26n_v2 -> yolo26n_v2_384x640.onnx
 
 Wynik: models\\yolo26n_v1_640x640.onnx i models\\yolo26n_v1_384x640.onnx
 (*.onnx jest w .gitignore). Pliki idą na Jetsona, tam trtexec buduje silniki.
@@ -15,7 +16,6 @@ import onnx
 from ultralytics import YOLO
 
 ROOT = Path(__file__).resolve().parents[1]
-WEIGHTS = ROOT / "runs" / "detect" / "yolo26n_v1" / "weights" / "best.pt"
 OUT = ROOT / "models"
 OPSET = 13  # TensorRT 8.2 obsługuje operatory do opsetu 13 (sprawdzone w E1-02)
 
@@ -29,16 +29,22 @@ def dims(value_info):
 
 def main():
     OUT.mkdir(exist_ok=True)
-    e2e = "--e2e" in sys.argv
+    argv = sys.argv[1:]
+    e2e = "--e2e" in argv
+    version = argv[argv.index("--version") + 1] if "--version" in argv else "v1"
+    weights = ROOT / "runs" / "detect" / "yolo26n_{}".format(version) / "weights" / "best.pt"
     # nms=False włącza w ultralytics gałąź end2end (one-to-one, bez NMS); domyślnie (None) eksport
     # bierze głowicę one-to-many, której wynik wymaga NMS.
     sizes = {"384x640_e2e": (384, 640)} if e2e else SIZES
+    if "--only" in argv:
+        only = argv[argv.index("--only") + 1]
+        sizes = {only: sizes[only]}
     for name, imgsz in sizes.items():
         # Nowy obiekt przy każdym eksporcie: export() zmienia model w pamięci (fuse, tryb eval).
-        model = YOLO(str(WEIGHTS))
+        model = YOLO(str(weights))
         src = model.export(format="onnx", opset=OPSET, imgsz=imgsz,
                            simplify=True, dynamic=False, **({"nms": False} if e2e else {}))
-        dst = OUT / f"yolo26n_v1_{name}.onnx"
+        dst = OUT / f"yolo26n_{version}_{name}.onnx"
         shutil.move(src, dst)  # export zapisuje zawsze jako best.onnx obok best.pt
 
         m = onnx.load(str(dst))

@@ -108,8 +108,8 @@ def main():
     }
     (save_dir / "summary.json").write_text(json.dumps(summary, indent=2, ensure_ascii=False))
 
-    print_table("VAL (43 zdjęcia, best.pt)", val)
-    print_table("TEST (21 zdjęć, jednorazowo)", test)
+    print_table("VAL (best.pt)", val)
+    print_table("TEST (jednorazowo; w v2 = stary test + test nowej domeny, osobno: compare_models.py)", test)
     print("\nEpoki: {} z {}".format(summary["epochs_run"], args.epochs))
     print("Wagi: {}".format(best))
     print("Wyniki: {}".format(save_dir))

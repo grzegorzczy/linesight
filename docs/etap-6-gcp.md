@@ -292,3 +292,23 @@ python training\add_to_dataset.py --base v1 --version v2 --al-from data\frames_i
   z góry przesądzałby porównanie v1 vs v2.
 - Sąsiednie niepewne klatki dzieli 2–5 s, więc podział losowy na train/val daje zawyżone val (prawie te same
   klatki po obu stronach); o wdrożeniu v2 rozstrzyga niezależny test.
+
+### Etykiety i eksport (18.11)
+
+Wgrane do istniejącego zbioru `linesight` na Platform (te same klasy i ID co v1). Etykietowanie według
+`docs/etykietowanie.md` (reguła 45°: butelka trzymana poziomo w ręku to też `fallen` – model widzi tylko
+orientację; o zatorze decyduje logika wyżej: przejście przez linię + sygnały PLC).
+
+`prepare_dataset.py data\export\linesight_v2.ndjson --split v2`:
+
+| część | zdjęcia | z ramkami | bottle | missing_cap | fallen |
+|---|---|---|---|---|---|
+| train | 310 | 300 | 343 | 125 | 170 |
+| val | 80 | 77 | 79 | 34 | 49 |
+| test | 61 | 59 | 70 | 21 | 35 |
+| razem | 451 | 436 | 492 | 180 | 254 |
+
+- „w innej części: -” – stary test nietknięty; zdjęcia bez ramek to tylko sesja `empty` z v1,
+- brak 12 niepewnych klatek (z 463 planowanych): usunięte przy etykietowaniu (40–50° albo bez butelki)
+  lub pominięte przez Platform przy wgrywaniu,
+- zbiór YOLO: `data\datasets\linesight_v2-c8f8f70f\data.yaml`.

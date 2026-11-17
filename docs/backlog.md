@@ -260,8 +260,10 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       detekcje, średnia pewność, niepewne, zmiany klasy, wersja modelu → `vision_stats` → panel z progiem 10 %
       *(16.11: 4 okna po ~1000–1800 detekcji; normalnie 0–2,8 % niepewnych, średnia 0,84–0,85; z trudnymi sytuacjami
       4,8 %, 0,829; próg obniżony z 20 % na 10 % – 20 % nie złapałby nawet celowo prowokowanych sytuacji)*
-- [ ] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · klatki z chmury + dzienne z E2-04, etykiety, trening;
-      v2 nie gorsza na starym teście i lepsza na nowym; tabela v1 vs v2
+- [ ] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · 209 niepewnych klatek (train/val) + 40 losowych zdjęć
+      nowej domeny (test), reguła 45°; trening tym samym przepisem co v1; `compare_models.py`: bramka
+      test_old ≥ v1 − 0,02 i test_new ≥ v1 + 0,02 mAP50-95 → `gate.json` → `registry.py publish/promote`
+      *(18.11: zbiór v2 451 zdjęć – train 310 / val 80 / test 61)*
 - [ ] **E6-09 – wdrożenie v2 przez rejestr** · Jetson · 1 h · `promote v2` → Jetson buduje i przełącza; rollback do v1
 - [ ] **E6-10 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
 
