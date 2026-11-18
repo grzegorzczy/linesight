@@ -1,0 +1,22 @@
+# E7-06: testy jednostkowe przy każdym PR i każdym wypchnięciu na main.
+# Tylko logika bez sprzętu: most OPC UA -> MQTT, zliczanie sztuk (atrapy gi/pyds), reguły i łączenie postojów.
+# TensorRT, DeepStream i sterownik wymagają Jetsona / PLC – sprawdzane ręcznie, opisane w docs/.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # jak obrazy Docker na laptopie (python:3.12-slim)
+      - name: Zależności
+        run: pip install pytest -r bridge/requirements.txt
+      - name: Testy
+        run: pytest -v bridge deepstream diag
