@@ -14,6 +14,10 @@ Laptop, kontener `bridge` z infra/docker-compose.yml (albo ręcznie: python brid
   wysyła bieżące wartości wszystkich zmiennych, więc stan w brokerze sam się odświeża.
 - <prefix>/status (retained): "online" gdy most ma połączenie z PLC, "offline" gdy nie ma albo gdy
   most padł (Last Will).
+- E7-02: strażnik połączenia czyta węzeł samego serwera (Server.ServerStatus.CurrentTime, i=2258), nie zmienną
+  aplikacji – brak zmiennej nie udaje już zerwanego łącza (wcześniej: status co 5 s online/offline, gdy w sterowniku
+  nie było aplikacji). Zmienne, których nie ma na serwerze, trafiają do logu jako ostrzeżenie; gdy nie ma żadnej
+  (aplikacja niewgrana, brak Symbol Configuration) – status zostaje "offline", ponowna próba co RETRY_S.
 
 Konfiguracja przez zmienne środowiskowe – patrz stałe poniżej.
 """
@@ -81,6 +85,14 @@ def make_mqtt():
     return mq
 
 
+def missing_signals(signals, results):
+    """Nazwy zmiennych, których subskrypcja się nie udała.
+
+    asyncua dla listy węzłów zwraca listę w tej samej kolejności: uchwyt (int) albo ua.StatusCode, gdy serwer
+    odrzucił węzeł (np. BadNodeIdUnknown) – bez wyjątku, dlatego trzeba to sprawdzić samemu."""
+    return [name for name, r in zip(signals, results) if isinstance(r, ua.StatusCode)]
+
+
 async def run_once(mq):
     """Jedno połączenie z PLC: subskrypcja i pilnowanie, czy serwer żyje. Wyjątek = zerwane połączenie."""
     async with Client(url=OPCUA_URL, timeout=5) as client:
@@ -89,13 +101,20 @@ async def run_once(mq):
         nodes = [client.get_node(ua.NodeId(ident, ns)) for ident in names]
         handler = Handler(mq, names)
         sub = await client.create_subscription(PERIOD_MS, handler)
-        await sub.subscribe_data_change(nodes)
+        missing = missing_signals(list(names.values()), await sub.subscribe_data_change(nodes))
+        if len(missing) == len(nodes):
+            raise RuntimeError("żadnej z {} zmiennych nie ma na serwerze – czy aplikacja jest wgrana "
+                               "i ma Symbol Configuration?".format(len(nodes)))
+        if missing:
+            print("OPC UA: UWAGA – brak na serwerze {} zmiennych: {}".format(len(missing), ", ".join(missing)),
+                  flush=True)
         mq.publish(MQTT_PREFIX + "/status", "online", qos=1, retain=True)
-        print("OPC UA: połączono z {} (ns={}), subskrypcja {} zmiennych co {} ms".format(
-            OPCUA_URL, ns, len(nodes), PERIOD_MS), flush=True)
-        while True:  # strażnik: odczyt co WATCHDOG_S; brak odpowiedzi rzuca wyjątek
+        print("OPC UA: połączono z {} (ns={}), subskrypcja {} z {} zmiennych co {} ms".format(
+            OPCUA_URL, ns, len(nodes) - len(missing), len(nodes), PERIOD_MS), flush=True)
+        server_time = client.get_node(ua.ObjectIds.Server_ServerStatus_CurrentTime)  # i=2258, jest zawsze
+        while True:  # strażnik: odczyt czasu serwera co WATCHDOG_S; brak odpowiedzi rzuca wyjątek
             await asyncio.sleep(WATCHDOG_S)
-            await asyncio.wait_for(nodes[0].read_value(), timeout=WATCHDOG_S)
+            await asyncio.wait_for(server_time.read_value(), timeout=WATCHDOG_S)
 
 
 async def main():
