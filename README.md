@@ -6,9 +6,88 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **stages 0–6 done** · next: Stage 7 – demo video, final documentation
+> Status: **stages 0–6 done** · next: Stage 7 – final documentation and results
 
-## Architecture (target)
+## Architecture
+
+**Runtime: from the line to the answer.** The Jetson only sees; everything that stores, reasons or shows runs on the
+laptop (4 GB shared RAM on the Nano). Camera and PLC meet only in the database – the cause of a stop is never known
+by construction.
+
+```mermaid
+flowchart LR
+  subgraph LINE["Mini line"]
+    CAM["USB camera<br/>640x360 @ 30 FPS"]
+    PLC["PLC JUMO variTRON 300<br/>CODESYS: PackML, counters,<br/>fault injection, drive simulation"]
+  end
+
+  subgraph JET["Jetson Nano 4 GB · JetPack 4.6.1"]
+    DS["DeepStream 6.0<br/>YOLO26n TensorRT FP16<br/>IOU tracker · line counting"]
+    ENC["NVENC H.264<br/>RTSP · ring buffer → clips"]
+  end
+
+  subgraph LAP["Laptop · Docker Compose"]
+    BR["bridge<br/>OPC UA → MQTT"]
+    MQ["Mosquitto"]
+    ING["ingest"]
+    DB[("TimescaleDB<br/>+ pgvector")]
+    DIAG["diag<br/>stop causes ·<br/>drive-health AE (ONNX)"]
+    AS["assistant<br/>RAG · FastAPI"]
+    GR["Grafana"]
+  end
+  LLM["Ollama qwen3:4b<br/>or Gemini"]
+
+  CAM -- "USB" --> DS --> ENC
+  PLC -- "OPC UA :4840<br/>subscription 200 ms" --> BR
+  BR -- "MQTT" --> MQ
+  DS -- "MQTT events" --> MQ
+  MQ --> ING --> DB
+  DB <--> DIAG
+  DB --> AS <--> LLM
+  DB --> GR
+  AS -. "iframe" .-> GR
+  ENC -. "RTSP :8554 · clips HTTP :8080" .-> GR
+```
+
+- **Jetson:** DeepStream runs detection (TensorRT FP16), tracking and line counting at 30 FPS; the hardware encoder
+  (NVENC) produces the RTSP stream and a RAM ring buffer from which a clip around each event is cut, without costing
+  model FPS. Events go out over MQTT.
+- **PLC:** PackML state machine with stop codes and a simulated conveyor drive; the bridge subscribes over OPC UA and
+  republishes every change to MQTT.
+- **Laptop:** `ingest` writes both streams to TimescaleDB; `diag` turns state history into stop events with a cause and
+  a camera confidence, and scores drive health with an ONNX autoencoder; `assistant` answers "why did it stop and what
+  do I do" from SQL (the stop) plus pgvector (manual, past stops); Grafana shows all of it.
+
+**MLOps: model versions and the retraining loop.**
+
+```mermaid
+flowchart LR
+  TR["Laptop: training<br/>PyTorch / ultralytics → ONNX"]
+  REG["registry.py<br/>publish · gate · promote"]
+  subgraph GCP["GCP · us-central1"]
+    GM[("bucket -models<br/>ONNX + metrics.json")]
+    GF[("bucket -frames")]
+  end
+  subgraph JET["Jetson Nano"]
+    SYNC["model_sync.py<br/>download · sha256 · trtexec FP16<br/>switch current.engine · rollback"]
+    APP["DeepStream app<br/>--uncertain"]
+  end
+  TOK["token broker (laptop)<br/>1 h tokens, no key on Jetson"]
+  GRAF["Grafana<br/>drift: uncertain % > 10 %"]
+
+  TR --> REG -- "HTTPS" --> GM -- "HTTPS" --> SYNC --> APP
+  APP -- "uncertain frames<br/>(upload_frames.py)" --> GF
+  APP -- "MQTT vision_stats" --> GRAF
+  GF -- "label → add_to_dataset<br/>→ retrain" --> TR
+  TOK -.-> SYNC
+  TOK -.-> APP
+```
+
+- A new model reaches the Jetson only through the registry: published with its metrics, promoted only if it passes the
+  quality gate (or with `--force` and a written reason). The Jetson downloads the ONNX, checks sha256, builds the
+  TensorRT engine itself (an engine is tied to the GPU) and switches a symlink – rollback is a switch, ~1 s.
+- The Jetson holds no long-lived Google secret: a broker on the laptop issues 1 h tokens.
+- Drift signal: share of uncertain detections per minute; uncertain frames go to a bucket and become training data.
 
 | Device | Role |
 |---|---|
@@ -31,7 +110,7 @@ Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 | 4 | Stop diagnostics (PLC + camera + clip) and drive-health model (PyTorch autoencoder, ONNX) | done |
 | 5 | RAG assistant (pgvector, local LLM / Gemini) with evaluation set and validated LLM judge | done |
 | 6 | GCP: model registry, edge model sync, drift signal, active learning, quality gate, canary + rollback | done |
-| 7 | Demo video, results, final documentation | – |
+| 7 | Architecture diagram, results, final documentation | in progress |
 
 MVP = stages 1–3.
 

@@ -278,7 +278,8 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       kabla, online po podłączeniu *(18.11: przyczyna – pod .244 brak aplikacji, strażnik czytał zmienną aplikacji →
       `BadNodeIdUnknown` co 5 s; strażnik czyta czas serwera (i=2258), brakujące zmienne w logu, status tylko przy
       zmianie; test na .90: 12 min bez zmian, kabel → offline, ponowne połączenie → online)*
-- [ ] **E7-03 – diagram architektury** · repo · 1 h · Mermaid w README (GitHub renderuje), urządzenia, protokoły na strzałkach
+- [x] **E7-03 – diagram architektury** · repo · 1 h · Mermaid w README (GitHub renderuje), urządzenia, protokoły na strzałkach
+      *(18.11: dwa diagramy – przepływ danych w pracy i pętla MLOps; jeden wspólny był nieczytelny)*
 - [ ] **E7-04 – H.264 vs H.265 na NVENC** · Jetson + laptop · 1 h · gotowe nagranie (bez nowej sceny) kodowane sprzętowo
       oboma kodekami przy kilku bitrate'ach; tabela: rozmiar, PSNR/SSIM względem źródła, obciążenie
 - [ ] **E7-05 – przebudowa README** · repo · 2 h · jeden ekran na górze: problem, zrzut, diagram, 5 liczb, uruchomienie,
