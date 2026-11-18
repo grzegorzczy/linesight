@@ -80,7 +80,7 @@ Rozwiązanie bez klucza – **impersonation**: konto użytkownika dostaje `roles
 na samym koncie `jetson-edge` i może wystawiać w jego imieniu tokeny ważne 1 h (IAM Credentials API).
 ```cmd
 gcloud services enable iamcredentials.googleapis.com
-gcloud iam service-accounts add-iam-policy-binding jetson-edge@linesight-514914.iam.gserviceaccount.com --member=user:gczyrnianski202001@gmail.com --role=roles/iam.serviceAccountTokenCreator
+gcloud iam service-accounts add-iam-policy-binding jetson-edge@linesight-514914.iam.gserviceaccount.com --member=user:<twoj-email> --role=roles/iam.serviceAccountTokenCreator
 ```
 Rola działa po kilku minutach (wcześniej `iam.serviceAccounts.getAccessToken denied`).
 
@@ -312,3 +312,96 @@ orientację; o zatorze decyduje logika wyżej: przejście przez linię + sygnał
 - brak 12 niepewnych klatek (z 463 planowanych): usunięte przy etykietowaniu (40–50° albo bez butelki)
   lub pominięte przez Platform przy wgrywaniu,
 - zbiór YOLO: `data\datasets\linesight_v2-c8f8f70f\data.yaml`.
+
+### Trening v2 i bramka (18.11)
+
+Ten sam przepis co v1 (wagi startowe COCO `yolo26n.pt`, 640 px, batch 16, ziarno 42, do 100 epok, patience 30) –
+różnica wyników = różnica danych.
+```cmd
+python training\train.py --data data\datasets\linesight_v2-c8f8f70f\data.yaml --name yolo26n_v2
+python training\compare_models.py --data data\datasets\linesight_v2-c8f8f70f\data.yaml --ndjson data\export\linesight_v2.ndjson --baseline v1 --candidate v2
+```
+Trening: 62 epoki w 7 min (najlepsza 32.), val mAP50 0,988 / mAP50-95 0,757.
+
+| test | model | P | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|---|
+| test_old (21 zdj., 10.11) | v1 | 0,965 | 0,989 | 0,987 | 0,778 |
+| | v2 | 0,963 | 0,989 | 0,978 | 0,770 (−0,008 ✓) |
+| test_new (40 losowych zdj., nowe światło) | v1 | 0,980 | 0,931 | 0,959 | 0,749 |
+| | v2 | 0,992 | **0,970** | 0,965 | 0,765 (+0,016 ✗) |
+
+test_new według klas (mAP50-95): bottle 0,769 → 0,810, missing_cap 0,734 → 0,741, fallen 0,745 → 0,745.
+
+**Bramka nie przeszła** (wymagane +0,02 na test_new). Wynik ostateczny – progu ani metryki nie zmieniamy po
+zobaczeniu wyniku. Interpretacja: v1 w nowym świetle na *losowych* zdjęciach jest prawie tak dobry jak w starym
+(0,749 vs 0,778) – dryf widoczny w Grafanie dotyczył przypadków brzegowych (ruch, ręka, przechylenie), których
+w 40 losowych zdjęciach jest mało; +0,016 przy 74 obiektach nie odróżnia się od szumu.
+
+Dwa błędy w `compare_models.py` przy pierwszym uruchomieniu: pliki zbioru YOLO mają nazwy `<skrót>_<nr>.jpg`
+(w NDJSON `<skrót>.jpg`), a `data.yaml` z Platform nie ma klucza `path` (ścieżka się podwajała). Po drugim
+poprawka sprawdzona na atrapie zbioru przed wysłaniem.
+
+## Wdrożenie kanarkowe, test A/B i rollback (E6-09)
+
+```cmd
+python training\export_onnx.py --version v2 --only 384x640
+python cloud\registry.py publish --version v2 --onnx models\yolo26n_v2_384x640.onnx --run runs\detect\yolo26n_v2 --split training/splits/split_v2.csv --notes "..."
+python cloud\registry.py promote --version v2 --device jetson-01 --reason "wdrożenie produkcyjne"
+python cloud\registry.py promote --version v2 --device jetson-01 --force --reason "kanarek: test online A/B 2x10 min, bramka offline nie przeszła"
+```
+- `publish` – v2 w rejestrze z `gate.passed: false`, `metrics.test_old` / `test_new` (sha256 `c3f522d7…`, commit `86cc489`),
+- zwykłe `promote` → *„v2 nie przeszła bramki względem v1 ({'test_old': -0.008, 'test_new': 0.016}) – wdrożenie tylko z --force”*,
+- `--force` z powodem zapisanym w `deployments/jetson-01.json` (jawny wyjątek – kanarek na jednej linii).
+
+Jetson (`model_sync.py`): chmura wskazuje v2 → pobranie 9,8 MB w 2,6 s → sha256 zgodny → budowa silnika 876 s →
+test 33,4 qps → przełączenie. Rollback (`promote --version v1` na laptopie + `model_sync.py`): „ta wersja jest już
+na dysku” – przełączenie w **tej samej sekundzie** (15:37:54), bez pobierania i 14,5 min budowy.
+
+Test online (kryterium ustalone przed pomiarem: niepewne detekcje v2 ≤ 0,7 × v1). Słabe światło jak 16.11 (okno
+zasłonięte, lampka z boku), cykl co minutę: 20 s stojące butelki, 20 s przewracanie i przechylanie, 20 s ręka
+i szybki ruch; `timeout -s INT 300 python3 deepstream/linesight_app.py --rtsp --mqtt 192.168.0.203 --uncertain`.
+
+| model | okna (60 s) | detekcje | niepewne | % | średnia pewność | ślady (tracks_seen) |
+|---|---|---|---|---|---|---|
+| v2 (kanarek) | 5 | 9930 | 429 | **4,32** | **0,784** | 90 |
+| v1 | 5 | 8474 | 1565 | 18,47 | 0,732 | 184 |
+
+Kryterium spełnione z dużym zapasem: 4,32 % ≤ 12,9 % (0,7 × 18,47). v1 ma też 2× więcej śladów przy podobnej
+liczbie detekcji – detekcje z pewnością przy progu znikają na pojedyncze klatki i tracker zakłada nowe ID dla tej
+samej butelki; v2 lepiej trzyma ciągłość, co przekłada się na dokładniejsze zliczanie. Zastrzeżenie: scena
+odtwarzana ręcznie, więc obie sesje nie są identyczne – przy różnicy 4× nie zmienia to wniosku.
+
+![v1 vs v2: offline i online](img/e6-ab.png)
+
+```cmd
+docker exec linesight-db psql -U linesight -d linesight -c "SELECT version, count(*) AS okna, sum(dets) AS dets, sum(low_conf) AS niepewne, round(100.0*sum(low_conf)/sum(dets),2) AS pct, round((sum(mean_conf*dets)/sum(dets))::numeric,3) AS srednia_pewnosc FROM vision_stats WHERE time > (current_date + time '15:30') AT TIME ZONE 'Europe/Warsaw' AND dets >= 20 GROUP BY version"
+```
+
+**Decyzja (ustalona przed testem): v1 zostaje modelem produkcyjnym** – bramka offline nie przeszła. Wniosek:
+test nowej domeny był za mały i za łatwy (40 losowych zdjęć), żeby zobaczyć poprawę widoczną online. Następna
+iteracja: większy test z przypadkami brzegowymi, zebrany **niezależnie od modelu** (capture.py z instrukcją scen:
+ruch, ręka, przechylenie), potem ponowna ocena v2 tą samą bramką.
+
+## Podsumowanie etapu 6
+
+```
+laptop: train.py → compare_models.py (bramka) → export_onnx.py → registry.py publish ─► gs://…-models/yolo26n/vN/
+                                                                    registry.py promote ─► deployments/jetson-01.json
+Jetson: model_sync.py ◄── token 1 h z brokera (laptop, impersonation jetson-edge) ── pobranie, sha256, trtexec, test,
+        current.engine ─► DeepStream ─► niepewne klatki ─► upload_frames.py ─► gs://…-frames ─► etykiety ─► v(N+1)
+                                    └─► vision_stats co minutę (MQTT → TimescaleDB → Grafana: sygnał dryfu)
+```
+
+| Wymaganie z ogłoszenia | Co jest w projekcie |
+|---|---|
+| GCP | Cloud Storage (2 zasobniki, IAM najmniejszych uprawnień, reguła cyklu życia), IAM Credentials (impersonation), budżet z alertami |
+| wersjonowanie modeli | niezmienne wersje ONNX + metrics.json (metryki, sha256, commit, zbiór, bramka), wskazanie wersji dla urządzenia, rollback |
+| monitoring modeli, wykrywanie degradacji | odsetek niepewnych detekcji i średnia pewność co minutę w Grafanie, próg z pomiaru |
+| automatyczny retrening | aktywne uczenie (niepewne klatki → chmura → etykiety), trening tym samym przepisem, bramka jakości, kanarek A/B |
+
+Otwarte:
+- większy test nowej domeny z przypadkami brzegowymi → ponowna ocena v2,
+- `class_flip` prawie zawsze 0 przy trackerze IOU z `checkClassMatch: 1`,
+- token brokera wymaga działającego laptopa (w produkcji: brama brzegowa albo Workload Identity Federation),
+- 18.11 w Grafanie łącze PLC na zmianę online/offline i brak sztuk z PLC – sprawdzić sterownik i most przed etapem 7,
+- asystent w Cloud Run – pominięty (opcjonalny, bez nowego wymagania).

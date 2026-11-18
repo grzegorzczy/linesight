@@ -6,7 +6,7 @@ every stop of the line is linked to a video clip, PLC signals from the
 30 seconds before it, and an assistant that answers *why the line stopped
 and how to fix it*.
 
-> Status: **stages 0–5 done** · next: Stage 6 – GCP (model registry, retraining)
+> Status: **stages 0–6 done** · next: Stage 7 – demo video, final documentation
 
 ## Architecture (target)
 
@@ -30,7 +30,7 @@ Detection classes: `bottle`, `missing_cap`, `fallen` (jam).
 | 3 | CODESYS PackML state machine, OPC UA → MQTT → TimescaleDB, Grafana | done |
 | 4 | Stop diagnostics (PLC + camera + clip) and drive-health model (PyTorch autoencoder, ONNX) | done |
 | 5 | RAG assistant (pgvector, local LLM / Gemini) with evaluation set and validated LLM judge | done |
-| 6 | GCP: model registry, retraining loop | – |
+| 6 | GCP: model registry, edge model sync, drift signal, active learning, quality gate, canary + rollback | done |
 | 7 | Demo video, results, final documentation | – |
 
 MVP = stages 1–3.
@@ -177,13 +177,49 @@ NULL state before a PLC restart. Open: EN → PL retrieval for some questions; c
 
 Details: [docs/etap-5-rag.md](docs/etap-5-rag.md).
 
+### Cloud MLOps on GCP (stage 6)
+
+**Model registry in Cloud Storage.** Every version is immutable: `yolo26n/vN/model.onnx` + `metrics.json` (val/test
+metrics, sha256, git commit, dataset split, deploy parameters, quality-gate result); `deployments/jetson-01.json` says
+which version the device should run, with the previous one for rollback. No MLflow or Vertex AI – one model, one
+device, two JSON files are enough.
+
+**Jetson pulls and builds.** `model_sync.py` (Python 3.6, stdlib only) downloads the pointed ONNX, checks sha256,
+builds the FP16 engine with `trtexec` *on the device* (TensorRT plans are tied to the GPU and TensorRT version),
+tests it (≥ 15 qps) and switches a `current.engine` symlink atomically. Update v1 → v2: 2.6 s download + 876 s
+build. **Rollback: 1 s** – engines of earlier versions stay on disk.
+
+**No service-account keys.** The org policy (secure-by-default) blocks JSON keys, so the laptop impersonates the
+`jetson-edge` service account and hands out 1-hour tokens to the Jetson (`cloud/token_broker.py`, Docker). The edge
+identity can read models and only *create* frames – overwrite, read, list and delete are rejected (verified 8/8).
+
+**Drift signal without labels.** Every minute the Jetson publishes the share of detections just above the deploy
+threshold (0.45–0.6) and the mean confidence → MQTT → TimescaleDB → Grafana. Normal light: 0–3 %; new light
+(side lamp, motion, hands): up to 27 %.
+
+**Active learning → retraining → gate → canary.** Uncertain frames (rate-limited) go to a frames bucket; 209 of them
++ 40 *random* new-domain test images (not selected by v1) → v2 with the same recipe. The quality gate, fixed
+before training, required ≥ v1 − 0.02 on the frozen old test and ≥ v1 + 0.02 mAP50-95 on the new-domain test:
+
+| | old test (21) | new-domain test (40) | online, weak light: uncertain detections | mean confidence |
+|---|---|---|---|---|
+| v1 | 0.778 | 0.749 | 18.5 % | 0.732 |
+| v2 | 0.770 (✓) | 0.765 (+0.016, **✗**) | **4.3 %** | **0.784** |
+
+The registry refused to promote v2; a forced canary (reason recorded) showed 4× fewer uncertain detections and half
+as many fragmented tracks. **v1 stays in production** – the rules were set before measuring; the lesson is that 40
+random images are too small and too easy a test for edge cases, so the next iteration needs a larger, model-independent
+edge-case test set.
+
+Details: [docs/etap-6-gcp.md](docs/etap-6-gcp.md).
+
 ## Repository layout
 
 ```
 linesight/
 ├── docs/       stage-by-stage notes (Polish); docs/kb = line manual for the assistant
-├── training/   laptop: dataset, training, ONNX export          (stage 1)
-├── jetson/     Jetson: image capture, TensorRT engines, benchmarks    (stages 1–2)
+├── training/   laptop: dataset, training, ONNX export, v1/v2 comparison + gate (stages 1, 6)
+├── jetson/     Jetson: image capture, TensorRT engines, benchmarks, GCS client, model sync, frame upload (stages 1–2, 6)
 ├── deepstream/ Jetson: DeepStream app, C++ parser, configs, tests (stage 2)
 ├── laptop/     laptop helpers (latency stopwatch)                (stage 2)
 ├── plc/        CODESYS sources (PackML state machine)           (stage 3)
@@ -193,6 +229,7 @@ linesight/
 ├── anomaly/    laptop: drive dataset, baselines, PyTorch autoencoder, shared features (stage 4)
 ├── assistant/  laptop, Docker: RAG assistant – retrieval, stop context, LLM, FastAPI (stage 5)
 ├── eval/       laptop: 28-question evaluation set, runner, LLM judge, results (stage 5)
+├── cloud/      laptop: model registry (Cloud Storage), token broker for the Jetson (stage 6)
 ├── tools/      clock offset (SNTP), OPC UA browser, data-session scenarios (stages 3–5)
 └── infra/      docker-compose, Mosquitto, DB schema, Grafana    (stage 3)
 ```
@@ -207,10 +244,11 @@ Folders are added when their first file appears.
 - [Stage 3 – PackML, OPC UA, MQTT, TimescaleDB, Grafana](docs/etap-3-plc-dane.md)
 - [Stage 4 – stop diagnostics, drive-health model](docs/etap-4-diagnostyka.md)
 - [Stage 5 – RAG assistant, evaluation](docs/etap-5-rag.md)
+- [Stage 6 – GCP: model registry, drift, retraining, canary](docs/etap-6-gcp.md)
 - [Backlog](docs/backlog.md)
 
 ## Not in the repository
 
 Model weights and engines (`.pt`, `.onnx`, `.engine`), datasets, training
-runs and video clips are ignored by Git (see `.gitignore`). Models will be
-versioned in a GCP bucket (stage 6).
+runs and video clips are ignored by Git (see `.gitignore`). Model versions
+live in `gs://linesight-514914-models` (stage 6).

@@ -260,12 +260,15 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       detekcje, średnia pewność, niepewne, zmiany klasy, wersja modelu → `vision_stats` → panel z progiem 10 %
       *(16.11: 4 okna po ~1000–1800 detekcji; normalnie 0–2,8 % niepewnych, średnia 0,84–0,85; z trudnymi sytuacjami
       4,8 %, 0,829; próg obniżony z 20 % na 10 % – 20 % nie złapałby nawet celowo prowokowanych sytuacji)*
-- [ ] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · 209 niepewnych klatek (train/val) + 40 losowych zdjęć
+- [x] **E6-08 – retrening v2 z bramką** · laptop · 1 dzień · 209 niepewnych klatek (train/val) + 40 losowych zdjęć
       nowej domeny (test), reguła 45°; trening tym samym przepisem co v1; `compare_models.py`: bramka
       test_old ≥ v1 − 0,02 i test_new ≥ v1 + 0,02 mAP50-95 → `gate.json` → `registry.py publish/promote`
-      *(18.11: zbiór v2 451 zdjęć – train 310 / val 80 / test 61)*
-- [ ] **E6-09 – wdrożenie v2 przez rejestr** · Jetson · 1 h · `promote v2` → Jetson buduje i przełącza; rollback do v1
-- [ ] **E6-10 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
+      *(18.11: zbiór v2 451 zdjęć – train 310 / val 80 / test 61; v2: test_old 0,770 (−0,008 ✓), test_new 0,765
+      (+0,016 ✗) – bramka nie przeszła)*
+- [x] **E6-09 – kanarek v2, test A/B, rollback** · Jetson + laptop · 1 h · `promote v2` odrzucone przez bramkę;
+      `--force` z powodem → Jetson buduje (876 s) i przełącza; online 2 × 5 min: niepewne 4,32 % (v2) vs 18,47 % (v1),
+      kryterium ≤ 0,7 × v1 spełnione; rollback do v1 w 1 s (silnik na dysku); v1 zostaje produkcyjny
+- [x] **E6-10 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
 
 ## Po etapie 5 (otwarte)
 - [ ] Wyszukiwanie EN -> PL (M05): `multilingual-e5-base` / `bge-m3` albo hybryda wektor + pełnotekstowe; ocena tym samym zestawem
@@ -286,6 +289,9 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **Bramka offline rozstrzyga o produkcji, nie test online** *(18.11, E6-09)*. v2 nie przeszedł bramki (+0,016 przy
+  progu +0,02 na test_new), mimo 4× mniej niepewnych detekcji w kanarku. Reguły ustalone przed pomiarem; zamiast
+  zmieniać próg – większy test nowej domeny z przypadkami brzegowymi w następnej iteracji.
 - **GCP bez kluczy kont usług: broker krótkotrwałych tokenów na laptopie** *(16.11, E6-02)*. Polityka organizacji
   blokuje klucze JSON, a konto nie może jej zmienić; tokeny 1 h przez impersonation `jetson-edge` – na Jetsonie
   brak długoterminowego sekretu Google, klient REST bez bibliotek Google na Pythonie 3.6. Minus: odnowienie tokenu
