@@ -96,7 +96,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 18.11.2026, etap 6 (GCP) zakończony. Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 18.11.2026, etap 7 (dokumentacja końcowa) zakończony. Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -858,6 +858,47 @@ p([new TextRun({ text: 'Jak Jetson uwierzytelnia się w GCP bez klucza? Co może
 p('Laptop zalogowany moim kontem ma rolę TokenCreator na koncie usługi jetson-edge i podszywa się pod nie (impersonation), wydając token ważny 1 h. Jetson pobiera go z brokera po sekrecie w sieci lokalnej. Atakujący z Jetsonem może czytać modele i dodawać klatki. Nie może nadpisać ani usunąć modeli, czytać ani kasować klatek, nie uruchomi maszyn wirtualnych, a token wygasa po godzinie. Minus: bez laptopa token się nie odnowi – w produkcji brama brzegowa albo Workload Identity Federation.');
 p([new TextRun({ text: 'Kiedy sygnał dryfu (pewność 0,45–0,6) nie pokaże, że model się psuje?', bold: true })]);
 p('Gdy model myli się pewnie: np. nowa butelka bez nakrętki, którą model z pewnością 0,9 nazywa bottle, albo kamera przesunięta tak, że butelki są poza kadrem (zero detekcji, zero niepewnych). Uzupełnienie: porównanie liczby sztuk z kamery z licznikiem PLC (już mamy oba), rozkład klas w czasie, okresowe ręczne etykietowanie małej losowej próbki z produkcji i liczenie mAP na niej.');
+
+h1('15. Etap 7 – status łącza PLC, H.264 vs H.265, README, CI (E7)');
+p('Pełny opis: docs/etap-7-final.md. Analiza pokrycia ogłoszenia: docs/analiza.md. Wszystkie wyniki: docs/results.md.');
+
+h2('Status łącza PLC skacze co 5 s (diagnoza)');
+step('LAPTOP', 'Historia statusu i log mostu', ['docker exec linesight-db psql -U linesight -d linesight -c "SELECT time, online FROM link_status WHERE source=\'plc\' AND time > now() - interval \'24 hours\' ORDER BY time DESC LIMIT 40;"', 'docker logs linesight-bridge --tail 6'], 'Przełączanie co 5,0 s + BadNodeIdUnknown w logu = most łączy się, ale zmiennej nie ma na serwerze.');
+step('LAPTOP', 'Co jest na serwerze OPC UA sterownika', ['python tools\\opcua_browse.py', 'python tools\\opcua_browse.py --url opc.tcp://192.168.0.90:4840'], '0 zmiennych = w sterowniku brak aplikacji LineSight albo Symbol Configuration. Pod .90: 22 zmienne GVL_Line.');
+step('LAPTOP', 'Który sterownik jest pod adresem (MAC)', 'ping -n 1 192.168.0.244 & arp -a | findstr 192.168.0.244', 'MAC .244: 00-0c-d8-0d-ba-6b; .90: 00-0c-d8-0d-8b-8a. W CODESYS: Device → Communication Settings.');
+step('PLC', 'Przywrócenie aplikacji na sterowniku', ['Symbol Configuration: GVL_Line + Support OPC UA features', 'Build (F11) → Online → Login (Alt+F8) → download → Start (F5)', 'Online → Create boot application'], 'Bez boot application program znika po wyłączeniu zasilania.');
+step('LAPTOP', 'Most na inny sterownik (tylko to okno cmd) i przebudowa', ['git pull', 'set OPCUA_URL=opc.tcp://192.168.0.90:4840', 'docker compose -f infra\\docker-compose.yml up -d --build bridge', 'docker logs linesight-bridge --tail 3'], 'Oczekiwane: „subskrypcja 15 z 15 zmiennych”. Powrót na .244: set OPCUA_URL= i znowu up -d bridge.');
+table([3600, 3000, 3038], [
+  ['Objaw', 'Przyczyna', 'Rozwiązanie'],
+  ['Status PLC co 5 s online/offline', 'Brak aplikacji w sterowniku; strażnik czytał zmienną aplikacji', 'Strażnik czyta czas serwera (i=2258), brakujące zmienne w logu'],
+  ['Przy wyjętym kablu „offline” co 10 s w bazie', 'Każda nieudana próba publikowała status', 'Status tylko przy zmianie'],
+  ['ls is not recognized', 'Komenda Jetsona w cmd laptopa', 'Najpierw ssh grzegorz@192.168.0.124'],
+]);
+
+h2('H.264 vs H.265 na NVENC (Jetson)');
+step('SSH1', 'Pomiar (linesight_app.py zatrzymany)', ['cd ~/linesight && git pull', 'bash jetson/codec_bench.sh ~/linesight_clips/20261116-171024_fallen_id26.mp4', 'PRESET=4 bash jetson/codec_bench.sh ~/linesight_clips/20261116-171024_fallen_id26.mp4'], 'Referencja ref.mp4 (stałe 30 FPS, crf 10) → nvv4l2decoder → nvv4l2h264enc (profile=4 High) / nvv4l2h265enc, CBR, GOP 30 → PSNR/SSIM. Pliki w /tmp/codec_bench.');
+step('SSH1', 'Znaczniki czasu i liczba klatek klipu', 'ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets,start_time,r_frame_rate -of csv=p=0 <plik.mp4>', 'Klipy zdarzeń: r_frame_rate 12000/1 = nieregularne czasy (bufor kołowy + concat).');
+table([2000, 1500, 2100, 2100, 1938], [
+  ['Preset', 'Bitrate', 'H.264 PSNR', 'H.265 PSNR', 'H.265 − H.264'],
+  ['UltraFast (domyślny)', '500 kb/s', '44,62 dB', '43,59 dB', '−1,03 dB'],
+  ['', '1000 kb/s', '47,81 dB', '47,09 dB', '−0,72 dB'],
+  ['', '2000 kb/s', '50,38 dB', '48,70 dB', '−1,68 dB'],
+  ['Slow (preset-level=4)', '500 kb/s', '44,95 dB', '45,65 dB', '+0,70 dB'],
+  ['', '1000 kb/s', '48,02 dB', '48,29 dB', '+0,27 dB'],
+  ['', '2000 kb/s', '50,68 dB', '50,35 dB', '−0,33 dB'],
+]);
+p('Decyzja: zostajemy przy H.264. H.265 wygrywa tylko na Slow przy niskim bitrate (ok. 15 % mniej bitów) kosztem ok. 35 % przepustowości kodera; H.264 ma lepszą zgodność z klientami RTSP i przeglądarkami.');
+table([3600, 3000, 3038], [
+  ['Objaw', 'Przyczyna', 'Rozwiązanie'],
+  ['printf: invalid number', 'Polska lokalizacja – przecinek dziesiętny', 'export LC_NUMERIC=C'],
+  ['H264: Profile = 66 w logu', 'Domyślny profil nvv4l2h264enc to Baseline', 'profile=4 (High)'],
+  ['PSNR płaski ~31–34 dB niezależnie od bitrate', 'Nieregularne znaczniki czasu klipu → porównanie złych klatek', 'Wspólna referencja o stałym FPS'],
+]);
+
+h2('README i CI');
+bullet('README: problem, zrzut Grafany, 6 kluczowych wyników, dwa diagramy Mermaid, uruchomienie, ograniczenia; szczegóły w docs/results.md.');
+bullet('CI: .github/workflows/tests.yml – przy każdym PR i push na main: Python 3.12, pytest bridge deepstream diag (39 testów). Wynik: zakładka Actions na GitHubie, znaczek „tests” w README.');
+step('LAPTOP', 'Te same testy lokalnie', ['pip install pytest -r bridge\\requirements.txt', 'python -m pytest -q bridge deepstream diag']);
 
 // ---------- DOC ----------
 h1('12. Etap 4 – wyniki (wykresy)');

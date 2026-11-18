@@ -289,7 +289,7 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       *(18.11: README 338 → 190 linii, wyniki etapów w `docs/results.md`, zrzut Grafany przycięty bez paska przeglądarki)*
 - [x] **E7-06 *(opcjonalne)* – CI** · GitHub · 1 h · GitHub Actions: `pytest` + `ruff` dla kodu laptopa, znaczek w README
       *(18.11: wersja minimalna – 39 testów bez sprzętu, bez lintera i budowy obrazów)*
-- [ ] **E7-07 – CV i przygotowanie do rozmowy** · 0,5 dnia · opis LineSight w CV, 5-minutowa prezentacja projektu,
+- [~] **E7-07 – CV i przygotowanie do rozmowy** *(18.11: CV pominięte – już wysłane; zostaje symulacja rozmowy)* · 0,5 dnia · opis LineSight w CV, 5-minutowa prezentacja projektu,
       symulacja rozmowy z pytaniami z całego projektu
 
 ## Po etapie 5 (otwarte)
