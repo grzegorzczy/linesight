@@ -14,6 +14,10 @@ OUT=${2:-/tmp/codec_bench}
 BITRATES=${BITRATES:-"500000 1000000 2000000"}
 [ -f "$SRC" ] || { echo "Podaj plik źródłowy MP4 (H.264)"; exit 1; }
 mkdir -p "$OUT"
+# Klipy zdarzeń (bufor kołowy sklejany ffmpeg concat) mają nieregularne znaczniki czasu (r_frame_rate 12000/1),
+# a psnr/ssim parują klatki po czasie – część par była przesunięta o klatkę (PSNR ~33,8 dB niezależnie od bitrate'u).
+# Numer klatki zamiast czasu: klatka n z klatką n.
+CMP="[0:v]setpts=N/(30*TB),split[a1][a2];[1:v]setpts=N/(30*TB),split[b1][b2];[a1][b1]psnr;[a2][b2]ssim"
 
 frames=$(ffprobe -v error -select_streams v:0 -count_packets -show_entries stream=nb_read_packets -of csv=p=0 "$SRC")
 src_kbps=$(ffprobe -v error -select_streams v:0 -show_entries format=bit_rate -of csv=p=0 "$SRC")
@@ -34,7 +38,7 @@ for codec in h264 h265; do
     secs=$(python3 -c "print($t1 - $t0)")
     kbps=$(ffprobe -v error -select_streams v:0 -show_entries format=bit_rate -of csv=p=0 "$f")
     mb=$(python3 -c "print('%.2f' % ($(stat -c %s "$f") / 1048576))")
-    q=$(ffmpeg -nostats -i "$f" -i "$SRC" -lavfi "[0:v][1:v]psnr;[0:v][1:v]ssim" -f null - 2>&1)
+    q=$(ffmpeg -nostats -i "$f" -i "$SRC" -lavfi "$CMP" -f null - 2>&1)
     psnr=$(echo "$q" | grep -o 'average:[0-9.inf]*' | head -1 | cut -d: -f2)
     ssim=$(echo "$q" | grep -o 'All:[0-9.]*' | head -1 | cut -d: -f2)
     printf "%-6s %8d %10d %8s %8.1f %8.0f %8s %8s\n" $codec $((br / 1000)) $((kbps / 1000)) $mb $secs \
