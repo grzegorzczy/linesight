@@ -175,6 +175,7 @@ Folders are added when their first file appears.
 ## Documentation
 
 - [Results by stage – all numbers](docs/results.md)
+- [Cold start – the whole line step by step (Polish)](docs/uruchomienie.md)
 - [Stage 0 – Jetson setup, camera, memory](docs/etap-0-jetson.md)
 - [Stage 1 – dataset, training, TensorRT engines, benchmark](docs/etap-1-model.md)
 - [Stage 2 – DeepStream, tracking, counting, RTSP, event clips](docs/etap-2-wideo.md)
