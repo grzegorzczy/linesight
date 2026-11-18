@@ -1,5 +1,7 @@
 # LineSight
 
+[![tests](https://github.com/grzegorzczy/linesight/actions/workflows/tests.yml/badge.svg)](https://github.com/grzegorzczy/linesight/actions/workflows/tests.yml)
+
 **Why did the packaging line stop, and how do I fix it?** LineSight answers that on the edge: a YOLO model on an
 NVIDIA Jetson Nano watches a mini bottle line, a real PLC (CODESYS, PackML) reports machine states, and every stop is
 linked to its cause, a confidence from the camera, the PLC signals from the 30 s before it, a video clip – and an
