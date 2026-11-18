@@ -157,6 +157,9 @@ event (missing_cap / fallen) ─► clip 10 s before / 5 s after the line crossi
 - Counting: tracker IDs, direction-aware line crossing with ±20 px hysteresis, class decided by a
   majority vote over the track 5 s after the crossing (a hand on the bottle neck flips single frames).
 - NVENC is a separate hardware block: RTSP and clips cost no FPS and no GPU time for the model.
+- H.264 vs H.265 on the Nano's NVENC (640x360, same reference, CBR): with the default preset H.265 is 0.7–1.7 dB
+  PSNR *worse*; with the slow preset it wins only at 500 kb/s (~15 % fewer bits) at ~35 % lower encoder throughput.
+  The pipeline stays on H.264 ([docs/etap-7-final.md](docs/etap-7-final.md)).
 - Ring buffer in RAM (tmpfs) – continuous writes do not wear the SD card.
 
 Details: [docs/etap-2-wideo.md](docs/etap-2-wideo.md).
@@ -324,6 +327,8 @@ Folders are added when their first file appears.
 - [Stage 4 – stop diagnostics, drive-health model](docs/etap-4-diagnostyka.md)
 - [Stage 5 – RAG assistant, evaluation](docs/etap-5-rag.md)
 - [Stage 6 – GCP: model registry, drift, retraining, canary](docs/etap-6-gcp.md)
+- [Stage 7 – link status fix, H.264 vs H.265](docs/etap-7-final.md)
+- [Job-ad coverage analysis](docs/analiza.md)
 - [Backlog](docs/backlog.md)
 
 ## Not in the repository
