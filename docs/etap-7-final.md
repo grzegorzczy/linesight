@@ -95,3 +95,25 @@ FPS = dekodowanie + kodowanie pliku tak szybko, jak się da (czas rzeczywisty to
 - Polska lokalizacja na Jetsonie: `printf %f` oczekuje przecinka – w skryptach `LC_NUMERIC=C`.
 - H.265 2000 kb/s na presecie domyślnym raz zgubił ostatnią klatkę (511/512) przy zamykaniu strumienia;
   w powtórce na Slow – 512.
+
+## Pytania z rozmowy – krótkie odpowiedzi
+
+**1. Status PLC przełączał się co 5 s, a dane płynęły. Jak doszedłeś do przyczyny i dlaczego strażnik czytający zmienną aplikacji był błędem?**
+
+Najpierw dane, nie hipotezy: link_status pokazał przełączanie co równe 5,0 s, czyli dokładnie WATCHDOG_S + RETRY_S – więc to nie sieć, tylko cykl mostu. Log mostu dał BadNodeIdUnknown, a przeglądarka OPC UA – 0 zmiennych pod .244: w sterowniku nie było aplikacji. Błąd projektowy: strażnik miał sprawdzać łącze, a czytał zmienną aplikacji, więc „brak zmiennej” wyglądał jak „łącze padło”. To dwa różne stany z różną reakcją: łącze – ponowne połączenie, brak danych – alarm konfiguracji. Teraz strażnik czyta czas serwera (i=2258), a brakujące zmienne idą do logu z nazwami. Dodatkowo asyncua przy subskrypcji listy nie rzuca wyjątku dla złego węzła – zwraca StatusCode, więc trzeba to sprawdzać samemu.
+
+**2. Dlaczego H.265 przegrał z H.264 na domyślnym presecie, a wygrał dopiero na Slow i tylko przy 500 kb/s?**
+
+H.265 ma więcej narzędzi: bloki do 64x64 zamiast 16x16, więcej kierunków predykcji wewnątrzklatkowej, lepsze dzielenie bloków. Te narzędzia dają zysk tylko wtedy, gdy koder ma czas przeszukać więcej możliwości – na presecie UltraFast tego nie robi, więc H.265 płaci narzut i nie zbiera zysku. Duże bloki opłacają się przy dużej rozdzielczości i jednolitych obszarach; przy 640x360 jest ich mało. Przy wysokim bitrate oba kodeki zbliżają się do jakości referencji, więc różnica znika – przewaga H.265 jest widoczna tam, gdzie bitów brakuje (500 kb/s, ok. 15 % oszczędności).
+
+**3. PSNR wychodził ok. 33 dB niezależnie od bitrate'u. Co to powiedziało i jak naprawiłeś pomiar? Czy PSNR/SSIM to właściwa miara w projekcie ML?**
+
+Płaski wynik przy 4× więcej bitów znaczy, że mierzę coś innego niż kompresję – tu porównanie przesuniętych klatek: klipy z bufora kołowego mają nieregularne znaczniki czasu (r_frame_rate 12000/1), a filtr psnr paruje klatki po czasie. Min 23 dB (ruch) i max 64 dB (scena stoi) to potwierdzały. Naprawa: wspólna referencja o stałych 30 FPS – ten sam plik idzie do kodera i do porównania; potem sanity check, że PSNR rośnie z bitrate'em. W projekcie ML lepszą miarą jest wpływ na zadanie: mAP detektora i liczba poprawnie zliczonych sztuk na klatkach po kompresji – model może być wrażliwy na artefakty, których PSNR nie wyłapie, albo odporny na takie, które PSNR karze.
+
+**4. Czym różni się Baseline od High w H.264? Co byś zmienił w potoku na żywo i na co uważać?**
+
+Baseline nie ma CABAC (wydajniejszego kodowania entropijnego), transformaty 8x8 ani ramek B; High ma wszystkie trzy, więc przy tym samym bitrate daje lepszą jakość. W potoku zmieniłbym profile=4 i sprawdził, czy da się zejść z 4 Mb/s do ok. 2 Mb/s bez straty dla podglądu. Uwaga na ramki B: koder musi czekać na przyszłe klatki, co dodaje opóźnienie, a dla RTSP na żywo to ważne – nvv4l2h264enc domyślnie ma 0 ramek B, więc High bez B daje zysk z CABAC i 8x8 bez dodatkowego opóźnienia. Dodatkowo High musi obsłużyć każdy klient (VLC, przeglądarka) – dziś to standard.
+
+**5. CI testuje tylko logikę bez sprzętu. Jak w firmie testowałbyś automatycznie część na Jetsonie?**
+
+Self-hosted runner: Jetson (taki jak u klienta, ta sama wersja JetPack) podpięty do GitHub Actions jako maszyna CI. Na nim: budowa silnika z ONNX z rejestru, test regresji na nagranych wideo z prawdą (golden set) – mAP, liczba sztuk na klasę, zdarzenia – oraz test wydajności (FPS, opóźnienie, pamięć) z progami jak w bramce. Wideo z pliku zamiast kamery daje powtarzalność. Zmiana trafia na linię klienta dopiero po przejściu tych testów, a tam najpierw jako kanarek z możliwością rollbacku – tak jak w etapie 6.
