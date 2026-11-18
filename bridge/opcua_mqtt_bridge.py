@@ -85,6 +85,18 @@ def make_mqtt():
     return mq
 
 
+_last_status = None
+
+
+def publish_status(mq, status):
+    """Status łącza tylko przy zmianie: przy odłączonym PLC każda nieudana próba (co ok. 10 s) nie dopisuje
+    kolejnego "offline" do link_status (E7-02)."""
+    global _last_status
+    if status != _last_status:
+        mq.publish(MQTT_PREFIX + "/status", status, qos=1, retain=True)
+        _last_status = status
+
+
 def missing_signals(signals, results):
     """Nazwy zmiennych, których subskrypcja się nie udała.
 
@@ -108,7 +120,7 @@ async def run_once(mq):
         if missing:
             print("OPC UA: UWAGA – brak na serwerze {} zmiennych: {}".format(len(missing), ", ".join(missing)),
                   flush=True)
-        mq.publish(MQTT_PREFIX + "/status", "online", qos=1, retain=True)
+        publish_status(mq, "online")
         print("OPC UA: połączono z {} (ns={}), subskrypcja {} z {} zmiennych co {} ms".format(
             OPCUA_URL, ns, len(nodes) - len(missing), len(nodes), PERIOD_MS), flush=True)
         server_time = client.get_node(ua.ObjectIds.Server_ServerStatus_CurrentTime)  # i=2258, jest zawsze
@@ -119,7 +131,7 @@ async def run_once(mq):
 
 async def main():
     mq = make_mqtt()
-    mq.publish(MQTT_PREFIX + "/status", "offline", qos=1, retain=True)  # do pierwszego połączenia z PLC
+    publish_status(mq, "offline")  # do pierwszego połączenia z PLC
     try:
         while True:
             try:
@@ -127,7 +139,7 @@ async def main():
             except Exception as e:  # sieć, restart sterownika, wgranie programu, błędny NodeId
                 print("OPC UA: brak połączenia ({}: {}), ponawiam co {} s".format(
                     type(e).__name__, e, RETRY_S), flush=True)
-                mq.publish(MQTT_PREFIX + "/status", "offline", qos=1, retain=True)
+                publish_status(mq, "offline")
             await asyncio.sleep(RETRY_S)
     finally:
         mq.publish(MQTT_PREFIX + "/status", "offline", qos=1, retain=True)
