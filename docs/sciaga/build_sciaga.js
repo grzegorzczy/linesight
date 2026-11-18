@@ -829,6 +829,36 @@ table([3600, 3000, 3038], [
   ['VLC nie łączy się podczas testu', 'Aplikacja uruchomiona bez --rtsp', 'Dodać --rtsp (w obu sesjach A/B)'],
 ]);
 
+h2('Zrzuty z realizacji');
+img('e6-01-budzet.png', 'E6-01: konto płatne, budżet 20 zł z alertami (budżet nie blokuje wydatków).');
+img('e6-03-selftest.png', 'E6-03: klient GCS na Jetsonie – 8/8 uprawnień zgodnych, nadpisanie odrzucone kodem 412.');
+img('e6-04-rejestr.png', 'E6-04: publikacja v1 w rejestrze, wskazanie dla jetson-01, ponowna publikacja odrzucona.');
+img('e6-05-model-sync.png', 'E6-05: Jetson pobiera v1 z chmury, sprawdza sha256, buduje silnik (872 s), DeepStream ładuje current.engine.');
+img('e6-06-niepewne.png', 'E6-06: niepewne klatki zapisywane z limitem, RAM stały w tegrastats, wysyłka do chmury.');
+img('e6-06-klatki.png', 'E6-06: przykładowe niepewne klatki – rozmycie, ręka, przechylenie, butelka ucięta na krawędzi.');
+img('e6-07-grafana-dryf.png', 'E6-07: panel dryfu – średnia pewność ~85 %, niepewne detekcje pod progiem 10 %.');
+img('e6-08-dryf-sesja.png', 'E6-08: sesja w nowym świetle – niepewne do 27 %, średnia pewność do 0,70.');
+img('e6-08-etykiety.png', 'E6-08: etykietowanie – butelka zasłonięta ręką: ramka na widoczną butelkę, ręki nie etykietujemy.');
+img('e6-08-zbior-v2.png', 'E6-08: zbiór v2 – 451 zdjęć, stary test nietknięty („w innej części: -”).');
+img('e6-08-trening-v2.png', 'E6-08: trening v2 – 62 epoki w 7 min, val mAP50-95 0,757.');
+img('e6-08-bramka.png', 'E6-08: porównanie v1/v2 na starym i nowym teście – bramka nie przeszła (+0,016 < +0,02).');
+img('e6-09-promote.png', 'E6-09: rejestr odrzuca v2 bez bramki; wdrożenie kanarkowe z --force i zapisanym powodem.');
+img('e6-09-sync-v2.png', 'E6-09: Jetson przechodzi na v2 – pobranie 2,6 s, budowa 876 s, test 33,4 qps.');
+img('e6-09-rollback.png', 'E6-09: rollback do v1 w 1 s – silnik v1 był już na dysku.');
+img('e6-09-ab-sql.png', 'E6-09: test A/B z bazy – niepewne 4,32 % (v2) vs 18,47 % (v1).');
+
+h2('Pytania z rozmowy – krótkie odpowiedzi');
+p([new TextRun({ text: 'Dlaczego Jetson buduje silnik TensorRT sam, zamiast pobierać gotowy .engine?', bold: true })]);
+p('Silnik TensorRT to plan wykonania dobrany do konkretnego GPU (architektura, liczba rdzeni) i wersji TensorRT. Silnik z RTX 3050 (Ampere, TensorRT 10) nie wczyta się na Nano (Maxwell, TensorRT 8.2). Dlatego w rejestrze trzymamy przenośny ONNX, a silnik buduje urządzenie docelowe i testuje go przed przełączeniem. Koszt: ok. 14,5 min budowy, dlatego stare silniki zostają na dysku i rollback trwa 1 s.');
+p([new TextRun({ text: 'v2 był online 4× lepszy, a nie trafił na produkcję. Dlaczego?', bold: true })]);
+p('Bo reguły ustaliłem przed pomiarem: o produkcji decyduje bramka offline, a test online był kanarkiem z innym kryterium. Zmiana progu po zobaczeniu wyniku to dopasowywanie reguł do wniosku – wtedy bramka nic nie znaczy. Test online był krótki (2 × 5 min), scena odtwarzana ręcznie, bez etykiet. Wniosek: test nowej domeny był za mały i za łatwy. Dalej: większy test przypadków brzegowych zebrany niezależnie od modelu i ponowna ocena v2 tą samą bramką.');
+p([new TextRun({ text: 'Dlaczego test nowej domeny z capture.py, a nie z niepewnych klatek?', bold: true })]);
+p('Niepewne klatki wybrał model v1 – to z definicji zdjęcia, na których v1 jest słaby. Test z nich z góry faworyzowałby v2 (błąd selekcji). Poza tym te same klatki trafiły do treningu v2, a sąsiednie klatki co 2–5 s są prawie identyczne, więc byłby to wyciek danych. Losowe zdjęcia z capture.py są niezależne od obu modeli.');
+p([new TextRun({ text: 'Jak Jetson uwierzytelnia się w GCP bez klucza? Co może atakujący?', bold: true })]);
+p('Laptop zalogowany moim kontem ma rolę TokenCreator na koncie usługi jetson-edge i podszywa się pod nie (impersonation), wydając token ważny 1 h. Jetson pobiera go z brokera po sekrecie w sieci lokalnej. Atakujący z Jetsonem może czytać modele i dodawać klatki. Nie może nadpisać ani usunąć modeli, czytać ani kasować klatek, nie uruchomi maszyn wirtualnych, a token wygasa po godzinie. Minus: bez laptopa token się nie odnowi – w produkcji brama brzegowa albo Workload Identity Federation.');
+p([new TextRun({ text: 'Kiedy sygnał dryfu (pewność 0,45–0,6) nie pokaże, że model się psuje?', bold: true })]);
+p('Gdy model myli się pewnie: np. nowa butelka bez nakrętki, którą model z pewnością 0,9 nazywa bottle, albo kamera przesunięta tak, że butelki są poza kadrem (zero detekcji, zero niepewnych). Uzupełnienie: porównanie liczby sztuk z kamery z licznikiem PLC (już mamy oba), rozkład klas w czasie, okresowe ręczne etykietowanie małej losowej próbki z produkcji i liczenie mAP na niej.');
+
 // ---------- DOC ----------
 h1('12. Etap 4 – wyniki (wykresy)');
 p('Pełny opis: docs/etap-4-diagnostyka.md. Wykresy generują skrypty z anomaly\\ (data\\*.png), kopie w docs\\img.');
