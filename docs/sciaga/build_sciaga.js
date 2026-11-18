@@ -96,7 +96,7 @@ function table(widths, rows, header = true) {
 
 // ---------- CONTENT ----------
 children.push(new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun('LineSight – ściąga konfiguracji')] }));
-p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 14.11.2026, etap 3 (MVP) zakończony. Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
+p([new TextRun({ text: 'Od zera do podglądu kamery i środowiska na laptopie. Same komendy, w kolejności. Stan: 18.11.2026, etap 6 (GCP) zakończony. Kamera: DeepStream → zdarzenia MQTT. PLC: variTRON 300 (PackML) → OPC UA → most → MQTT. Laptop: Mosquitto, TimescaleDB, Grafana w Dockerze.', color: '555555' })]);
 
 h1('0. Dane i układ okien');
 table([3000, 6638], [
@@ -776,6 +776,58 @@ p('* Gemini ocenia własne odpowiedzi – wynik optymistyczny.');
 img('e5-ewaluacja.png', 'E5-07: fakty 10 % → 85 % dzięki RAG; zmyślenia 43 % → 14 % po zmianach danych w kontekście (v3).');
 img('e5-asystent.png', 'E5-08: strona asystenta – zator 16.11 9:40 potwierdzony kamerą, źródła [P1]/[S2] i link do klipu.');
 img('e5-grafana-asystent.png', 'E5-08: asystent jako panel w Grafanie pod tabelą postojów.');
+
+h1('14. Etap 6 – GCP: rejestr modeli, dryf, retrening (E6)');
+p('Projekt linesight-514914, region us-central1, budżet 20 zł (tylko alerty). Pełny opis: docs/etap-6-gcp.md.');
+table([3000, 6638], [
+  ['Co', 'Wartość'],
+  ['Zasobnik modeli', 'gs://linesight-514914-models (jetson-edge: odczyt)'],
+  ['Zasobnik klatek', 'gs://linesight-514914-frames (jetson-edge: tylko dodawanie, usuwanie po 30 dniach)'],
+  ['Konto usługi Jetsona', 'jetson-edge@linesight-514914.iam.gserviceaccount.com – bez klucza JSON, token 1 h z brokera'],
+  ['Broker tokenów', 'laptop, kontener linesight-tokens, port 8010, sekret: zmienna Windows BROKER_SECRET / Jetson ~/.config/linesight/broker_secret'],
+  ['Pliki na Jetsonie', '~/linesight/models/current.engine (dowiązanie), models/registry/<model>/<wersja>/, ~/linesight_uncertain/'],
+]);
+step('LAPTOP', 'gcloud (raz, po instalacji GoogleCloudSDKInstaller.exe – NOWE okno cmd)', ['gcloud init', 'gcloud auth application-default login', 'gcloud config set project linesight-514914', 'gcloud auth application-default set-quota-project linesight-514914', 'gcloud services enable storage.googleapis.com iam.googleapis.com iamcredentials.googleapis.com'], 'Na stronie zgody zaznaczyć wszystkie pola. Sprawdzenie: gcloud config list, gcloud billing projects describe linesight-514914.');
+step('LAPTOP', 'Zasobniki i konto usługi (raz)', ['gcloud storage buckets create gs://linesight-514914-models --location=us-central1 --uniform-bucket-level-access --public-access-prevention', 'gcloud storage buckets create gs://linesight-514914-frames --location=us-central1 --uniform-bucket-level-access --public-access-prevention', 'gcloud storage buckets update gs://linesight-514914-frames --lifecycle-file=infra\\gcp\\frames-lifecycle.json', 'gcloud iam service-accounts create jetson-edge --display-name="Jetson Nano edge"', 'gcloud storage buckets add-iam-policy-binding gs://linesight-514914-models --member=serviceAccount:jetson-edge@linesight-514914.iam.gserviceaccount.com --role=roles/storage.objectViewer', 'gcloud storage buckets add-iam-policy-binding gs://linesight-514914-frames --member=serviceAccount:jetson-edge@linesight-514914.iam.gserviceaccount.com --role=roles/storage.objectCreator', 'gcloud iam service-accounts add-iam-policy-binding jetson-edge@linesight-514914.iam.gserviceaccount.com --member=user:<twoj-email> --role=roles/iam.serviceAccountTokenCreator'], 'Po create: minuta czekania (IAM eventually consistent). Rola TokenCreator działa po kilku minutach.');
+step('LAPTOP', 'Test uprawnień jako jetson-edge', ['gcloud storage ls gs://linesight-514914-models --impersonate-service-account=jetson-edge@linesight-514914.iam.gserviceaccount.com', 'gcloud storage ls gs://linesight-514914-frames --impersonate-service-account=jetson-edge@linesight-514914.iam.gserviceaccount.com'], 'models: bez błędu; frames: storage.objects.list denied (zamierzone).');
+step('LAPTOP', 'Broker tokenów (raz: sekret)', ['python -c "import secrets; print(secrets.token_urlsafe(32))"', 'setx BROKER_SECRET <sekret>', 'set BROKER_SECRET=<sekret>', 'docker compose -f infra/docker-compose.yml up -d --build tokens', 'curl -s -o NUL -w "%{http_code}\\n" -H "Authorization: Bearer %BROKER_SECRET%" http://localhost:8010/token'], 'Oczekiwane 200. Sekretu nie wklejać do czatu.');
+step('LAPTOP', 'Sekret na Jetsona (plikiem, nie wklejaniem)', ['echo %BROKER_SECRET%> %TEMP%\\bs.txt', 'scp %TEMP%\\bs.txt grzegorz@192.168.0.124:.config/linesight/broker_secret', 'del %TEMP%\\bs.txt']);
+step('SSH1', 'Test klienta GCS na Jetsonie', ['chmod 600 ~/.config/linesight/broker_secret', 'cd ~/linesight && python3 jetson/gcs.py selftest'], 'Oczekiwane 8 × [OK] i „WYNIK: wszystko zgodne z uprawnieniami”.');
+
+h2('Rejestr i wdrożenie modelu');
+step('LAPTOP', 'Publikacja i wskazanie wersji', ['pip install google-cloud-storage==3.17.1', 'python training\\export_onnx.py --version v2 --only 384x640', 'python cloud\\registry.py publish --version v2 --onnx models\\yolo26n_v2_384x640.onnx --run runs\\detect\\yolo26n_v2 --split training/splits/split_v2.csv --notes "..."', 'python cloud\\registry.py list', 'python cloud\\registry.py promote --version v1 --device jetson-01 --reason "..."', 'python cloud\\registry.py show'], 'Wersje są niezmienne. promote odrzuca wersję bez bramki; wyjątek: --force + powód.');
+step('SSH1', 'Synchronizacja modelu (linesight_app.py zatrzymany)', ['cd ~/linesight && git pull', 'python3 jetson/model_sync.py', 'python3 jetson/model_sync.py status', 'python3 jetson/model_sync.py rollback'], 'Nowa wersja: pobranie + budowa ok. 14,5 min. Wersja już na dysku: przełączenie w 1 s. rollback = awaryjnie bez sieci (następny sync przywróci wersję z chmury). Potem restart linesight_app.py.');
+
+h2('Niepewne klatki, dryf, retrening');
+step('SSH1', 'Aplikacja z niepewnymi klatkami i statystykami', 'python3 deepstream/linesight_app.py --rtsp --clips --mqtt 192.168.0.203 --uncertain', 'Sesja danych do retreningu: --unc-interval 2 --unc-max-hour 400. Test A/B o stałej długości: timeout -s INT 300 przed python3.');
+step('SSH2', 'Wysyłka klatek do chmury', ['cd ~/linesight', 'python3 jetson/upload_frames.py --once']);
+step('LAPTOP', 'Tabela statystyk (raz) i podgląd dryfu', ['docker exec -i linesight-db psql -U linesight -d linesight < infra\\db\\50-vision-stats.sql', 'docker compose -f infra/docker-compose.yml up -d --build ingest', 'docker exec linesight-db psql -U linesight -d linesight -c "SELECT time, dets, low_conf, round(100.0*low_conf/NULLIF(dets,0),1) AS pct, mean_conf, version FROM vision_stats ORDER BY time DESC LIMIT 10"'], 'Grafana: panel na dole dashboardu, czerwona linia 10 %.');
+step('LAPTOP', 'Dane do retreningu', ['gcloud storage cp -r gs://linesight-514914-frames/jetson-01 data\\frames_inbox\\', 'scp -O -r grzegorz@192.168.0.124:dataset/raw/20261116_230831_e6_newdomain_test data\\raw\\', 'python training\\add_to_dataset.py --base v1 --version v2 --al-from data\\frames_inbox\\jetson-01 --al-session 20261116_al_uncertain'], 'ZIP data\\upload\\linesight_v2_nowe.zip → do ISTNIEJĄCEGO zbioru linesight na Platform (te same klasy i ID). Etykiety: reguła 45° z docs/etykietowanie.md.');
+step('LAPTOP', 'Eksport, trening, bramka', ['move "%USERPROFILE%\\Downloads\\linesight (1).ndjson" data\\export\\linesight_v2.ndjson', 'python training\\prepare_dataset.py data\\export\\linesight_v2.ndjson --split v2', 'python training\\train.py --data data\\datasets\\linesight_v2-c8f8f70f\\data.yaml --name yolo26n_v2', 'python training\\compare_models.py --data data\\datasets\\linesight_v2-c8f8f70f\\data.yaml --ndjson data\\export\\linesight_v2.ndjson --baseline v1 --candidate v2'], 'prepare_dataset: „w innej części: -” = stary test nietknięty. Bramka: test_old ≥ v1 − 0,02 i test_new ≥ v1 + 0,02 mAP50-95 → runs\\detect\\yolo26n_v2\\gate.json.');
+
+h2('Wyniki etapu 6');
+table([3200, 1600, 1600, 1600, 1638], [
+  ['', 'test_old (21)', 'test_new (40)', 'online: niepewne', 'śr. pewność'],
+  ['v1 (produkcja)', '0,778', '0,749', '18,5 %', '0,732'],
+  ['v2 (kanarek)', '0,770 ✓', '0,765 ✗ (+0,016)', '4,3 %', '0,784'],
+]);
+p('Bramka nie przeszła → v1 zostaje w produkcji (reguła ustalona przed pomiarem). Online v2 4× rzadziej się waha i ma 2× mniej rozbitych śladów; wniosek: większy test przypadków brzegowych w następnej iteracji.');
+img('e6-ab.png', 'E6-08/E6-09: bramka offline (mAP50-95) i test online A/B na Jetsonie (odsetek niepewnych detekcji).');
+table([3600, 3000, 3038], [
+  ['Objaw', 'Przyczyna', 'Rozwiązanie'],
+  ['gcloud is not recognized', 'Okno cmd otwarte przed instalacją (stary PATH)', 'Nowe okno cmd'],
+  ['cloud-platform scope is required but not consented', 'Na stronie zgody nie zaznaczone pola', 'application-default login jeszcze raz, zaznaczyć wszystkie'],
+  ['Your free trial is over', 'Trial na tym koncie Google już wykorzystany', 'Upgrade do konta płatnego + budżet z alertami'],
+  ['Key creation is not allowed (iam.disableServiceAccountKeyCreation)', 'Organizacja „secure by default”, konto nie jest jej administratorem', 'Bez klucza: impersonation + broker tokenów'],
+  ['Service account … does not exist (zaraz po create)', 'IAM eventually consistent', 'Odczekać minutę'],
+  ['iam.serviceAccounts.getAccessToken denied', 'Rola TokenCreator jeszcze się nie rozeszła', 'Odczekać 3–5 min'],
+  ['Plik sekretu 87 B zamiast 44–45 B', 'Wklejanie do SSH w cmd gubi i miesza znaki', 'Sekret plikiem przez scp'],
+  ['git pull: Already up to date, brak nowych plików (Jetson)', 'Jetson na starej gałęzi', 'git checkout main && git pull'],
+  ['AttributeError: unmap_nvds_buf_surface', 'Brak w pyds 1.1.1 (DS 6.0.1)', 'Wywołanie tylko, gdy istnieje (poprawione)'],
+  ['scp: Connection closed (pobieranie katalogu z Jetsona)', 'Nowy OpenSSH Windows używa SFTP', 'scp -O (stary protokół)'],
+  ['docker compose -f: unknown shorthand flag (Jetson)', 'Komenda laptopa wpisana w oknie SSH', 'Komendy docker compose tylko w LAPTOP'],
+  ['VLC nie łączy się podczas testu', 'Aplikacja uruchomiona bez --rtsp', 'Dodać --rtsp (w obu sesjach A/B)'],
+]);
 
 // ---------- DOC ----------
 h1('12. Etap 4 – wyniki (wykresy)');
