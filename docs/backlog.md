@@ -270,13 +270,28 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       kryterium ≤ 0,7 × v1 spełnione; rollback do v1 w 1 s (silnik na dysku); v1 zostaje produkcyjny
 - [x] **E6-10 – dokumentacja** · repo · 0,5 dnia · `docs/etap-6-gcp.md`, ściąga, README, 5 pytań technicznych
 
+## Etap 7 – dokumentacja końcowa i liczby (szac. 2 dni)
+Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
+
+- [x] **E7-01 – analiza i backlog** · repo · 0,5 h · `docs/analiza.md` (pokrycie ogłoszenia, słabe punkty), ta sekcja
+- [ ] **E7-02 – status łącza PLC w Grafanie** · laptop · 1-2 h · status stabilny przez 10 min pracy; offline po wyjęciu
+      kabla, online po podłączeniu
+- [ ] **E7-03 – diagram architektury** · repo · 1 h · Mermaid w README (GitHub renderuje), urządzenia, protokoły na strzałkach
+- [ ] **E7-04 – H.264 vs H.265 na NVENC** · Jetson + laptop · 1 h · gotowe nagranie (bez nowej sceny) kodowane sprzętowo
+      oboma kodekami przy kilku bitrate'ach; tabela: rozmiar, PSNR/SSIM względem źródła, obciążenie
+- [ ] **E7-05 – przebudowa README** · repo · 2 h · jeden ekran na górze: problem, zrzut, diagram, 5 liczb, uruchomienie,
+      ograniczenia (małe zbiory, sterownik variTRON); szczegóły w `docs/`; każda liczba sprawdzona ze źródłem
+- [ ] **E7-06 *(opcjonalne)* – CI** · GitHub · 1 h · GitHub Actions: `pytest` + `ruff` dla kodu laptopa, znaczek w README
+- [ ] **E7-07 – CV i przygotowanie do rozmowy** · 0,5 dnia · opis LineSight w CV, 5-minutowa prezentacja projektu,
+      symulacja rozmowy z pytaniami z całego projektu
+
 ## Po etapie 5 (otwarte)
 - [ ] Wyszukiwanie EN -> PL (M05): `multilingual-e5-base` / `bge-m3` albo hybryda wektor + pełnotekstowe; ocena tym samym zestawem
 - [ ] Pytania agregujące („ile razy…”) przez SQL (gotowe zapytania / text-to-SQL), nie RAG
 - [ ] Zgubione ok. 7/9000 zmian licznika (z etapu 4)
 
 ## Poza MVP (pomysły)
-- [ ] Demo MVP (14.11, 3:35 min, lokalnie `2026-11-14 18-46-13.mkv`) – do YouTube i README w etapie 7.
+- [ ] Demo MVP (14.11, 3:35 min, lokalnie `2026-11-14 18-46-13.mkv`) – *(18.11: film poza etapem 7)*
 - [ ] Test zliczania na „taśmie” (pasek papieru przeciągany spoza kadru), scena zgodna z E1-01
       (bez okna, sztuczne światło), prawda oznaczona na nagraniu – rzetelny błąd zliczania na klasę.
 - [ ] Klatki z nagrania E2-04 (światło dzienne, okno w tle, nakrętka pod światło) do retreningu
@@ -289,6 +304,8 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **Etap 7 bez filmu demo** *(18.11)*. Repozytorium ocenia się po pierwszym ekranie README: zrzut, diagram i liczby
+  dają to samo bez dnia nagrań i montażu. Film zostaje pomysłem poza planem.
 - **Bramka offline rozstrzyga o produkcji, nie test online** *(18.11, E6-09)*. v2 nie przeszedł bramki (+0,016 przy
   progu +0,02 na test_new), mimo 4× mniej niepewnych detekcji w kanarku. Reguły ustalone przed pomiarem; zamiast
   zmieniać próg – większy test nowej domeny z przypadkami brzegowymi w następnej iteracji.
