@@ -405,3 +405,40 @@ Otwarte:
 - token brokera wymaga działającego laptopa (w produkcji: brama brzegowa albo Workload Identity Federation),
 - 18.11 w Grafanie łącze PLC na zmianę online/offline i brak sztuk z PLC – sprawdzić sterownik i most przed etapem 7,
 - asystent w Cloud Run – pominięty (opcjonalny, bez nowego wymagania).
+
+## Zrzuty
+
+![e6-01-budzet](img/e6-01-budzet.png)
+![e6-03-selftest](img/e6-03-selftest.png)
+![e6-04-rejestr](img/e6-04-rejestr.png)
+![e6-05-model-sync](img/e6-05-model-sync.png)
+![e6-06-niepewne](img/e6-06-niepewne.png)
+![e6-06-klatki](img/e6-06-klatki.png)
+![e6-07-grafana-dryf](img/e6-07-grafana-dryf.png)
+![e6-08-dryf-sesja](img/e6-08-dryf-sesja.png)
+![e6-08-etykiety](img/e6-08-etykiety.png)
+![e6-08-zbior-v2](img/e6-08-zbior-v2.png)
+![e6-08-trening-v2](img/e6-08-trening-v2.png)
+![e6-08-bramka](img/e6-08-bramka.png)
+![e6-09-promote](img/e6-09-promote.png)
+![e6-09-sync-v2](img/e6-09-sync-v2.png)
+![e6-09-rollback](img/e6-09-rollback.png)
+![e6-09-ab-sql](img/e6-09-ab-sql.png)
+
+## Pytania z rozmowy – krótkie odpowiedzi
+
+**1. Dlaczego Jetson buduje silnik TensorRT sam, zamiast pobierać gotowy .engine?**
+Silnik TensorRT to plan wykonania dobrany do konkretnego GPU (architektura, liczba rdzeni) i wersji TensorRT. Silnik z RTX 3050 (Ampere, TensorRT 10) nie wczyta się na Nano (Maxwell, TensorRT 8.2). Dlatego w rejestrze trzymamy przenośny ONNX, a silnik buduje urządzenie docelowe i testuje go przed przełączeniem. Koszt: ok. 14,5 min budowy, dlatego stare silniki zostają na dysku i rollback trwa 1 s.
+
+**2. v2 był online 4× lepszy, a nie trafił na produkcję. Dlaczego?**
+Bo reguły ustaliłem przed pomiarem: o produkcji decyduje bramka offline, a test online był kanarkiem z innym kryterium. Zmiana progu po zobaczeniu wyniku to dopasowywanie reguł do wniosku – wtedy bramka nic nie znaczy. Test online był krótki (2 × 5 min), scena odtwarzana ręcznie, bez etykiet. Wniosek: test nowej domeny był za mały i za łatwy. Dalej: większy test przypadków brzegowych zebrany niezależnie od modelu i ponowna ocena v2 tą samą bramką.
+
+**3. Dlaczego test nowej domeny z capture.py, a nie z niepewnych klatek?**
+Niepewne klatki wybrał model v1 – to z definicji zdjęcia, na których v1 jest słaby. Test z nich z góry faworyzowałby v2 (błąd selekcji). Poza tym te same klatki trafiły do treningu v2, a sąsiednie klatki co 2–5 s są prawie identyczne, więc byłby to wyciek danych. Losowe zdjęcia z capture.py są niezależne od obu modeli.
+
+**4. Jak Jetson uwierzytelnia się w GCP bez klucza? Co może atakujący?**
+Laptop zalogowany moim kontem ma rolę TokenCreator na koncie usługi jetson-edge i podszywa się pod nie (impersonation), wydając token ważny 1 h. Jetson pobiera go z brokera po sekrecie w sieci lokalnej. Atakujący z Jetsonem może czytać modele i dodawać klatki. Nie może nadpisać ani usunąć modeli, czytać ani kasować klatek, nie uruchomi maszyn wirtualnych, a token wygasa po godzinie. Minus: bez laptopa token się nie odnowi – w produkcji brama brzegowa albo Workload Identity Federation.
+
+**5. Kiedy sygnał dryfu (pewność 0,45–0,6) nie pokaże, że model się psuje?**
+Gdy model myli się pewnie: np. nowa butelka bez nakrętki, którą model z pewnością 0,9 nazywa bottle, albo kamera przesunięta tak, że butelki są poza kadrem (zero detekcji, zero niepewnych). Uzupełnienie: porównanie liczby sztuk z kamery z licznikiem PLC (już mamy oba), rozkład klas w czasie, okresowe ręczne etykietowanie małej losowej próbki z produkcji i liczenie mAP na niej.
+
