@@ -12,6 +12,9 @@ export LC_NUMERIC=C   # printf %f z kropką dziesiętną (polska lokalizacja ocz
 SRC="$1"
 OUT=${2:-/tmp/codec_bench}
 BITRATES=${BITRATES:-"500000 1000000 2000000"}
+# preset-level kodera (L4T R32): 1 UltraFast (domyślny), 2 Fast, 3 Medium, 4 Slow; puste = domyślny
+PRESET=${PRESET:-}
+PRESET_ARG=${PRESET:+preset-level=$PRESET}
 [ -f "$SRC" ] || { echo "Podaj plik źródłowy MP4 (H.264)"; exit 1; }
 mkdir -p "$OUT"
 # Referencja: klipy zdarzeń (bufor kołowy sklejany ffmpeg concat) mają nieregularne znaczniki czasu
@@ -27,6 +30,7 @@ count() { ffprobe -v error -select_streams v:0 -count_packets -show_entries stre
 frames=$(count "$REF")
 src_kbps=$(ffprobe -v error -select_streams v:0 -show_entries format=bit_rate -of csv=p=0 "$REF")
 echo "źródło: $SRC ($(count "$SRC") klatek)"
+echo "preset-level: ${PRESET:-domyślny}"
 echo "referencja: $REF, klatek: $frames, bitrate: $((src_kbps / 1000)) kb/s"
 printf "%-6s %8s %10s %8s %8s %8s %8s %8s %7s\n" kodek kb/s_cel kb/s_wyn MB czas_s FPS PSNR_dB SSIM klatek
 
@@ -35,10 +39,10 @@ for codec in h264 h265; do
   # z H.265 Main (domyślny 0)
   if [ $codec = h264 ]; then prof=4; else prof=0; fi
   for br in $BITRATES; do
-    f="$OUT/${codec}_${br}.mp4"
+    f="$OUT/${codec}_${br}${PRESET:+_p$PRESET}.mp4"
     t0=$(date +%s.%N)
     gst-launch-1.0 -q filesrc location="$REF" ! qtdemux ! queue ! h264parse ! nvv4l2decoder ! \
-      nvv4l2${codec}enc bitrate=$br control-rate=1 iframeinterval=30 profile=$prof ! ${codec}parse ! qtmux ! \
+      nvv4l2${codec}enc bitrate=$br control-rate=1 iframeinterval=30 profile=$prof $PRESET_ARG ! ${codec}parse ! qtmux ! \
       filesink location="$f" -e > /dev/null 2>&1
     t1=$(date +%s.%N)
     secs=$(python3 -c "print($t1 - $t0)")
