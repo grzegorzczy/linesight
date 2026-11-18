@@ -284,8 +284,9 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       oboma kodekami przy kilku bitrate'ach; tabela: rozmiar, PSNR/SSIM względem źródła, obciążenie
       *(18.11: domyślny preset – H.265 gorszy o 0,7-1,7 dB; Slow – H.265 lepszy tylko przy 500 kb/s, ok. 15 % bitów,
       za ok. 35 % przepustowości; zostajemy przy H.264 – `etap-7-final.md`)*
-- [ ] **E7-05 – przebudowa README** · repo · 2 h · jeden ekran na górze: problem, zrzut, diagram, 5 liczb, uruchomienie,
+- [x] **E7-05 – przebudowa README** · repo · 2 h · jeden ekran na górze: problem, zrzut, diagram, 5 liczb, uruchomienie,
       ograniczenia (małe zbiory, sterownik variTRON); szczegóły w `docs/`; każda liczba sprawdzona ze źródłem
+      *(18.11: README 338 → 190 linii, wyniki etapów w `docs/results.md`, zrzut Grafany przycięty bez paska przeglądarki)*
 - [ ] **E7-06 *(opcjonalne)* – CI** · GitHub · 1 h · GitHub Actions: `pytest` + `ruff` dla kodu laptopa, znaczek w README
 - [ ] **E7-07 – CV i przygotowanie do rozmowy** · 0,5 dnia · opis LineSight w CV, 5-minutowa prezentacja projektu,
       symulacja rozmowy z pytaniami z całego projektu
