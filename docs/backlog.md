@@ -274,8 +274,10 @@ retrening skryptami z bramką, bez Vertex AI Pipelines (przerost formy przy jedn
 Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
 
 - [x] **E7-01 – analiza i backlog** · repo · 0,5 h · `docs/analiza.md` (pokrycie ogłoszenia, słabe punkty), ta sekcja
-- [ ] **E7-02 – status łącza PLC w Grafanie** · laptop · 1-2 h · status stabilny przez 10 min pracy; offline po wyjęciu
-      kabla, online po podłączeniu
+- [x] **E7-02 – status łącza PLC w Grafanie** · laptop · 1-2 h · status stabilny przez 10 min pracy; offline po wyjęciu
+      kabla, online po podłączeniu *(18.11: przyczyna – pod .244 brak aplikacji, strażnik czytał zmienną aplikacji →
+      `BadNodeIdUnknown` co 5 s; strażnik czyta czas serwera (i=2258), brakujące zmienne w logu, status tylko przy
+      zmianie; test na .90: 12 min bez zmian, kabel → offline, ponowne połączenie → online)*
 - [ ] **E7-03 – diagram architektury** · repo · 1 h · Mermaid w README (GitHub renderuje), urządzenia, protokoły na strzałkach
 - [ ] **E7-04 – H.264 vs H.265 na NVENC** · Jetson + laptop · 1 h · gotowe nagranie (bez nowej sceny) kodowane sprzętowo
       oboma kodekami przy kilku bitrate'ach; tabela: rozmiar, PSNR/SSIM względem źródła, obciążenie
