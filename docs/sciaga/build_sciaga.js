@@ -912,6 +912,18 @@ p('Baseline nie ma CABAC (wydajniejszego kodowania entropijnego), transformaty 8
 p([new TextRun({ text: 'CI testuje tylko logikę bez sprzętu. Jak w firmie testowałbyś automatycznie część na Jetsonie?', bold: true })]);
 p('Self-hosted runner: Jetson (taki jak u klienta, ta sama wersja JetPack) podpięty do GitHub Actions jako maszyna CI. Na nim: budowa silnika z ONNX z rejestru, test regresji na nagranych wideo z prawdą (golden set) – mAP, liczba sztuk na klasę, zdarzenia – oraz test wydajności (FPS, opóźnienie, pamięć) z progami jak w bramce. Wideo z pliku zamiast kamery daje powtarzalność. Zmiana trafia na linię klienta dopiero po przejściu tych testów, a tam najpierw jako kanarek z możliwością rollbacku – tak jak w etapie 6.');
 
+h1('16. Zimny start – cała linia od zera');
+p('Kolejność: laptop (broker, baza) → sterownik → Jetson. Pełna wersja z typowymi problemami: docs/uruchomienie.md.');
+step('LAPTOP', 'Kod, czas, usługi', ['git pull', 'w32tm /resync', 'docker info', 'set OPCUA_URL=opc.tcp://192.168.0.90:4840', 'docker compose -f infra\\docker-compose.yml up -d', 'docker compose -f infra\\docker-compose.yml ps'], 'Docker Desktop musi działać („Engine running”). set OPCUA_URL tylko gdy aplikacja jest na .90. Oczekiwane: 8 usług Up, db healthy.');
+step('OLLAMA', 'LLM dla asystenta', ['ollama serve'], 'Pomiń, jeśli Ollama działa w zasobniku. Sprawdzenie (LAPTOP): ollama list → qwen3:4b-instruct.');
+step('LAPTOP', 'Sterownik i most', ['python tools\\opcua_browse.py', 'docker logs linesight-bridge --tail 3'], 'Dla .90: --url opc.tcp://192.168.0.90:4840. Oczekiwane: ≥ 15 zmiennych, „subskrypcja 15 z 15 zmiennych”.');
+step('SSH1', 'Jetson: zegary, kod, model', ['ssh grzegorz@192.168.0.124', 'sudo nvpmodel -m 0 && sudo jetson_clocks', 'cd ~/linesight && git pull', 'python3 jetson/model_sync.py status']);
+step('SSH2', 'Serwer klipów', 'python3 ~/linesight/jetson/serve_clips.py');
+step('SSH1', 'Potok wideo', 'cd ~/linesight && python3 deepstream/linesight_app.py --rtsp --clips --mqtt 192.168.0.203', 'Ok. 30 FPS. Podgląd (LAPTOP): "C:\\Program Files (x86)\\VideoLAN\\VLC\\vlc.exe" --network-caching=50 --rtsp-tcp rtsp://192.168.0.124:8554/linesight');
+step('PLC', 'Start linii (GVL_Line, online)', ['xCmdReset: TRUE → FALSE', 'xCmdStart: TRUE → FALSE'], 'iStateCurrent = 6 (Execute). Grafana http://localhost:3000: łącza online, ok. 40 szt./min.');
+step('PLC', 'Demo postoju', ['przewrócona butelka przed kamerą + xInjJam: TRUE → po kilku s FALSE', 'xInjWear: TRUE (zużycie napędu) → FALSE (naprawa)'], 'Grafana: postój zator / potwierdzona z klipem → „Zapytaj” → asystent; kondycja napędu spada, alarm.');
+step('SSH1', 'Wyłączanie', ['Ctrl+C (SSH1, SSH2)', 'sudo shutdown -h now'], 'LAPTOP: docker compose -f infra\\docker-compose.yml stop (dane zostają w wolumenie pgdata).');
+
 // ---------- DOC ----------
 h1('12. Etap 4 – wyniki (wykresy)');
 p('Pełny opis: docs/etap-4-diagnostyka.md. Wykresy generują skrypty z anomaly\\ (data\\*.png), kopie w docs\\img.');
