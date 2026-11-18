@@ -280,8 +280,10 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       zmianie; test na .90: 12 min bez zmian, kabel → offline, ponowne połączenie → online)*
 - [x] **E7-03 – diagram architektury** · repo · 1 h · Mermaid w README (GitHub renderuje), urządzenia, protokoły na strzałkach
       *(18.11: dwa diagramy – przepływ danych w pracy i pętla MLOps; jeden wspólny był nieczytelny)*
-- [ ] **E7-04 – H.264 vs H.265 na NVENC** · Jetson + laptop · 1 h · gotowe nagranie (bez nowej sceny) kodowane sprzętowo
+- [x] **E7-04 – H.264 vs H.265 na NVENC** · Jetson + laptop · 1 h · gotowe nagranie (bez nowej sceny) kodowane sprzętowo
       oboma kodekami przy kilku bitrate'ach; tabela: rozmiar, PSNR/SSIM względem źródła, obciążenie
+      *(18.11: domyślny preset – H.265 gorszy o 0,7-1,7 dB; Slow – H.265 lepszy tylko przy 500 kb/s, ok. 15 % bitów,
+      za ok. 35 % przepustowości; zostajemy przy H.264 – `etap-7-final.md`)*
 - [ ] **E7-05 – przebudowa README** · repo · 2 h · jeden ekran na górze: problem, zrzut, diagram, 5 liczb, uruchomienie,
       ograniczenia (małe zbiory, sterownik variTRON); szczegóły w `docs/`; każda liczba sprawdzona ze źródłem
 - [ ] **E7-06 *(opcjonalne)* – CI** · GitHub · 1 h · GitHub Actions: `pytest` + `ruff` dla kodu laptopa, znaczek w README
@@ -289,6 +291,8 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       symulacja rozmowy z pytaniami z całego projektu
 
 ## Po etapie 5 (otwarte)
+- [ ] RTSP na żywo: `nvv4l2h264enc` koduje w Baseline (domyślny profil) przy 4 Mb/s – sprawdzić `profile=4` (High)
+      i niższy bitrate (E7-04: High 2 Mb/s = 50,4 dB PSNR względem referencji)
 - [ ] Wyszukiwanie EN -> PL (M05): `multilingual-e5-base` / `bge-m3` albo hybryda wektor + pełnotekstowe; ocena tym samym zestawem
 - [ ] Pytania agregujące („ile razy…”) przez SQL (gotowe zapytania / text-to-SQL), nie RAG
 - [ ] Zgubione ok. 7/9000 zmian licznika (z etapu 4)
@@ -307,6 +311,9 @@ Bez filmu demo (decyzja 18.11): materiał to zrzuty ekranu i dane z etapów 1-6.
       (onnx-graphsurgeon). Zysk: +0,012 mAP50-95, 2 przeoczenia mniej na val, brak NMS.
 
 ## Decyzje
+- **Wideo zostaje w H.264** *(18.11, E7-04)*. Na NVENC Nano przy 640x360 H.265 przegrywa na domyślnym presecie,
+  a na Slow wygrywa tylko przy niskim bitrate (ok. 15 % mniej bitów) kosztem ok. 35 % przepustowości kodera;
+  H.264 ma lepszą zgodność z klientami RTSP i przeglądarkami.
 - **Etap 7 bez filmu demo** *(18.11)*. Repozytorium ocenia się po pierwszym ekranie README: zrzut, diagram i liczby
   dają to samo bez dnia nagrań i montażu. Film zostaje pomysłem poza planem.
 - **Bramka offline rozstrzyga o produkcji, nie test online** *(18.11, E6-09)*. v2 nie przeszedł bramki (+0,016 przy
